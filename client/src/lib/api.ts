@@ -21,6 +21,7 @@ export interface IntegrationSettings {
   slackBotToken: string | null;
   slackChannel: string;
   githubToken: string | null;
+  githubOrganization: string | null;
   enableRealtimeAlerts: boolean;
   enableDailySummary: boolean;
   dailySummaryTime: string;
@@ -97,6 +98,14 @@ export async function deleteRepository(id: string): Promise<void> {
     method: "DELETE",
   });
   if (!res.ok) throw new Error("Failed to delete repository");
+}
+
+export async function syncOrganization(org: string): Promise<{ added: number; updated: number }> {
+  const res = await fetch(`/api/repositories/sync-org/${encodeURIComponent(org)}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to sync organization");
+  return res.json();
 }
 
 // Activity

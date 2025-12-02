@@ -5,10 +5,12 @@ interface GitHubRepo {
   id: number;
   name: string;
   full_name: string;
-  description: string;
-  language: string;
+  description: string | null;
+  language: string | null;
   stargazers_count: number;
   forks_count: number;
+  archived: boolean;
+  private: boolean;
   owner: {
     login: string;
   };
@@ -50,6 +52,86 @@ export class GitHubService {
       console.error("Error fetching GitHub repository:", error);
       return null;
     }
+  }
+
+  async fetchOrganizationRepos(org: string): Promise<GitHubRepo[]> {
+    await this.initialize();
+    
+    if (!this.token) {
+      console.warn("GitHub token not configured");
+      return [];
+    }
+
+    const allRepos: GitHubRepo[] = [];
+    let page = 1;
+    const perPage = 100;
+
+    try {
+      while (true) {
+        const response = await fetch(
+          `https://api.github.com/orgs/${org}/repos?per_page=${perPage}&page=${page}&sort=updated`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.token}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          console.error(`Failed to fetch org repos: ${response.statusText}`);
+          break;
+        }
+
+        const repos: GitHubRepo[] = await response.json();
+        
+        if (repos.length === 0) break;
+        
+        // Filter out archived repos
+        const activeRepos = repos.filter(r => !r.archived);
+        allRepos.push(...activeRepos);
+        
+        if (repos.length < perPage) break;
+        page++;
+      }
+
+      console.log(`Fetched ${allRepos.length} active repos from org ${org}`);
+      return allRepos;
+    } catch (error) {
+      console.error("Error fetching organization repositories:", error);
+      return [];
+    }
+  }
+
+  async syncOrganization(org: string): Promise<{ added: number; updated: number }> {
+    const repos = await this.fetchOrganizationRepos(org);
+    let added = 0;
+    let updated = 0;
+
+    for (const repoData of repos) {
+      const existing = await storage.getRepositoryByFullName(repoData.full_name);
+
+      const repoUpdate: InsertRepository = {
+        owner: repoData.owner.login,
+        name: repoData.name,
+        fullName: repoData.full_name,
+        description: repoData.description || "",
+        language: repoData.language || "Unknown",
+        stars: repoData.stargazers_count,
+        forks: repoData.forks_count,
+        isActive: true,
+      };
+
+      if (existing) {
+        await storage.updateRepository(existing.id, repoUpdate);
+        updated++;
+      } else {
+        await storage.createRepository(repoUpdate);
+        added++;
+      }
+    }
+
+    return { added, updated };
   }
 
   async syncRepository(fullName: string): Promise<void> {

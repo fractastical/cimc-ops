@@ -24,6 +24,7 @@ export const integrationSettings = pgTable("integration_settings", {
   slackBotToken: text("slack_bot_token"),
   slackChannel: text("slack_channel").default("#ops"),
   githubToken: text("github_token"),
+  githubOrganization: text("github_organization"), // Organization to monitor
   enableRealtimeAlerts: boolean("enable_realtime_alerts").default(false).notNull(),
   enableDailySummary: boolean("enable_daily_summary").default(true).notNull(),
   dailySummaryTime: text("daily_summary_time").default("09:00").notNull(), // HH:mm format

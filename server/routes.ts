@@ -119,6 +119,26 @@ export async function registerRoutes(
     }
   });
 
+  // Sync all repos from an organization
+  app.post("/api/repositories/sync-org/:org", async (req, res) => {
+    try {
+      const org = decodeURIComponent(req.params.org);
+      console.log(`Syncing organization: ${org}`);
+      
+      const result = await githubService.syncOrganization(org);
+      
+      res.json({ 
+        success: true, 
+        message: `Synced ${result.added + result.updated} repositories`,
+        added: result.added,
+        updated: result.updated,
+      });
+    } catch (error) {
+      console.error("Error syncing organization:", error);
+      res.status(500).json({ error: "Failed to sync organization" });
+    }
+  });
+
   // ============ Activity Logs ============
   app.get("/api/activity", async (req, res) => {
     try {

@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary } from "@/lib/api";
+import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, syncOrganization } from "@/lib/api";
 import { toast } from "sonner";
-import { Save, RefreshCw, Send } from "lucide-react";
+import { Save, RefreshCw, Send, GitBranch } from "lucide-react";
 
 const DAYS_OF_WEEK = [
   { value: "monday", label: "Monday" },
@@ -32,6 +32,7 @@ export default function Settings() {
     slackBotToken: "",
     slackChannel: "#ops",
     githubToken: "",
+    githubOrganization: "",
     enableRealtimeAlerts: false,
     enableDailySummary: true,
     dailySummaryTime: "09:00",
@@ -47,6 +48,7 @@ export default function Settings() {
         slackBotToken: settings.slackBotToken === "***configured***" ? "" : (settings.slackBotToken || ""),
         slackChannel: settings.slackChannel || "#ops",
         githubToken: settings.githubToken === "***configured***" ? "" : (settings.githubToken || ""),
+        githubOrganization: settings.githubOrganization || "",
         enableRealtimeAlerts: settings.enableRealtimeAlerts,
         enableDailySummary: settings.enableDailySummary,
         dailySummaryTime: settings.dailySummaryTime,
@@ -87,6 +89,17 @@ export default function Settings() {
     },
     onError: () => {
       toast.error("Failed to send weekly summary. Check your Slack webhook configuration.");
+    },
+  });
+
+  const syncOrgMutation = useMutation({
+    mutationFn: (org: string) => syncOrganization(org),
+    onSuccess: (data) => {
+      toast.success(`Synced ${data.added + data.updated} repositories (${data.added} new, ${data.updated} updated)`);
+      queryClient.invalidateQueries({ queryKey: ["repositories"] });
+    },
+    onError: () => {
+      toast.error("Failed to sync organization. Check your GitHub token and organization name.");
     },
   });
 
@@ -161,7 +174,7 @@ export default function Settings() {
           <CardHeader>
             <CardTitle className="font-mono">GitHub Integration</CardTitle>
             <CardDescription>
-              Add GitHub personal access token to sync repositories
+              Connect to GitHub and monitor all repositories in an organization
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -180,6 +193,40 @@ export default function Settings() {
               />
               <p className="text-xs text-muted-foreground">
                 Required scopes: repo, read:org
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-4 border-t border-border/50">
+              <Label htmlFor="githubOrganization" className="font-mono text-sm">
+                Organization Name
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="githubOrganization"
+                  data-testid="input-github-org"
+                  placeholder="my-organization"
+                  value={formData.githubOrganization}
+                  onChange={(e) => setFormData({ ...formData, githubOrganization: e.target.value })}
+                  className="font-mono text-sm flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (formData.githubOrganization) {
+                      syncOrgMutation.mutate(formData.githubOrganization);
+                    } else {
+                      toast.error("Please enter an organization name");
+                    }
+                  }}
+                  disabled={syncOrgMutation.isPending || !formData.githubOrganization}
+                >
+                  <GitBranch className="h-4 w-4 mr-2" />
+                  {syncOrgMutation.isPending ? "Syncing..." : "Sync All Repos"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter your GitHub organization name to automatically monitor all its repositories
               </p>
             </div>
           </CardContent>
