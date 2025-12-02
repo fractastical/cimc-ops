@@ -131,7 +131,130 @@ export class GitHubService {
       }
     }
 
+    // Fetch historical activity for all repos
+    const allRepos = await storage.getActiveRepositories();
+    for (const repo of allRepos) {
+      await this.fetchRepoActivity(repo.id, repo.fullName);
+    }
+
     return { added, updated };
+  }
+
+  async fetchRepoActivity(repoId: string, fullName: string): Promise<number> {
+    await this.initialize();
+    
+    if (!this.token) {
+      console.warn("GitHub token not configured");
+      return 0;
+    }
+
+    let eventsAdded = 0;
+
+    try {
+      // Fetch recent commits (last 30 days worth)
+      const [owner, repo] = fullName.split("/");
+      const since = new Date();
+      since.setDate(since.getDate() - 30);
+      
+      const commitsResponse = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/commits?since=${since.toISOString()}&per_page=100`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
+      );
+
+      if (commitsResponse.ok) {
+        const commits = await commitsResponse.json();
+        
+        // Group commits by date and author
+        const dailyCommits = new Map<string, { count: number; authors: Set<string> }>();
+        
+        for (const commit of commits) {
+          const date = commit.commit.author.date.split("T")[0];
+          const author = commit.author?.login || commit.commit.author.name || "Unknown";
+          
+          if (!dailyCommits.has(date)) {
+            dailyCommits.set(date, { count: 0, authors: new Set() });
+          }
+          const day = dailyCommits.get(date)!;
+          day.count++;
+          day.authors.add(author);
+        }
+
+        // Create activity log entries for each day
+        for (const [date, data] of dailyCommits) {
+          const authors = Array.from(data.authors);
+          const activityLog: InsertActivityLog = {
+            repositoryId: repoId,
+            eventType: "push",
+            author: authors[0] || "Unknown",
+            message: `${data.count} commit${data.count !== 1 ? 's' : ''} by ${authors.length} contributor${authors.length !== 1 ? 's' : ''}`,
+            url: `https://github.com/${fullName}/commits`,
+            metadata: { commits: data.count, authors, date },
+          };
+          
+          await storage.createActivityLog(activityLog);
+          eventsAdded++;
+        }
+      }
+
+      // Fetch recent events (PRs, issues, etc)
+      const eventsResponse = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/events?per_page=50`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
+      );
+
+      if (eventsResponse.ok) {
+        const events = await eventsResponse.json();
+        
+        for (const event of events) {
+          if (event.type === "PullRequestEvent") {
+            const pr = event.payload.pull_request;
+            const action = event.payload.action;
+            
+            const activityLog: InsertActivityLog = {
+              repositoryId: repoId,
+              eventType: action === "closed" && pr?.merged ? "pull_request_merged" : "pull_request",
+              author: event.actor?.login || "Unknown",
+              message: `${action} PR: ${pr?.title || "Pull Request"}`,
+              url: pr?.html_url,
+              metadata: { action, number: pr?.number },
+            };
+            
+            await storage.createActivityLog(activityLog);
+            eventsAdded++;
+          } else if (event.type === "IssuesEvent") {
+            const issue = event.payload.issue;
+            
+            const activityLog: InsertActivityLog = {
+              repositoryId: repoId,
+              eventType: "issues",
+              author: event.actor?.login || "Unknown",
+              message: `${event.payload.action} issue: ${issue?.title || "Issue"}`,
+              url: issue?.html_url,
+              metadata: { action: event.payload.action, number: issue?.number },
+            };
+            
+            await storage.createActivityLog(activityLog);
+            eventsAdded++;
+          }
+        }
+      }
+
+      console.log(`Fetched ${eventsAdded} activity events for ${fullName}`);
+    } catch (error) {
+      console.error(`Error fetching activity for ${fullName}:`, error);
+    }
+
+    return eventsAdded;
   }
 
   async syncRepository(fullName: string): Promise<void> {
