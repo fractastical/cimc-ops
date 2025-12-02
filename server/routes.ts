@@ -208,12 +208,22 @@ export async function registerRoutes(
   });
 
   // ============ Manual Actions ============
-  app.post("/api/slack/send-summary", async (req, res) => {
+  app.post("/api/slack/send-daily-summary", async (req, res) => {
     try {
-      await schedulerService["sendDailySummary"]();
-      res.json({ success: true, message: "Summary sent to Slack" });
+      await schedulerService.sendDailySummary();
+      res.json({ success: true, message: "Daily summary sent to Slack" });
     } catch (error) {
-      console.error("Error sending summary:", error);
+      console.error("Error sending daily summary:", error);
+      res.status(500).json({ error: "Failed to send summary" });
+    }
+  });
+
+  app.post("/api/slack/send-weekly-summary", async (req, res) => {
+    try {
+      await schedulerService.sendWeeklySummary();
+      res.json({ success: true, message: "Weekly summary sent to Slack" });
+    } catch (error) {
+      console.error("Error sending weekly summary:", error);
       res.status(500).json({ error: "Failed to send summary" });
     }
   });

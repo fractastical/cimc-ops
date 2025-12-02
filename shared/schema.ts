@@ -24,9 +24,12 @@ export const integrationSettings = pgTable("integration_settings", {
   slackBotToken: text("slack_bot_token"),
   slackChannel: text("slack_channel").default("#ops"),
   githubToken: text("github_token"),
-  enableRealtimeAlerts: boolean("enable_realtime_alerts").default(true).notNull(),
+  enableRealtimeAlerts: boolean("enable_realtime_alerts").default(false).notNull(),
   enableDailySummary: boolean("enable_daily_summary").default(true).notNull(),
   dailySummaryTime: text("daily_summary_time").default("09:00").notNull(), // HH:mm format
+  enableWeeklySummary: boolean("enable_weekly_summary").default(true).notNull(),
+  weeklySummaryDay: text("weekly_summary_day").default("monday").notNull(), // Day of week
+  weeklySummaryTime: text("weekly_summary_time").default("09:00").notNull(), // HH:mm format
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

@@ -24,6 +24,9 @@ export interface IntegrationSettings {
   enableRealtimeAlerts: boolean;
   enableDailySummary: boolean;
   dailySummaryTime: string;
+  enableWeeklySummary: boolean;
+  weeklySummaryDay: string;
+  weeklySummaryTime: string;
   updatedAt: string;
 }
 
@@ -127,7 +130,14 @@ export async function sendSlackMessage(user: string, message: string, channel: s
 }
 
 export async function sendDailySummary(): Promise<void> {
-  const res = await fetch("/api/slack/send-summary", {
+  const res = await fetch("/api/slack/send-daily-summary", {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to send summary");
+}
+
+export async function sendWeeklySummary(): Promise<void> {
+  const res = await fetch("/api/slack/send-weekly-summary", {
     method: "POST",
   });
   if (!res.ok) throw new Error("Failed to send summary");

@@ -93,6 +93,34 @@ export class SlackService {
     return await this.sendMessage(text);
   }
 
+  async sendWeeklySummary(summary: {
+    totalCommits: number;
+    totalPRs: number;
+    totalIssues: number;
+    activeRepos: number;
+    contributors: string[];
+    repoActivity: Array<{ repo: string; commits: number; prs: number }>;
+    weekStart: string;
+    weekEnd: string;
+  }) {
+    const text = `:calendar: *Weekly GitHub Activity Summary*\n` +
+                 `_${summary.weekStart} - ${summary.weekEnd}_\n\n` +
+                 `*Overview:*\n` +
+                 `• Total Commits: ${summary.totalCommits}\n` +
+                 `• Pull Requests: ${summary.totalPRs}\n` +
+                 `• Issues: ${summary.totalIssues}\n` +
+                 `• Active Repositories: ${summary.activeRepos}\n` +
+                 `• Contributors: ${summary.contributors.length}\n\n` +
+                 `*Top Contributors:*\n` +
+                 summary.contributors.slice(0, 5).map((c, i) => `  ${i + 1}. ${c}`).join("\n") +
+                 `\n\n*Repository Breakdown:*\n` +
+                 summary.repoActivity
+                   .map(r => `  • *${r.repo}*: ${r.commits} commits, ${r.prs} PRs`)
+                   .join("\n");
+
+    return await this.sendMessage(text);
+  }
+
   private getEventEmoji(event: string): string {
     const emojiMap: Record<string, string> = {
       push: ":rocket:",

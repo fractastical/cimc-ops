@@ -4,10 +4,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSettings, updateSettings } from "@/lib/api";
+import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary } from "@/lib/api";
 import { toast } from "sonner";
-import { Save, RefreshCw } from "lucide-react";
+import { Save, RefreshCw, Send } from "lucide-react";
+
+const DAYS_OF_WEEK = [
+  { value: "monday", label: "Monday" },
+  { value: "tuesday", label: "Tuesday" },
+  { value: "wednesday", label: "Wednesday" },
+  { value: "thursday", label: "Thursday" },
+  { value: "friday", label: "Friday" },
+  { value: "saturday", label: "Saturday" },
+  { value: "sunday", label: "Sunday" },
+];
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -21,12 +32,14 @@ export default function Settings() {
     slackBotToken: "",
     slackChannel: "#ops",
     githubToken: "",
-    enableRealtimeAlerts: true,
+    enableRealtimeAlerts: false,
     enableDailySummary: true,
     dailySummaryTime: "09:00",
+    enableWeeklySummary: true,
+    weeklySummaryDay: "monday",
+    weeklySummaryTime: "09:00",
   });
 
-  // Update form when settings load
   useEffect(() => {
     if (settings) {
       setFormData({
@@ -37,6 +50,9 @@ export default function Settings() {
         enableRealtimeAlerts: settings.enableRealtimeAlerts,
         enableDailySummary: settings.enableDailySummary,
         dailySummaryTime: settings.dailySummaryTime,
+        enableWeeklySummary: settings.enableWeeklySummary,
+        weeklySummaryDay: settings.weeklySummaryDay,
+        weeklySummaryTime: settings.weeklySummaryTime,
       });
     }
   }, [settings]);
@@ -49,6 +65,28 @@ export default function Settings() {
     },
     onError: () => {
       toast.error("Failed to save settings");
+    },
+  });
+
+  const dailySummaryMutation = useMutation({
+    mutationFn: sendDailySummary,
+    onSuccess: () => {
+      toast.success("Daily summary sent to Slack");
+      queryClient.invalidateQueries({ queryKey: ["slackMessages"] });
+    },
+    onError: () => {
+      toast.error("Failed to send daily summary. Check your Slack webhook configuration.");
+    },
+  });
+
+  const weeklySummaryMutation = useMutation({
+    mutationFn: sendWeeklySummary,
+    onSuccess: () => {
+      toast.success("Weekly summary sent to Slack");
+      queryClient.invalidateQueries({ queryKey: ["slackMessages"] });
+    },
+    onError: () => {
+      toast.error("Failed to send weekly summary. Check your Slack webhook configuration.");
     },
   });
 
@@ -70,7 +108,7 @@ export default function Settings() {
       <div className="flex flex-col space-y-2">
         <h1 className="text-3xl font-bold tracking-tight text-foreground glow-text">Settings</h1>
         <p className="text-muted-foreground font-mono text-sm">
-          Configure integrations and automation preferences
+          Configure integrations and automated summaries
         </p>
       </div>
 
@@ -97,6 +135,9 @@ export default function Settings() {
                 onChange={(e) => setFormData({ ...formData, slackWebhookUrl: e.target.value })}
                 className="font-mono text-sm"
               />
+              <p className="text-xs text-muted-foreground">
+                Create an incoming webhook at slack.com/apps → Incoming Webhooks
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -144,64 +185,134 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Automation Settings */}
+        {/* Summary Settings */}
         <Card className="glass-panel border-primary/20">
           <CardHeader>
-            <CardTitle className="font-mono">Automation</CardTitle>
+            <CardTitle className="font-mono">Automated Summaries</CardTitle>
             <CardDescription>
-              Configure automated notifications and summaries
+              Configure daily and weekly summary schedules
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="font-mono text-sm">Real-time Alerts</Label>
-                <p className="text-xs text-muted-foreground">
-                  Send Slack notifications for each GitHub event
-                </p>
-              </div>
-              <Switch
-                data-testid="switch-realtime-alerts"
-                checked={formData.enableRealtimeAlerts}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, enableRealtimeAlerts: checked })
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="font-mono text-sm">Daily Summary</Label>
-                <p className="text-xs text-muted-foreground">
-                  Automated daily activity summary
-                </p>
-              </div>
-              <Switch
-                data-testid="switch-daily-summary"
-                checked={formData.enableDailySummary}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, enableDailySummary: checked })
-                }
-              />
-            </div>
-
-            {formData.enableDailySummary && (
-              <div className="space-y-2">
-                <Label htmlFor="dailySummaryTime" className="font-mono text-sm">
-                  Summary Time (24h format)
-                </Label>
-                <Input
-                  id="dailySummaryTime"
-                  data-testid="input-summary-time"
-                  type="time"
-                  value={formData.dailySummaryTime}
-                  onChange={(e) =>
-                    setFormData({ ...formData, dailySummaryTime: e.target.value })
+          <CardContent className="space-y-6">
+            {/* Daily Summary */}
+            <div className="space-y-4 pb-4 border-b border-border/50">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="font-mono text-sm">Daily Summary</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Send a summary of yesterday's activity each morning
+                  </p>
+                </div>
+                <Switch
+                  data-testid="switch-daily-summary"
+                  checked={formData.enableDailySummary}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, enableDailySummary: checked })
                   }
-                  className="font-mono text-sm w-40"
                 />
               </div>
-            )}
+
+              {formData.enableDailySummary && (
+                <div className="flex items-center gap-4 pl-4 border-l-2 border-primary/30">
+                  <div className="space-y-2">
+                    <Label htmlFor="dailySummaryTime" className="font-mono text-xs text-muted-foreground">
+                      Time (24h)
+                    </Label>
+                    <Input
+                      id="dailySummaryTime"
+                      data-testid="input-daily-time"
+                      type="time"
+                      value={formData.dailySummaryTime}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dailySummaryTime: e.target.value })
+                      }
+                      className="font-mono text-sm w-32"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => dailySummaryMutation.mutate()}
+                    disabled={dailySummaryMutation.isPending}
+                    className="mt-6"
+                  >
+                    <Send className="h-3 w-3 mr-2" />
+                    {dailySummaryMutation.isPending ? "Sending..." : "Send Now"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Weekly Summary */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="font-mono text-sm">Weekly Summary</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Send a comprehensive summary of the week's activity
+                  </p>
+                </div>
+                <Switch
+                  data-testid="switch-weekly-summary"
+                  checked={formData.enableWeeklySummary}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, enableWeeklySummary: checked })
+                  }
+                />
+              </div>
+
+              {formData.enableWeeklySummary && (
+                <div className="flex items-center gap-4 pl-4 border-l-2 border-primary/30 flex-wrap">
+                  <div className="space-y-2">
+                    <Label className="font-mono text-xs text-muted-foreground">Day</Label>
+                    <Select
+                      value={formData.weeklySummaryDay}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, weeklySummaryDay: value })
+                      }
+                    >
+                      <SelectTrigger className="w-36 font-mono text-sm" data-testid="select-weekly-day">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DAYS_OF_WEEK.map((day) => (
+                          <SelectItem key={day.value} value={day.value}>
+                            {day.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="weeklySummaryTime" className="font-mono text-xs text-muted-foreground">
+                      Time (24h)
+                    </Label>
+                    <Input
+                      id="weeklySummaryTime"
+                      data-testid="input-weekly-time"
+                      type="time"
+                      value={formData.weeklySummaryTime}
+                      onChange={(e) =>
+                        setFormData({ ...formData, weeklySummaryTime: e.target.value })
+                      }
+                      className="font-mono text-sm w-32"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => weeklySummaryMutation.mutate()}
+                    disabled={weeklySummaryMutation.isPending}
+                    className="mt-6"
+                  >
+                    <Send className="h-3 w-3 mr-2" />
+                    {weeklySummaryMutation.isPending ? "Sending..." : "Send Now"}
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
