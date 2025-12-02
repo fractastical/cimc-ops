@@ -162,3 +162,55 @@ export async function sendWeeklySummary(): Promise<void> {
   });
   if (!res.ok) throw new Error("Failed to send summary");
 }
+
+// Research Projects
+export interface ResearchProject {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  createdAt: string;
+}
+
+export interface ResearchUpdate {
+  id: string;
+  projectId: string;
+  date: string;
+  description: string;
+  grantee: string | null;
+  createdAt: string;
+}
+
+export interface ResearchTimeline {
+  project: ResearchProject;
+  updates: ResearchUpdate[];
+}
+
+export async function getResearchProjects(): Promise<ResearchProject[]> {
+  const res = await fetch("/api/research/projects");
+  if (!res.ok) throw new Error("Failed to fetch research projects");
+  return res.json();
+}
+
+export async function getResearchTimeline(): Promise<ResearchTimeline[]> {
+  const res = await fetch("/api/research/timeline");
+  if (!res.ok) throw new Error("Failed to fetch research timeline");
+  return res.json();
+}
+
+export async function importResearchNotes(notes: { project: string; date: string; description: string }[]): Promise<{ success: boolean; message: string }> {
+  const res = await fetch("/api/research/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(notes),
+  });
+  if (!res.ok) throw new Error("Failed to import research notes");
+  return res.json();
+}
+
+export async function deleteResearchProject(id: string): Promise<void> {
+  const res = await fetch(`/api/research/projects/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete project");
+}
