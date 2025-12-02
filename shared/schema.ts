@@ -85,6 +85,40 @@ export const insertActivityLogSchema = createInsertSchema(activityLog).omit({
   createdAt: true,
 });
 
+// Research projects and updates
+export const researchProjects = pgTable("research_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  color: text("color").default("#10b981"), // For visualization
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertResearchProjectSchema = createInsertSchema(researchProjects).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertResearchProject = z.infer<typeof insertResearchProjectSchema>;
+export type ResearchProject = typeof researchProjects.$inferSelect;
+
+export const researchUpdates = pgTable("research_updates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => researchProjects.id, { onDelete: 'cascade' }),
+  date: timestamp("date").notNull(),
+  description: text("description").notNull(),
+  grantee: text("grantee"), // Person who gave the update
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertResearchUpdateSchema = createInsertSchema(researchUpdates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertResearchUpdate = z.infer<typeof insertResearchUpdateSchema>;
+export type ResearchUpdate = typeof researchUpdates.$inferSelect;
+
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLog.$inferSelect;
 

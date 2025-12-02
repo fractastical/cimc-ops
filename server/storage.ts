@@ -9,11 +9,17 @@ import {
   type InsertActivityLog,
   type SlackMessage,
   type InsertSlackMessage,
+  type ResearchProject,
+  type InsertResearchProject,
+  type ResearchUpdate,
+  type InsertResearchUpdate,
   users,
   integrationSettings,
   repositories,
   activityLog,
   slackMessages,
+  researchProjects,
+  researchUpdates,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -47,6 +53,18 @@ export interface IStorage {
   // Slack Messages
   getRecentSlackMessages(limit?: number): Promise<SlackMessage[]>;
   createSlackMessage(message: InsertSlackMessage): Promise<SlackMessage>;
+
+  // Research Projects
+  getResearchProjects(): Promise<ResearchProject[]>;
+  getResearchProject(id: string): Promise<ResearchProject | undefined>;
+  getResearchProjectByName(name: string): Promise<ResearchProject | undefined>;
+  createResearchProject(project: InsertResearchProject): Promise<ResearchProject>;
+  deleteResearchProject(id: string): Promise<void>;
+
+  // Research Updates
+  getResearchUpdates(projectId?: string): Promise<ResearchUpdate[]>;
+  createResearchUpdate(update: InsertResearchUpdate): Promise<ResearchUpdate>;
+  getResearchTimeline(): Promise<{ project: ResearchProject; updates: ResearchUpdate[] }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -208,6 +226,64 @@ export class DatabaseStorage implements IStorage {
   async createSlackMessage(message: InsertSlackMessage): Promise<SlackMessage> {
     const [created] = await db.insert(slackMessages).values(message).returning();
     return created;
+  }
+
+  // Research Projects
+  async getResearchProjects(): Promise<ResearchProject[]> {
+    return await db
+      .select()
+      .from(researchProjects)
+      .orderBy(researchProjects.name);
+  }
+
+  async getResearchProject(id: string): Promise<ResearchProject | undefined> {
+    const [project] = await db.select().from(researchProjects).where(eq(researchProjects.id, id));
+    return project || undefined;
+  }
+
+  async getResearchProjectByName(name: string): Promise<ResearchProject | undefined> {
+    const [project] = await db.select().from(researchProjects).where(eq(researchProjects.name, name));
+    return project || undefined;
+  }
+
+  async createResearchProject(project: InsertResearchProject): Promise<ResearchProject> {
+    const [created] = await db.insert(researchProjects).values(project).returning();
+    return created;
+  }
+
+  async deleteResearchProject(id: string): Promise<void> {
+    await db.delete(researchProjects).where(eq(researchProjects.id, id));
+  }
+
+  // Research Updates
+  async getResearchUpdates(projectId?: string): Promise<ResearchUpdate[]> {
+    if (projectId) {
+      return await db
+        .select()
+        .from(researchUpdates)
+        .where(eq(researchUpdates.projectId, projectId))
+        .orderBy(desc(researchUpdates.date));
+    }
+    return await db
+      .select()
+      .from(researchUpdates)
+      .orderBy(desc(researchUpdates.date));
+  }
+
+  async createResearchUpdate(update: InsertResearchUpdate): Promise<ResearchUpdate> {
+    const [created] = await db.insert(researchUpdates).values(update).returning();
+    return created;
+  }
+
+  async getResearchTimeline(): Promise<{ project: ResearchProject; updates: ResearchUpdate[] }[]> {
+    const projects = await this.getResearchProjects();
+    const result = await Promise.all(
+      projects.map(async (project) => {
+        const updates = await this.getResearchUpdates(project.id);
+        return { project, updates };
+      })
+    );
+    return result;
   }
 }
 

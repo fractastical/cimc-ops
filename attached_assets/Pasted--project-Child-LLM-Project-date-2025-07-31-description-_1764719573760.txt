@@ -1,0 +1,132 @@
+[
+  {
+    "project": "Child LLM Project",
+    "date": "2025-07-31",
+    "description": "Roshni Lulla introduced the child LLM project, aiming to train a language model on a curated inner-monologue dataset covering roughly the first five years of life to probe emergent self-model and conscious development."
+  },
+  {
+    "project": "Self-Organizing MoE / NCA",
+    "date": "2025-07-31",
+    "description": "Aleksandr Groznykh and colleagues presented their neural cellular automata work, extending classic CAs with neural networks trained by gradient descent and identifying backpropagation-through-time as a major bottleneck for scaling."
+  },
+  {
+    "project": "Emergent Agents in Minimal Computation",
+    "date": "2025-07-31",
+    "description": "Lukas Bongartz and Krzysztof Woś described their use of cellular automata and binary logic systems to study emergent self-model properties in enclosed systems, emphasizing the free energy principle as a guiding framework."
+  },
+  {
+    "project": "Percepia (Perceptual Phenotyping)",
+    "date": "2025-07-31",
+    "description": "Patricia Craja outlined a project to build LLM personas and a Bayesian inference engine that uses linguistic data to infer dynamic personality and perceptual profiles, enabling computational perceptual phenotyping."
+  },
+  {
+    "project": "Self-Organizing MoE / NCA",
+    "date": "2025-08-14",
+    "description": "Linus Maxeickhoff introduced a two-layer neural cellular automata architecture where a controller NCA modulates sub-NCAs, and described experiments with multiple NCAs sharing an environment to explore cooperation and competition."
+  },
+  {
+    "project": "Coherent Active States / Neuron Groups",
+    "date": "2025-08-14",
+    "description": "Prisca Herger and Jochen reported progress on a self-organized learning system of neuron groups in high-dimensional space using Hebbian rules, implemented in parallel Python and C++ codebases and demonstrated on MNIST."
+  },
+  {
+    "project": "Emergent Agents in Minimal Computation",
+    "date": "2025-08-14",
+    "description": "Krzysztof Woś presented their virtual-layers master thesis, showing how a simple tic-tac-toe learning system implements sophisticated Bayesian inference and relating this to transformer models and theories of conscious agents."
+  },
+  {
+    "project": "Percepia (Perceptual Phenotyping)",
+    "date": "2025-08-14",
+    "description": "Patricia Craja detailed a Bayesian model that tracks evolving distributions over perceptual traits using conversational data, with plans to compare human and LLM psychology via synthetic personas built with Roshni's help."
+  },
+  {
+    "project": "Child LLM Project",
+    "date": "2025-08-14",
+    "description": "Roshni Lulla expanded on the child LLM project, aiming for a richly labeled inner monologue including sensory, interoceptive and conversational content, and highlighted the challenge of generating a large, coherent synthetic childhood dataset."
+  },
+  {
+    "project": "Self-Organizing MoE / NCA",
+    "date": "2025-09-04",
+    "description": "Linus and Lukas described a multi-NCA environment where two NCAs operate in the same space predicting each other's updates, and Aleksandr showcased a patch-based NCA training scheme that samples random windows to overcome memory limits."
+  },
+  {
+    "project": "Coherent Active States / Neuron Groups",
+    "date": "2025-09-04",
+    "description": "Jochen reported preparatory work on neuron groups, including partial input handling and code rewrites to couple multiple learning groups, and noted plans to publish the codebase as a public repository."
+  },
+  {
+    "project": "Child LLM Project",
+    "date": "2025-09-04",
+    "description": "Roshni Lulla shared that an initial inner monologue has been generated for the child LLM and that they will upload the current implementation to GitHub and collaborate with Era's team on an iterative long-horizon data generation pipeline."
+  },
+  {
+    "project": "Emergent Agents in Minimal Computation",
+    "date": "2025-09-04",
+    "description": "Lukas and Linus used their work on cellular and neural cellular automata to motivate a discussion of computational irreducibility, chaos, and the halting problem, framing open questions about predictability in their minimal agents."
+  },
+  {
+    "project": "Coherent Active States / Neuron Groups",
+    "date": "2025-09-18",
+    "description": "Jochen presented reciprocally connected neuron groups that decode visual input, using noise and Shannon entropy as signals of information presence to stabilize learning in recurrent networks."
+  },
+  {
+    "project": "Self-Organizing MoE / NCA",
+    "date": "2025-09-18",
+    "description": "Lukas and Linus described efforts to train NCAs under a free-energy style objective, gradient analyses to find salient regions, rotation-prediction experiments on 3D objects, and a loss-steered patch NCA that focuses on hard-to-predict areas."
+  },
+  {
+    "project": "Child LLM Project",
+    "date": "2025-09-18",
+    "description": "Joscha Bach and Hikari Sorensen reframed the child LLM project as training a model on minimal inner-monologue sequences in a structured JSON format to simulate five years of development with a small vocabulary and evolving sense of self."
+  },
+  {
+    "project": "Self-Organizing MoE / NCA",
+    "date": "2025-10-23",
+    "description": "Linus reported sequence prediction experiments on rotating cubes, explored breaking the Markov property to add memory, and introduced hierarchical NCAs with multiple resolution layers as well as patch movement schemes that focus on regions of motion."
+  },
+  {
+    "project": "Coherent Active States / Neuron Groups",
+    "date": "2025-10-23",
+    "description": "Jochen gave an update on a binocular image acquisition rig designed to mimic human eye saccades and collect stereoscopic data for depth and figure-ground learning, including discussion of efference copy and 3D world modeling."
+  },
+  {
+    "project": "Emergent Agents in Minimal Computation",
+    "date": "2025-10-23",
+    "description": "Lukas and collaborators discussed using Hopfield networks and other alternative models to detect regularities in cellular and neural cellular automata, and considered backpropagation-free learning paradigms for continual learning."
+  },
+  {
+    "project": "Antelope (AST RL Agents)",
+    "date": "2025-11-06",
+    "description": "The Antelope team (Geetanjali Normandale, Joel Pyykkö, Rasmus Herlo and others) introduced their project to test Attention Schema Theory in small reinforcement-learning agents in grid worlds, defining attention as a high-certainty region of interest and planning initial cognitive control experiments."
+  },
+  {
+    "project": "Coherent Active States / Neuron Groups",
+    "date": "2025-11-06",
+    "description": "Jochen connected their cortical neuron-group model to the Antelope work, explaining a neuroplausible architecture with local Hebbian learning, lateral inhibition, and apical dendrite modulation by non-modal signals such as motor efference copies."
+  },
+  {
+    "project": "Self-Organizing MoE / NCA",
+    "date": "2025-11-20",
+    "description": "Aleksandr Groznykh reported multi-GPU patch NCA experiments showing that corner patches fit images better than central ones due to static border conditions, tested overlapping patches to reduce this bias, and introduced a tanh output activation to stabilize training."
+  },
+  {
+    "project": "Self-Organizing MoE / NCA",
+    "date": "2025-11-20",
+    "description": "Linus described work on compression-based metrics (JPEG and related transforms) to evaluate patch NCA reconstructions and showcased hierarchical NCAs that generalize from a 64x64 target to images up to 2048x2048, producing fractal-like structures and feature combinations."
+  },
+  {
+    "project": "Coherent Active States / Neuron Groups",
+    "date": "2025-11-20",
+    "description": "Jochen shared that a portable binocular eye rig with battery and display has been built, including printed 2D codes for eye calibration, and that auto-calibration software is the remaining step before collecting training data in Berlin."
+  },
+  {
+    "project": "Percepia (Perceptual Phenotyping)",
+    "date": "2025-11-20",
+    "description": "Patricia Craja outlined an experiment where synthetic LLM personas are parameterized by active-inference variables such as precision on sensory input, precision on priors, and learning rate, then probed conversationally to map a landscape of perceptual personalities."
+  },
+  {
+    "project": "Antelope (AST RL Agents)",
+    "date": "2025-11-20",
+    "description": "Geetanjali Normandale confirmed that Antelope will formally start in January with a four-person team and that significant effort is going into designing the RL environment and agent architecture to support attention-schema based learning and evaluation."
+  }
+]
