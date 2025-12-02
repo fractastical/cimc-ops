@@ -295,6 +295,99 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Research Projects ============
+  app.get("/api/research/projects", async (req, res) => {
+    try {
+      const projects = await storage.getResearchProjects();
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching research projects:", error);
+      res.status(500).json({ error: "Failed to fetch projects" });
+    }
+  });
+
+  app.get("/api/research/timeline", async (req, res) => {
+    try {
+      const timeline = await storage.getResearchTimeline();
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error fetching research timeline:", error);
+      res.status(500).json({ error: "Failed to fetch timeline" });
+    }
+  });
+
+  app.post("/api/research/import", async (req, res) => {
+    try {
+      const notes = req.body as { project: string; date: string; description: string }[];
+      
+      if (!Array.isArray(notes)) {
+        return res.status(400).json({ error: "Expected an array of meeting notes" });
+      }
+
+      // Project colors for visualization
+      const projectColors = [
+        "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", 
+        "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"
+      ];
+      let colorIndex = 0;
+
+      const projectMap = new Map<string, string>(); // project name -> project id
+      let updatesAdded = 0;
+
+      for (const note of notes) {
+        // Get or create the project
+        let projectId = projectMap.get(note.project);
+        
+        if (!projectId) {
+          let project = await storage.getResearchProjectByName(note.project);
+          
+          if (!project) {
+            project = await storage.createResearchProject({
+              name: note.project,
+              description: `Research project: ${note.project}`,
+              color: projectColors[colorIndex % projectColors.length],
+            });
+            colorIndex++;
+          }
+          
+          projectId = project.id;
+          projectMap.set(note.project, projectId);
+        }
+
+        // Extract grantee name from description (first name mentioned)
+        const granteeMatch = note.description.match(/^([A-Z][a-z]+ [A-Z][a-z]+)/);
+        const grantee = granteeMatch ? granteeMatch[1] : undefined;
+
+        // Create the update
+        await storage.createResearchUpdate({
+          projectId,
+          date: new Date(note.date),
+          description: note.description,
+          grantee,
+        });
+        updatesAdded++;
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Imported ${updatesAdded} updates across ${projectMap.size} projects` 
+      });
+    } catch (error) {
+      console.error("Error importing research notes:", error);
+      res.status(500).json({ error: "Failed to import notes" });
+    }
+  });
+
+  app.delete("/api/research/projects/:id", async (req, res) => {
+    try {
+      await storage.deleteResearchProject(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting research project:", error);
+      res.status(500).json({ error: "Failed to delete project" });
+    }
+  });
+
   return httpServer;
 }
 
