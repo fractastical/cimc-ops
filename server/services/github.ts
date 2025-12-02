@@ -187,16 +187,17 @@ export class GitHubService {
         // Create activity log entries for each day
         for (const [date, data] of dailyCommits) {
           const authors = Array.from(data.authors);
-          const activityLog: InsertActivityLog = {
+          const activityLog = {
             repositoryId: repoId,
             eventType: "push",
             author: authors[0] || "Unknown",
             message: `${data.count} commit${data.count !== 1 ? 's' : ''} by ${authors.length} contributor${authors.length !== 1 ? 's' : ''}`,
             url: `https://github.com/${fullName}/commits`,
             metadata: { commits: data.count, authors, date },
+            activityDate: new Date(date), // Use the actual commit date
           };
           
-          await storage.createActivityLog(activityLog);
+          await storage.createActivityLog(activityLog as InsertActivityLog);
           eventsAdded++;
         }
       }

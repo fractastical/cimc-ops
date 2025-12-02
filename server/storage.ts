@@ -17,7 +17,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
-import { subDays } from "date-fns";
+import { subDays, format } from "date-fns";
 
 export interface IStorage {
   // Users
@@ -165,22 +165,35 @@ export class DatabaseStorage implements IStorage {
   async getActivityStats(repositoryId: string, days: number = 60): Promise<{ date: string; count: number }[]> {
     const cutoff = subDays(new Date(), days);
     
+    // Use activityDate if available, otherwise fall back to createdAt
     const stats = await db
       .select({
-        date: sql<string>`DATE(${activityLog.createdAt})`.as('date'),
+        date: sql<string>`DATE(COALESCE(${activityLog.activityDate}, ${activityLog.createdAt}))`.as('date'),
         count: sql<number>`COUNT(*)::int`.as('count'),
       })
       .from(activityLog)
       .where(
         and(
           eq(activityLog.repositoryId, repositoryId),
-          gte(activityLog.createdAt, cutoff)
+          gte(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`, cutoff)
         )
       )
-      .groupBy(sql`DATE(${activityLog.createdAt})`)
-      .orderBy(sql`DATE(${activityLog.createdAt})`);
+      .groupBy(sql`DATE(COALESCE(${activityLog.activityDate}, ${activityLog.createdAt}))`)
+      .orderBy(sql`DATE(COALESCE(${activityLog.activityDate}, ${activityLog.createdAt}))`);
 
-    return stats;
+    // Fill in all dates with 0 counts for missing days
+    const result: { date: string; count: number }[] = [];
+    const statsMap = new Map(stats.map(s => [s.date, s.count]));
+    
+    for (let i = days; i >= 0; i--) {
+      const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
+      result.push({
+        date,
+        count: statsMap.get(date) || 0,
+      });
+    }
+
+    return result;
   }
 
   // Slack Messages

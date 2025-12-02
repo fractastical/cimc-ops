@@ -77,6 +77,7 @@ export const activityLog = pgTable("activity_log", {
   url: text("url"),
   metadata: jsonb("metadata"), // Store additional event data
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  activityDate: timestamp("activity_date"), // The actual date of the activity (for historical data)
 });
 
 export const insertActivityLogSchema = createInsertSchema(activityLog).omit({
