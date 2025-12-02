@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, syncOrganization } from "@/lib/api";
+import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, syncOrganization, addRepositoryByName } from "@/lib/api";
 import { toast } from "sonner";
-import { Save, RefreshCw, Send, GitBranch } from "lucide-react";
+import { Save, RefreshCw, Send, GitBranch, Plus } from "lucide-react";
 
 const DAYS_OF_WEEK = [
   { value: "monday", label: "Monday" },
@@ -100,6 +100,20 @@ export default function Settings() {
     },
     onError: () => {
       toast.error("Failed to sync organization. Check your GitHub token and organization name.");
+    },
+  });
+
+  const [individualRepo, setIndividualRepo] = useState("");
+  
+  const addRepoMutation = useMutation({
+    mutationFn: (fullName: string) => addRepositoryByName(fullName),
+    onSuccess: (repo) => {
+      toast.success(`Added ${repo.fullName} with historical activity`);
+      setIndividualRepo("");
+      queryClient.invalidateQueries({ queryKey: ["repositories"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to add repository");
     },
   });
 
@@ -227,6 +241,40 @@ export default function Settings() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Enter your GitHub organization name to automatically monitor all its repositories
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-4 border-t border-border/50">
+              <Label htmlFor="individualRepo" className="font-mono text-sm">
+                Add Individual Repository
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="individualRepo"
+                  data-testid="input-individual-repo"
+                  placeholder="owner/repository (e.g., torvalds/linux)"
+                  value={individualRepo}
+                  onChange={(e) => setIndividualRepo(e.target.value)}
+                  className="font-mono text-sm flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (individualRepo && individualRepo.includes("/")) {
+                      addRepoMutation.mutate(individualRepo);
+                    } else {
+                      toast.error("Please enter a valid repository (owner/repo)");
+                    }
+                  }}
+                  disabled={addRepoMutation.isPending || !individualRepo}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {addRepoMutation.isPending ? "Adding..." : "Add Repo"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Add any public or private repository by full name (requires appropriate token permissions)
               </p>
             </div>
           </CardContent>

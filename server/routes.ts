@@ -96,6 +96,53 @@ export async function registerRoutes(
     }
   });
 
+  // Add a repository by full name (owner/repo) - fetches from GitHub
+  app.post("/api/repositories/add/:fullName", async (req, res) => {
+    try {
+      const fullName = decodeURIComponent(req.params.fullName);
+      const [owner, name] = fullName.split("/");
+      
+      if (!owner || !name) {
+        return res.status(400).json({ error: "Invalid repository name. Use format: owner/repo" });
+      }
+
+      // Check if repo already exists
+      const existing = await storage.getRepositoryByFullName(fullName);
+      if (existing) {
+        // Just sync activity and return
+        await githubService.fetchRepoActivity(existing.id, fullName);
+        return res.json(existing);
+      }
+
+      // Fetch repo info from GitHub
+      const repoData = await githubService.fetchRepository(owner, name);
+      
+      if (!repoData) {
+        return res.status(404).json({ error: "Repository not found on GitHub" });
+      }
+
+      // Create the repository
+      const repo = await storage.createRepository({
+        owner: repoData.owner.login,
+        name: repoData.name,
+        fullName: repoData.full_name,
+        description: repoData.description || "",
+        language: repoData.language || "Unknown",
+        stars: repoData.stargazers_count,
+        forks: repoData.forks_count,
+        isActive: true,
+      });
+
+      // Fetch historical activity
+      await githubService.fetchRepoActivity(repo.id, fullName);
+      
+      res.json(repo);
+    } catch (error) {
+      console.error("Error adding repository:", error);
+      res.status(500).json({ error: "Failed to add repository" });
+    }
+  });
+
   app.post("/api/repositories/sync/:fullName", async (req, res) => {
     try {
       const fullName = decodeURIComponent(req.params.fullName);

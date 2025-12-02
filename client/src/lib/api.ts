@@ -108,6 +108,17 @@ export async function syncOrganization(org: string): Promise<{ added: number; up
   return res.json();
 }
 
+export async function addRepositoryByName(fullName: string): Promise<Repository> {
+  const res = await fetch(`/api/repositories/add/${encodeURIComponent(fullName)}`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to add repository");
+  }
+  return res.json();
+}
+
 // Activity
 export async function getActivity(days: number = 30): Promise<ActivityLog[]> {
   const res = await fetch(`/api/activity?days=${days}`);
