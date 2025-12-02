@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { SlackMessage } from "@/lib/mockData";
 import { Send, Terminal } from "lucide-react";
 import { format } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { sendSlackMessage } from "@/lib/api";
+import type { SlackMessage } from "@/lib/api";
 
 interface BotTerminalProps {
   messages: SlackMessage[];
@@ -15,6 +17,11 @@ export function BotTerminal({ messages: initialMessages }: BotTerminalProps) {
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -22,36 +29,30 @@ export function BotTerminal({ messages: initialMessages }: BotTerminalProps) {
     }
   }, [messages]);
 
+  const sendMutation = useMutation({
+    mutationFn: (message: string) => sendSlackMessage("User", message),
+    onSuccess: (newMessage) => {
+      setMessages((prev) => [...prev, newMessage]);
+      queryClient.invalidateQueries({ queryKey: ["slackMessages"] });
+    },
+  });
+
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const newMessage: SlackMessage = {
-      id: `msg-${Date.now()}`,
+    const tempMessage: SlackMessage = {
+      id: `temp-${Date.now()}`,
       user: "User",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=User",
       message: input,
-      timestamp: format(new Date(), "hh:mm a"),
+      timestamp: new Date().toISOString(),
       isBot: false,
       channel: "#ops",
     };
 
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages((prev) => [...prev, tempMessage]);
+    sendMutation.mutate(input);
     setInput("");
-
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse: SlackMessage = {
-        id: `msg-${Date.now() + 1}`,
-        user: "Ops Bot",
-        avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=OpsBot",
-        message: `Command '${input}' received. Processing... \n> Status: Executing\n> Result: Success`,
-        timestamp: format(new Date(), "hh:mm a"),
-        isBot: true,
-        channel: "#ops",
-      };
-      setMessages((prev) => [...prev, botResponse]);
-    }, 800);
   };
 
   return (
@@ -71,7 +72,7 @@ export function BotTerminal({ messages: initialMessages }: BotTerminalProps) {
                 className={`flex gap-3 ${msg.isBot ? "bg-muted/10 p-2 rounded-md -mx-2" : ""}`}
               >
                 <Avatar className="h-8 w-8 border border-border">
-                  <AvatarImage src={msg.avatar} />
+                  <AvatarImage src={`https://api.dicebear.com/7.x/${msg.isBot ? 'bottts' : 'avataaars'}/svg?seed=${msg.user}`} />
                   <AvatarFallback>{msg.user[0]}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 overflow-hidden">
@@ -80,7 +81,7 @@ export function BotTerminal({ messages: initialMessages }: BotTerminalProps) {
                       {msg.user}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">
-                      {msg.timestamp}
+                      {format(new Date(msg.timestamp), "hh:mm a")}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-wrap font-mono leading-relaxed">
@@ -95,17 +96,21 @@ export function BotTerminal({ messages: initialMessages }: BotTerminalProps) {
         <div className="p-3 border-t border-border/40 bg-background/40">
           <form onSubmit={handleSend} className="flex gap-2">
             <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-xs">{">"}</span>
-                <Input
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-xs">{">"}</span>
+              <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Type a command..."
                 className="pl-6 bg-background/50 border-border font-mono text-sm focus-visible:ring-primary/50"
-                />
+                data-testid="input-slack-message"
+                disabled={sendMutation.isPending}
+              />
             </div>
             <button
               type="submit"
-              className="bg-primary text-primary-foreground p-2 rounded-md hover:bg-primary/90 transition-colors"
+              data-testid="button-send-message"
+              className="bg-primary text-primary-foreground p-2 rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+              disabled={sendMutation.isPending}
             >
               <Send className="h-4 w-4" />
             </button>

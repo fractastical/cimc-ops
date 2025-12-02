@@ -2,10 +2,32 @@ import { StatusCard } from "@/components/dashboard/StatusCard";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { BotTerminal } from "@/components/dashboard/BotTerminal";
 import { ResearchBoard } from "@/components/dashboard/ResearchBoard";
-import { mockRepos, mockResearch, mockSlackMessages } from "@/lib/mockData";
+import { mockResearch } from "@/lib/mockData";
+import { useQuery } from "@tanstack/react-query";
+import { getRepositories, getSlackMessages } from "@/lib/api";
 import { motion } from "framer-motion";
+import { RefreshCw } from "lucide-react";
 
 export default function Home() {
+  const { data: repos = [], isLoading: reposLoading } = useQuery({
+    queryKey: ["repositories"],
+    queryFn: getRepositories,
+  });
+
+  const { data: slackMessages = [], isLoading: messagesLoading } = useQuery({
+    queryKey: ["slackMessages"],
+    queryFn: () => getSlackMessages(50),
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  if (reposLoading || messagesLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col space-y-2">
@@ -32,10 +54,17 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="md:col-span-8 lg:col-span-9"
         >
-           <div className="h-full flex flex-col gap-4">
-              {/* We can put a summary or just the heatmap here directly */}
-              <ActivityHeatmap repos={mockRepos} />
-           </div>
+          <div className="h-full flex flex-col gap-4">
+            {repos.length > 0 ? (
+              <ActivityHeatmap repos={repos} />
+            ) : (
+              <div className="glass-panel p-8 text-center border-primary/20">
+                <p className="text-muted-foreground font-mono">
+                  No repositories configured. Add repositories in Settings to start monitoring.
+                </p>
+              </div>
+            )}
+          </div>
         </motion.div>
 
         {/* Middle/Bottom Row: Operations & Research */}
@@ -45,7 +74,7 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="md:col-span-5 lg:col-span-4 h-[500px]"
         >
-          <BotTerminal messages={mockSlackMessages} />
+          <BotTerminal messages={slackMessages} />
         </motion.div>
 
         <motion.div 

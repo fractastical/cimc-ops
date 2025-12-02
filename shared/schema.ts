@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -16,3 +16,87 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Integration settings for Slack and GitHub
+export const integrationSettings = pgTable("integration_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slackWebhookUrl: text("slack_webhook_url"),
+  slackBotToken: text("slack_bot_token"),
+  slackChannel: text("slack_channel").default("#ops"),
+  githubToken: text("github_token"),
+  enableRealtimeAlerts: boolean("enable_realtime_alerts").default(true).notNull(),
+  enableDailySummary: boolean("enable_daily_summary").default(true).notNull(),
+  dailySummaryTime: text("daily_summary_time").default("09:00").notNull(), // HH:mm format
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertIntegrationSettingsSchema = createInsertSchema(integrationSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertIntegrationSettings = z.infer<typeof insertIntegrationSettingsSchema>;
+export type IntegrationSettings = typeof integrationSettings.$inferSelect;
+
+// GitHub repositories to monitor
+export const repositories = pgTable("repositories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  owner: text("owner").notNull(),
+  name: text("name").notNull(),
+  fullName: text("full_name").notNull(), // e.g., "owner/repo"
+  description: text("description"),
+  language: text("language"),
+  stars: integer("stars").default(0).notNull(),
+  forks: integer("forks").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  webhookId: text("webhook_id"), // GitHub webhook ID for cleanup
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertRepositorySchema = createInsertSchema(repositories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertRepository = z.infer<typeof insertRepositorySchema>;
+export type Repository = typeof repositories.$inferSelect;
+
+// Activity log for GitHub events
+export const activityLog = pgTable("activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  repositoryId: varchar("repository_id").notNull().references(() => repositories.id, { onDelete: 'cascade' }),
+  eventType: text("event_type").notNull(), // push, pull_request, issues, release, etc.
+  author: text("author").notNull(),
+  message: text("message").notNull(),
+  url: text("url"),
+  metadata: jsonb("metadata"), // Store additional event data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertActivityLogSchema = createInsertSchema(activityLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLog.$inferSelect;
+
+// Slack message history (for display in the UI)
+export const slackMessages = pgTable("slack_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  user: text("user").notNull(),
+  message: text("message").notNull(),
+  isBot: boolean("is_bot").default(false).notNull(),
+  channel: text("channel").notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export const insertSlackMessageSchema = createInsertSchema(slackMessages).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertSlackMessage = z.infer<typeof insertSlackMessageSchema>;
+export type SlackMessage = typeof slackMessages.$inferSelect;

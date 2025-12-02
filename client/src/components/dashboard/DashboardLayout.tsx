@@ -53,15 +53,15 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             </div>
           {navItems.map((item) => (
             <Link key={item.path} href={item.path}>
-              <a className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200
+              <div className={`
+                flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer
                 ${location === item.path 
                   ? 'bg-sidebar-accent text-primary border-l-2 border-primary pl-[10px]' 
                   : 'text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50'}
               `}>
                 <item.icon className={`h-4 w-4 ${location === item.path ? 'text-primary' : 'text-muted-foreground'}`} />
                 {item.label}
-              </a>
+              </div>
             </Link>
           ))}
         </div>

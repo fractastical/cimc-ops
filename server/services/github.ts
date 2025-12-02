@@ -1,0 +1,157 @@
+import { storage } from "../storage";
+import type { InsertRepository, InsertActivityLog } from "@shared/schema";
+
+interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string;
+  language: string;
+  stargazers_count: number;
+  forks_count: number;
+  owner: {
+    login: string;
+  };
+}
+
+export class GitHubService {
+  private token: string | null = null;
+
+  async initialize() {
+    const settings = await storage.getIntegrationSettings();
+    if (settings?.githubToken) {
+      this.token = settings.githubToken;
+    }
+  }
+
+  async fetchRepository(owner: string, repo: string): Promise<GitHubRepo | null> {
+    await this.initialize();
+    
+    if (!this.token) {
+      console.warn("GitHub token not configured");
+      return null;
+    }
+
+    try {
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to fetch GitHub repo: ${response.statusText}`);
+        return null;
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching GitHub repository:", error);
+      return null;
+    }
+  }
+
+  async syncRepository(fullName: string): Promise<void> {
+    const [owner, name] = fullName.split("/");
+    const repoData = await this.fetchRepository(owner, name);
+
+    if (!repoData) {
+      throw new Error(`Could not fetch repository: ${fullName}`);
+    }
+
+    const existing = await storage.getRepositoryByFullName(fullName);
+
+    const repoUpdate: InsertRepository = {
+      owner: repoData.owner.login,
+      name: repoData.name,
+      fullName: repoData.full_name,
+      description: repoData.description || "",
+      language: repoData.language || "Unknown",
+      stars: repoData.stargazers_count,
+      forks: repoData.forks_count,
+      isActive: true,
+    };
+
+    if (existing) {
+      await storage.updateRepository(existing.id, repoUpdate);
+    } else {
+      await storage.createRepository(repoUpdate);
+    }
+  }
+
+  async processWebhookEvent(event: string, payload: any): Promise<InsertActivityLog | null> {
+    const repoFullName = payload.repository?.full_name;
+    if (!repoFullName) return null;
+
+    const repo = await storage.getRepositoryByFullName(repoFullName);
+    if (!repo || !repo.isActive) return null;
+
+    let activityLog: InsertActivityLog | null = null;
+
+    switch (event) {
+      case "push":
+        const commits = payload.commits || [];
+        const author = payload.sender?.login || "Unknown";
+        const commitCount = commits.length;
+        
+        activityLog = {
+          repositoryId: repo.id,
+          eventType: "push",
+          author,
+          message: `Pushed ${commitCount} commit${commitCount !== 1 ? 's' : ''}`,
+          url: payload.compare,
+          metadata: { commits: commitCount, ref: payload.ref },
+        };
+        break;
+
+      case "pull_request":
+        const pr = payload.pull_request;
+        const action = payload.action;
+        
+        activityLog = {
+          repositoryId: repo.id,
+          eventType: action === "closed" && pr.merged ? "pull_request_merged" : "pull_request",
+          author: pr.user.login,
+          message: `${action.charAt(0).toUpperCase() + action.slice(1)} PR #${pr.number}: ${pr.title}`,
+          url: pr.html_url,
+          metadata: { number: pr.number, action, merged: pr.merged },
+        };
+        break;
+
+      case "issues":
+        const issue = payload.issue;
+        
+        activityLog = {
+          repositoryId: repo.id,
+          eventType: "issues",
+          author: issue.user.login,
+          message: `${payload.action.charAt(0).toUpperCase() + payload.action.slice(1)} issue #${issue.number}: ${issue.title}`,
+          url: issue.html_url,
+          metadata: { number: issue.number, action: payload.action },
+        };
+        break;
+
+      case "release":
+        const release = payload.release;
+        
+        activityLog = {
+          repositoryId: repo.id,
+          eventType: "release",
+          author: release.author.login,
+          message: `Released ${release.tag_name}: ${release.name || release.tag_name}`,
+          url: release.html_url,
+          metadata: { tag: release.tag_name },
+        };
+        break;
+    }
+
+    if (activityLog) {
+      return await storage.createActivityLog(activityLog as InsertActivityLog);
+    }
+
+    return null;
+  }
+}
+
+export const githubService = new GitHubService();
