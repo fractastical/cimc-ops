@@ -179,6 +179,9 @@ export class SlackService {
       case "summary":
         const timeframe = args[1] || "weekly";
         return await this.getResearchSummaryResponse(timeframe);
+      case "hypotheses":
+      case "hypothesis":
+        return await this.getHypothesisList();
       default:
         return {
           response_type: "ephemeral",
@@ -191,12 +194,104 @@ export class SlackService {
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: "• `/research projects` - Show all research projects\n• `/research summary [weekly|monthly|quarterly]` - Get research summary"
+                text: "• `/research projects` - Show all research projects\n• `/research hypotheses` - Show tracked hypotheses\n• `/research summary [weekly|monthly|quarterly]` - Get research summary"
               }
             }
           ]
         };
     }
+  }
+
+  private async getHypothesisList(): Promise<any> {
+    const hypotheses = await storage.getHypotheses();
+    const projectLinks = await storage.getAllProjectHypothesisLinks();
+    const projects = await storage.getResearchProjects();
+    
+    if (hypotheses.length === 0) {
+      return { 
+        response_type: "in_channel",
+        text: "No hypotheses tracked yet. Sync from CIMC-ai/hypotheses repo to get started." 
+      };
+    }
+
+    // Group by status
+    const statusGroups = {
+      active: hypotheses.filter(h => h.status === "active"),
+      validated: hypotheses.filter(h => h.status === "validated"),
+      invalidated: hypotheses.filter(h => h.status === "invalidated"),
+      archived: hypotheses.filter(h => h.status === "archived")
+    };
+
+    // Count linked projects
+    const linkedHypotheses = new Set(projectLinks.map(l => l.hypothesisId));
+    const unlinkedCount = hypotheses.filter(h => !linkedHypotheses.has(h.id)).length;
+
+    const blocks: any[] = [
+      {
+        type: "header",
+        text: { type: "plain_text", text: "🧬 Research Hypotheses", emoji: true }
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Total Hypotheses:*\n${hypotheses.length}` },
+          { type: "mrkdwn", text: `*Linked to Projects:*\n${linkedHypotheses.size}` },
+          { type: "mrkdwn", text: `*Active:*\n${statusGroups.active.length}` },
+          { type: "mrkdwn", text: `*Unlinked:*\n${unlinkedCount}` }
+        ]
+      }
+    ];
+
+    // Status breakdown
+    if (statusGroups.validated.length > 0 || statusGroups.invalidated.length > 0) {
+      blocks.push({
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*✅ Validated:*\n${statusGroups.validated.length}` },
+          { type: "mrkdwn", text: `*❌ Invalidated:*\n${statusGroups.invalidated.length}` }
+        ]
+      });
+    }
+
+    blocks.push({ type: "divider" });
+
+    // Show hypotheses with their linked projects
+    const hypothesisBlocks: any[] = [];
+    for (const h of hypotheses.slice(0, 12)) {
+      const links = projectLinks.filter(l => l.hypothesisId === h.id);
+      const linkedProjects = links.map(l => {
+        const project = projects.find(p => p.id === l.projectId);
+        return project ? `${project.name} (${l.relationship || "tests"})` : null;
+      }).filter(Boolean);
+
+      const statusEmoji = h.status === "validated" ? "✅" : 
+                          h.status === "invalidated" ? "❌" : 
+                          h.status === "archived" ? "📦" : "🔬";
+
+      hypothesisBlocks.push({
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `${statusEmoji} *${h.title}*${linkedProjects.length > 0 ? `\n↳ _Projects: ${linkedProjects.join(", ")}_` : " _(unlinked)_"}`
+        }
+      });
+    }
+
+    blocks.push(...hypothesisBlocks);
+
+    if (hypotheses.length > 12) {
+      blocks.push({
+        type: "context",
+        elements: [
+          { type: "mrkdwn", text: `Showing 12 of ${hypotheses.length} hypotheses` }
+        ]
+      });
+    }
+
+    return {
+      response_type: "in_channel",
+      blocks
+    };
   }
 
   private async handleStatusCommand(args: string[], payload: SlackCommandPayload): Promise<any> {
@@ -280,6 +375,8 @@ export class SlackService {
   private async getProjectList(): Promise<any> {
     const projects = await storage.getResearchProjects();
     const updates = await storage.getResearchUpdates();
+    const hypotheses = await storage.getHypotheses();
+    const projectLinks = await storage.getAllProjectHypothesisLinks();
     
     if (projects.length === 0) {
       return { 
@@ -293,6 +390,15 @@ export class SlackService {
     for (const p of projects.slice(0, 10)) {
       const projectUpdates = updates.filter((u: any) => u.projectId === p.id);
       const latestUpdate = projectUpdates[0];
+      
+      // Get linked hypotheses for this project
+      const linkedHypotheses = projectLinks
+        .filter(l => l.projectId === p.id)
+        .map(l => {
+          const h = hypotheses.find(h => h.id === l.hypothesisId);
+          return h ? { title: h.title, relationship: l.relationship || "tests" } : null;
+        })
+        .filter(Boolean);
       
       const latestGrantee = latestUpdate?.grantee;
       projectBlocks.push({
@@ -309,6 +415,20 @@ export class SlackService {
         }
       });
       
+      // Show linked hypotheses
+      if (linkedHypotheses.length > 0) {
+        const hypothesisList = linkedHypotheses
+          .slice(0, 3)
+          .map(h => `🧬 ${h!.title} _(${h!.relationship})_`)
+          .join("\n");
+        projectBlocks.push({
+          type: "context",
+          elements: [
+            { type: "mrkdwn", text: hypothesisList }
+          ]
+        });
+      }
+      
       if (latestUpdate) {
         projectBlocks.push({
           type: "context",
@@ -324,6 +444,9 @@ export class SlackService {
       projectBlocks.push({ type: "divider" });
     }
 
+    // Count total linked hypotheses
+    const linkedHypothesesCount = new Set(projectLinks.map(l => l.hypothesisId)).size;
+
     return {
       response_type: "in_channel",
       blocks: [
@@ -335,7 +458,9 @@ export class SlackService {
           type: "section",
           fields: [
             { type: "mrkdwn", text: `*Total Projects:*\n${projects.length}` },
-            { type: "mrkdwn", text: `*Total Updates:*\n${updates.length}` }
+            { type: "mrkdwn", text: `*Total Updates:*\n${updates.length}` },
+            { type: "mrkdwn", text: `*Hypotheses:*\n${hypotheses.length}` },
+            { type: "mrkdwn", text: `*Linked:*\n${linkedHypothesesCount}` }
           ]
         },
         { type: "divider" },
@@ -343,7 +468,7 @@ export class SlackService {
         {
           type: "context",
           elements: [
-            { type: "mrkdwn", text: `Showing ${Math.min(projects.length, 10)} of ${projects.length} projects | Use \`/research summary\` for detailed reports` }
+            { type: "mrkdwn", text: `Showing ${Math.min(projects.length, 10)} of ${projects.length} projects | Use \`/research hypotheses\` to view all hypotheses` }
           ]
         }
       ]
@@ -380,6 +505,11 @@ export class SlackService {
     const projects = await storage.getResearchProjects();
     const allUpdates = await storage.getResearchUpdates();
     const updates = allUpdates.filter((u: any) => new Date(u.date) >= startDate);
+    
+    // Get hypotheses data
+    const hypotheses = await storage.getHypotheses();
+    const projectLinks = await storage.getAllProjectHypothesisLinks();
+    const linkedHypotheses = new Set(projectLinks.map(l => l.hypothesisId));
     
     // Get repository activity for the same period
     const repos = await storage.getRepositories();
@@ -437,7 +567,9 @@ export class SlackService {
         type: "section",
         fields: [
           { type: "mrkdwn", text: `*📦 Active Repos:*\n${activeRepos.length}` },
-          { type: "mrkdwn", text: `*🚀 Commits:*\n${totalCommits}` }
+          { type: "mrkdwn", text: `*🚀 Commits:*\n${totalCommits}` },
+          { type: "mrkdwn", text: `*🧬 Hypotheses:*\n${hypotheses.length}` },
+          { type: "mrkdwn", text: `*🔗 Linked:*\n${linkedHypotheses.size}` }
         ]
       }
     ];

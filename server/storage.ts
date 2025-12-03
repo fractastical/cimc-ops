@@ -83,6 +83,7 @@ export interface IStorage {
   // Project-Hypothesis Links
   getProjectHypotheses(projectId: string): Promise<(ProjectHypothesis & { hypothesis: Hypothesis })[]>;
   getHypothesisProjects(hypothesisId: string): Promise<(ProjectHypothesis & { project: ResearchProject })[]>;
+  getAllProjectHypothesisLinks(): Promise<ProjectHypothesis[]>;
   linkProjectHypothesis(link: InsertProjectHypothesis): Promise<ProjectHypothesis>;
   unlinkProjectHypothesis(projectId: string, hypothesisId: string): Promise<void>;
 }
@@ -368,6 +369,10 @@ export class DatabaseStorage implements IStorage {
       })
     );
     return result.filter(r => r.project);
+  }
+
+  async getAllProjectHypothesisLinks(): Promise<ProjectHypothesis[]> {
+    return await db.select().from(projectHypotheses);
   }
 
   async linkProjectHypothesis(link: InsertProjectHypothesis): Promise<ProjectHypothesis> {
