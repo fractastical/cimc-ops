@@ -324,6 +324,80 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Slack Bot Events & Commands ============
+  
+  // Helper to verify Slack requests - skip in development for testing
+  const verifySlackRequest = (req: any, res: any, rawBody: string): boolean => {
+    const signature = req.headers["x-slack-signature"] as string;
+    const timestamp = req.headers["x-slack-request-timestamp"] as string;
+    
+    // In development, allow requests without signature for testing
+    if (process.env.NODE_ENV !== "production") {
+      return true;
+    }
+    
+    // In production, require valid signature
+    if (!signature || !timestamp) {
+      res.status(401).json({ error: "Missing Slack signature headers" });
+      return false;
+    }
+    
+    if (!slackService.verifySlackSignature(signature, timestamp, rawBody)) {
+      res.status(401).json({ error: "Invalid signature" });
+      return false;
+    }
+    
+    return true;
+  };
+  
+  // Slack Events API endpoint (for receiving events like mentions, messages)
+  app.post("/api/slack/events", async (req, res) => {
+    try {
+      const rawBody = JSON.stringify(req.body);
+      if (!verifySlackRequest(req, res, rawBody)) return;
+
+      const result = await slackService.handleEvent(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("Error handling Slack event:", error);
+      res.status(500).json({ error: "Failed to handle event" });
+    }
+  });
+
+  // Slack Slash Commands endpoint
+  app.post("/api/slack/commands", async (req, res) => {
+    try {
+      const rawBody = new URLSearchParams(req.body).toString();
+      if (!verifySlackRequest(req, res, rawBody)) return;
+
+      const result = await slackService.handleCommand(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("Error handling Slack command:", error);
+      res.json({ 
+        response_type: "ephemeral", 
+        text: "Sorry, something went wrong processing your command." 
+      });
+    }
+  });
+
+  // Slack Interactive Components (buttons, modals, etc.)
+  app.post("/api/slack/interactive", async (req, res) => {
+    try {
+      const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+      if (!verifySlackRequest(req, res, rawBody)) return;
+      
+      const payload = JSON.parse(req.body.payload || "{}");
+      console.log("Slack interactive payload:", payload.type);
+      
+      // Handle different interactive types (e.g., button clicks, modal submissions)
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error handling Slack interactive:", error);
+      res.status(500).json({ error: "Failed to handle interaction" });
+    }
+  });
+
   // ============ Research Projects ============
   app.get("/api/research/projects", async (req, res) => {
     try {
