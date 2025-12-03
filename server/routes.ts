@@ -66,9 +66,13 @@ export async function registerRoutes(
       const reposWithActivity = await Promise.all(
         repos.map(async (repo) => {
           const activity = await storage.getActivityStats(repo.id, 60);
-          return { ...repo, activity };
+          const totalActivity = activity.reduce((sum, day) => sum + day.count, 0);
+          return { ...repo, activity, totalActivity };
         })
       );
+      
+      // Sort by 60-day activity (most active first)
+      reposWithActivity.sort((a, b) => b.totalActivity - a.totalActivity);
       
       res.json(reposWithActivity);
     } catch (error) {
