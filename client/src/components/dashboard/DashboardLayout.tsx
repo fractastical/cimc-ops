@@ -69,10 +69,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <div className="absolute bottom-0 w-full p-4 border-t border-sidebar-border bg-sidebar-accent/10">
             <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded bg-primary/20 flex items-center justify-center border border-primary/30">
-                    <span className="font-mono font-bold text-primary text-xs">JS</span>
+                    <span className="font-mono font-bold text-primary text-xs">JD</span>
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-sm font-medium text-sidebar-foreground">John Smith</span>
+                    <span className="text-sm font-medium text-sidebar-foreground">Joel Dietz</span>
                     <span className="text-xs text-muted-foreground font-mono">Lead Researcher</span>
                 </div>
             </div>
