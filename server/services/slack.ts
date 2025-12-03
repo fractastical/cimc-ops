@@ -77,16 +77,27 @@ export class SlackService {
       return false;
     }
 
-    const sigBaseString = `v0:${timestamp}:${body}`;
-    const mySignature = 'v0=' + crypto
-      .createHmac('sha256', this.signingSecret)
-      .update(sigBaseString)
-      .digest('hex');
+    try {
+      const sigBaseString = `v0:${timestamp}:${body}`;
+      const mySignature = 'v0=' + crypto
+        .createHmac('sha256', this.signingSecret)
+        .update(sigBaseString)
+        .digest('hex');
 
-    return crypto.timingSafeEqual(
-      Buffer.from(mySignature),
-      Buffer.from(signature)
-    );
+      // Ensure both buffers are same length before comparison
+      if (mySignature.length !== signature.length) {
+        console.warn("Signature length mismatch");
+        return false;
+      }
+
+      return crypto.timingSafeEqual(
+        Buffer.from(mySignature),
+        Buffer.from(signature)
+      );
+    } catch (error) {
+      console.error("Error verifying Slack signature:", error);
+      return false;
+    }
   }
 
   async handleEvent(payload: SlackEventPayload): Promise<any> {
