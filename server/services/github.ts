@@ -396,9 +396,13 @@ export class GitHubService {
 
       const contents = await response.json();
       
-      // Filter for markdown files
+      // Filter for markdown files, excluding README
       const mdFiles = Array.isArray(contents) 
-        ? contents.filter((item: any) => item.type === "file" && item.name.endsWith(".md"))
+        ? contents.filter((item: any) => 
+            item.type === "file" && 
+            item.name.endsWith(".md") && 
+            item.name.toLowerCase() !== "readme.md"
+          )
         : [];
 
       console.log(`Found ${mdFiles.length} markdown files in ${owner}/${repo}/${path}`);
@@ -424,10 +428,11 @@ export class GitHubService {
           const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
           
           // Check if file contains multiple hypotheses
-          // Pattern 1: Numbered like "## **C5 – ..." or "## C5 – ..."
-          // Pattern 2: Named like "## Name: The "Something" Hypothesis" or "## Name: The Something Hypothesis"
+          // Pattern 1: Numbered like "## **C5 – ..." or "## C5 – ..." or "## 1. The ..."
+          // Pattern 2: Named like "## Name: The "Something" Hypothesis"
+          // Pattern 3: Numbered section like "### 1." or "### 2."
           const numberedPattern = /^##\s+\*?\*?([A-Z]\d+)\s*[–\-:]/gm;
-          const namedPattern = /^##\s+(?:\*\*)?([^:*]+):\s+(?:The\s+)?["""]?([^"""\n]+)["""]?\s*Hypothesis/gm;
+          const namedPattern = /^###?\s+(?:\*\*)?(?:\d+\.\s+)?(?:The\s+)?["""]?([^"""\n:]+)["""]?\s*Hypothesis/gm;
           
           const numberedMatches = [...content.matchAll(numberedPattern)];
           const namedMatches = [...content.matchAll(namedPattern)];
@@ -437,39 +442,39 @@ export class GitHubService {
             // File contains multiple hypotheses - split them
             console.log(`Found ${totalSubHypotheses} sub-hypotheses in ${file.name} (${numberedMatches.length} numbered, ${namedMatches.length} named)`);
             
-            // Split content by ## headings that look like hypotheses
-            // This regex matches ## followed by optional **, then either a letter+number or a name with hypothesis
-            const splitPattern = /(?=^##\s+(?:\*\*)?(?:[A-Z]\d+\s*[–\-:]|[^#\n]+(?:Hypothesis|hypothesis)))/gm;
+            // Split content by ## or ### headings that look like hypotheses
+            const splitPattern = /(?=^###?\s+(?:\*\*)?(?:[A-Z]\d+\s*[–\-:]|\d+\.\s+|[^#\n]+(?:Hypothesis|hypothesis)))/gm;
             const sections = content.split(splitPattern);
             
             for (const section of sections) {
               if (!section.trim()) continue;
               
-              // Try numbered pattern first: ## **C5 – Title** or ## C5 – Title
+              // Try numbered pattern: ## **C5 – Title** or ## C5 – Title
               let numberedMatch = section.match(/^##\s+\*?\*?([A-Z]\d+)\s*[–\-:]\s*(.+?)(?:\*\*)?$/m);
-              // Try named pattern: ## Name: The "Something" Hypothesis
-              let namedMatch = section.match(/^##\s+(?:\*\*)?([^:*\n]+):\s+(?:The\s+)?["""]?([^"""\n]+?)["""]?\s*Hypothesis(?:\*\*)?/m);
+              // Try named pattern with number: ### 1. The "Something" Hypothesis or ### Name: The "Something" Hypothesis
+              let namedMatch = section.match(/^###?\s+(?:\*\*)?(?:\d+\.\s+)?(?:([^:*\n]+):\s+)?(?:The\s+)?["""]?([^"""\n]+?)["""]?\s*Hypothesis(?:\*\*)?/m);
               
               let hypothesisId: string;
-              let hypothesisName: string;
+              let displayTitle: string;
               
               if (numberedMatch) {
                 hypothesisId = numberedMatch[1]; // e.g., "C5"
-                hypothesisName = numberedMatch[2].replace(/\*+/g, '').trim(); // e.g., "Cortical Conductor Theory (CTC)"
+                const hypothesisName = numberedMatch[2].replace(/\*+/g, '').trim();
+                // Only show the name, not the number prefix
+                displayTitle = hypothesisName;
               } else if (namedMatch) {
-                const authorName = namedMatch[1].trim(); // e.g., "Joscha Bach"
+                const authorName = namedMatch[1]?.trim(); // e.g., "Joscha Bach" (may be undefined)
                 const conceptName = namedMatch[2].trim(); // e.g., "Coherent Simulation"
-                hypothesisId = authorName.split(' ').pop() || authorName; // Last name e.g., "Bach"
-                hypothesisName = `${conceptName} Hypothesis`;
+                hypothesisId = authorName ? (authorName.split(' ').pop() || authorName) : conceptName.split(' ')[0];
+                displayTitle = authorName 
+                  ? `${authorName}: ${conceptName} Hypothesis`
+                  : `${conceptName} Hypothesis`;
               } else {
                 // Not a hypothesis section, skip
                 continue;
               }
               
               const subFilename = `${file.name.replace('.md', '')}_${hypothesisId.replace(/\s+/g, '_')}.md`;
-              const subTitle = numberedMatch 
-                ? `${hypothesisId} – ${hypothesisName}`
-                : `${hypothesisId}: ${hypothesisName}`;
               
               // Extract content for this hypothesis
               const subContent = section.trim();
@@ -480,31 +485,46 @@ export class GitHubService {
               if (existing) {
                 if (existing.sha !== fileData.sha) {
                   await storage.updateHypothesis(existing.id, {
-                    title: subTitle,
+                    title: displayTitle,
                     content: subContent,
                     summary: subSummary,
                     sha: fileData.sha,
                   });
                   result.updated++;
-                  console.log(`Updated sub-hypothesis: ${subTitle}`);
+                  console.log(`Updated sub-hypothesis: ${displayTitle}`);
                 }
               } else {
                 await storage.createHypothesis({
                   filename: subFilename,
-                  title: subTitle,
+                  title: displayTitle,
                   content: subContent,
                   summary: subSummary,
                   sha: fileData.sha,
                   status: "active",
                 });
                 result.synced++;
-                console.log(`Created sub-hypothesis: ${subTitle}`);
+                console.log(`Created sub-hypothesis: ${displayTitle}`);
               }
             }
           } else {
-            // Single hypothesis file - process as before
-            const titleMatch = content.match(/^#\s+(.+)/m);
-            const title = titleMatch ? titleMatch[1].trim() : file.name.replace('.md', '');
+            // Single hypothesis file - extract the actual hypothesis name from ### heading
+            // Look for patterns like "### Name: The "Something" Hypothesis" or just use the first ### title
+            let title: string;
+            
+            // Try to find a named hypothesis in the content
+            const hypothesisHeadingMatch = content.match(/^###?\s+(?:\*\*)?(?:([^:*\n]+):\s+)?(?:The\s+)?["""]?([^"""\n]+?)["""]?\s*Hypothesis(?:\*\*)?/m);
+            
+            if (hypothesisHeadingMatch) {
+              const authorName = hypothesisHeadingMatch[1]?.trim();
+              const conceptName = hypothesisHeadingMatch[2].trim();
+              title = authorName 
+                ? `${authorName}: ${conceptName} Hypothesis`
+                : `${conceptName} Hypothesis`;
+            } else {
+              // Fall back to first H1 title
+              const titleMatch = content.match(/^#\s+(.+)/m);
+              title = titleMatch ? titleMatch[1].trim() : file.name.replace('.md', '');
+            }
             
             const summaryMatch = content.match(/^#\s+.+\n+([^#\n][^\n]+)/m);
             const summary = summaryMatch ? summaryMatch[1].trim().substring(0, 300) : null;
