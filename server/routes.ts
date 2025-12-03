@@ -547,6 +547,60 @@ export async function registerRoutes(
     }
   });
 
+  // Create hypothesis and push to GitHub
+  app.post("/api/hypotheses", async (req, res) => {
+    try {
+      const { title, content, pushToGitHub } = req.body;
+      
+      if (!title || !content) {
+        return res.status(400).json({ error: "Title and content are required" });
+      }
+
+      let filename = "";
+      let sha = "";
+
+      // Push to GitHub if requested
+      if (pushToGitHub) {
+        const pushResult = await githubService.pushHypothesis(
+          "CIMC-ai",
+          "hypotheses", 
+          title,
+          content
+        );
+        
+        if (!pushResult.success) {
+          return res.status(500).json({ 
+            error: `Failed to push to GitHub: ${pushResult.error}` 
+          });
+        }
+        
+        filename = pushResult.filename;
+        
+        // Sync to get the SHA
+        await githubService.syncHypotheses("CIMC-ai", "hypotheses", "");
+        
+        // Get the newly created hypothesis
+        const hypothesis = await storage.getHypothesisByFilename(filename);
+        return res.json(hypothesis);
+      }
+
+      // Just create locally without pushing
+      const hypothesis = await storage.createHypothesis({
+        filename: `local-${Date.now()}.md`,
+        title,
+        content,
+        summary: content.substring(0, 300),
+        sha: "",
+        status: "active",
+      });
+      
+      res.json(hypothesis);
+    } catch (error) {
+      console.error("Error creating hypothesis:", error);
+      res.status(500).json({ error: "Failed to create hypothesis" });
+    }
+  });
+
   app.patch("/api/hypotheses/:id", async (req, res) => {
     try {
       const { status } = req.body;

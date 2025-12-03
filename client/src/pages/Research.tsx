@@ -10,6 +10,7 @@ import {
   importResearchNotes, 
   getHypotheses,
   syncHypotheses,
+  createHypothesis,
   linkProjectToHypothesis,
   getProjectHypotheses,
   unlinkProjectFromHypothesis,
@@ -17,7 +18,7 @@ import {
   type Hypothesis,
 } from "@/lib/api";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 const PROJECT_COLORS = [
@@ -218,6 +219,8 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
   const queryClient = useQueryClient();
   const [syncRepo, setSyncRepo] = useState({ owner: "CIMC-ai", repo: "hypotheses", path: "" });
   const [showSync, setShowSync] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newHypothesis, setNewHypothesis] = useState({ title: "", content: "" });
   const [linkingProject, setLinkingProject] = useState<string | null>(null);
   const [expandedHypothesis, setExpandedHypothesis] = useState<string | null>(null);
 
@@ -241,6 +244,19 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
     },
     onError: () => {
       toast.error("Failed to sync hypotheses");
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () => createHypothesis(newHypothesis.title, newHypothesis.content, true),
+    onSuccess: () => {
+      toast.success("Hypothesis created and pushed to GitHub!");
+      queryClient.invalidateQueries({ queryKey: ["hypotheses"] });
+      setNewHypothesis({ title: "", content: "" });
+      setShowCreate(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to create hypothesis");
     },
   });
 
@@ -289,14 +305,21 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
           <Button 
             variant="default" 
             size="sm"
-            onClick={quickSync}
-            disabled={syncMutation.isPending}
+            onClick={() => setShowCreate(!showCreate)}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-            {syncMutation.isPending ? "Syncing..." : "Sync Now"}
+            <Plus className="h-4 w-4 mr-2" />
+            New
           </Button>
           <Button 
             variant="outline" 
+            size="sm"
+            onClick={quickSync}
+            disabled={syncMutation.isPending}
+          >
+            <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button 
+            variant="ghost" 
             size="sm"
             onClick={() => setShowSync(!showSync)}
           >
@@ -305,6 +328,43 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {showCreate && (
+          <div className="p-4 border border-primary/30 rounded-lg bg-primary/5 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-mono text-primary">
+              <Github className="h-4 w-4" />
+              New Hypothesis → CIMC-ai/hypotheses
+            </div>
+            <Input
+              placeholder="Hypothesis title"
+              value={newHypothesis.title}
+              onChange={(e) => setNewHypothesis(h => ({ ...h, title: e.target.value }))}
+              className="font-mono text-sm"
+              data-testid="input-hypothesis-title"
+            />
+            <Textarea
+              placeholder="Describe the hypothesis..."
+              value={newHypothesis.content}
+              onChange={(e) => setNewHypothesis(h => ({ ...h, content: e.target.value }))}
+              className="font-mono text-sm min-h-[100px]"
+              data-testid="input-hypothesis-content"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => createMutation.mutate()}
+                disabled={createMutation.isPending || !newHypothesis.title || !newHypothesis.content}
+                data-testid="button-create-hypothesis"
+              >
+                <Github className="h-4 w-4 mr-2" />
+                {createMutation.isPending ? "Pushing..." : "Create & Push to GitHub"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowCreate(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
         {showSync && (
           <div className="p-4 border border-border/50 rounded-lg bg-muted/10 space-y-3">
             <p className="text-sm text-muted-foreground">

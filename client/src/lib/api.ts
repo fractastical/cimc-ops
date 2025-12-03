@@ -282,6 +282,19 @@ export async function syncHypotheses(owner: string, repo: string, path?: string)
   return res.json();
 }
 
+export async function createHypothesis(title: string, content: string, pushToGitHub: boolean = true): Promise<Hypothesis> {
+  const res = await fetch("/api/hypotheses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, content, pushToGitHub }),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || "Failed to create hypothesis");
+  }
+  return res.json();
+}
+
 export async function updateHypothesisStatus(id: string, status: string): Promise<Hypothesis> {
   const res = await fetch(`/api/hypotheses/${id}`, {
     method: "PATCH",

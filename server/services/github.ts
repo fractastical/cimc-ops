@@ -470,6 +470,116 @@ export class GitHubService {
       return result;
     }
   }
+
+  // Push a hypothesis to GitHub as a markdown file
+  async pushHypothesis(
+    owner: string, 
+    repo: string, 
+    title: string, 
+    content: string,
+    existingFilename?: string,
+    existingSha?: string
+  ): Promise<{ success: boolean; filename: string; error?: string }> {
+    await this.initialize();
+    
+    if (!this.token) {
+      return { success: false, filename: "", error: "GitHub token not configured" };
+    }
+
+    try {
+      // Generate filename from title if not provided
+      const filename = existingFilename || this.generateFilename(title);
+      const path = filename;
+      
+      // Format content as markdown with title
+      const markdownContent = `# ${title}\n\n${content}`;
+      const encodedContent = Buffer.from(markdownContent).toString('base64');
+      
+      // Check if file exists to get SHA for update
+      let sha = existingSha;
+      if (!sha) {
+        try {
+          const checkResponse = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+            {
+              headers: {
+                Authorization: `Bearer ${this.token}`,
+                Accept: "application/vnd.github.v3+json",
+              },
+            }
+          );
+          if (checkResponse.ok) {
+            const existing = await checkResponse.json();
+            sha = existing.sha;
+          }
+        } catch {
+          // File doesn't exist, that's fine
+        }
+      }
+
+      // Create or update file
+      const body: any = {
+        message: sha ? `Update hypothesis: ${title}` : `Add hypothesis: ${title}`,
+        content: encodedContent,
+        branch: "main",
+      };
+      
+      if (sha) {
+        body.sha = sha;
+      }
+
+      const response = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("GitHub API error:", errorData);
+        return { 
+          success: false, 
+          filename, 
+          error: errorData.message || response.statusText 
+        };
+      }
+
+      const result = await response.json();
+      console.log(`Successfully pushed hypothesis to GitHub: ${filename}`);
+      
+      return { 
+        success: true, 
+        filename,
+      };
+    } catch (error) {
+      console.error("Error pushing hypothesis to GitHub:", error);
+      return { 
+        success: false, 
+        filename: "", 
+        error: String(error) 
+      };
+    }
+  }
+
+  private generateFilename(title: string): string {
+    // Convert title to kebab-case filename
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 50)
+      .replace(/-$/, '');
+    
+    return `${slug}.md`;
+  }
 }
 
 export const githubService = new GitHubService();
