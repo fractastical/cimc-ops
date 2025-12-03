@@ -13,6 +13,10 @@ import {
   type InsertResearchProject,
   type ResearchUpdate,
   type InsertResearchUpdate,
+  type Hypothesis,
+  type InsertHypothesis,
+  type ProjectHypothesis,
+  type InsertProjectHypothesis,
   users,
   integrationSettings,
   repositories,
@@ -20,6 +24,8 @@ import {
   slackMessages,
   researchProjects,
   researchUpdates,
+  hypotheses,
+  projectHypotheses,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -65,6 +71,20 @@ export interface IStorage {
   getResearchUpdates(projectId?: string): Promise<ResearchUpdate[]>;
   createResearchUpdate(update: InsertResearchUpdate): Promise<ResearchUpdate>;
   getResearchTimeline(): Promise<{ project: ResearchProject; updates: ResearchUpdate[] }[]>;
+
+  // Hypotheses
+  getHypotheses(): Promise<Hypothesis[]>;
+  getHypothesis(id: string): Promise<Hypothesis | undefined>;
+  getHypothesisByFilename(filename: string): Promise<Hypothesis | undefined>;
+  createHypothesis(hypothesis: InsertHypothesis): Promise<Hypothesis>;
+  updateHypothesis(id: string, updates: Partial<InsertHypothesis>): Promise<Hypothesis | undefined>;
+  deleteHypothesis(id: string): Promise<void>;
+
+  // Project-Hypothesis Links
+  getProjectHypotheses(projectId: string): Promise<(ProjectHypothesis & { hypothesis: Hypothesis })[]>;
+  getHypothesisProjects(hypothesisId: string): Promise<(ProjectHypothesis & { project: ResearchProject })[]>;
+  linkProjectHypothesis(link: InsertProjectHypothesis): Promise<ProjectHypothesis>;
+  unlinkProjectHypothesis(projectId: string, hypothesisId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -284,6 +304,86 @@ export class DatabaseStorage implements IStorage {
       })
     );
     return result;
+  }
+
+  // Hypotheses
+  async getHypotheses(): Promise<Hypothesis[]> {
+    return await db.select().from(hypotheses).orderBy(hypotheses.title);
+  }
+
+  async getHypothesis(id: string): Promise<Hypothesis | undefined> {
+    const [hypothesis] = await db.select().from(hypotheses).where(eq(hypotheses.id, id));
+    return hypothesis || undefined;
+  }
+
+  async getHypothesisByFilename(filename: string): Promise<Hypothesis | undefined> {
+    const [hypothesis] = await db.select().from(hypotheses).where(eq(hypotheses.filename, filename));
+    return hypothesis || undefined;
+  }
+
+  async createHypothesis(hypothesis: InsertHypothesis): Promise<Hypothesis> {
+    const [created] = await db.insert(hypotheses).values(hypothesis).returning();
+    return created;
+  }
+
+  async updateHypothesis(id: string, updates: Partial<InsertHypothesis>): Promise<Hypothesis | undefined> {
+    const [updated] = await db
+      .update(hypotheses)
+      .set({ ...updates, syncedAt: new Date() })
+      .where(eq(hypotheses.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteHypothesis(id: string): Promise<void> {
+    await db.delete(hypotheses).where(eq(hypotheses.id, id));
+  }
+
+  // Project-Hypothesis Links
+  async getProjectHypotheses(projectId: string): Promise<(ProjectHypothesis & { hypothesis: Hypothesis })[]> {
+    const links = await db
+      .select()
+      .from(projectHypotheses)
+      .where(eq(projectHypotheses.projectId, projectId));
+    
+    const result = await Promise.all(
+      links.map(async (link) => {
+        const hypothesis = await this.getHypothesis(link.hypothesisId);
+        return { ...link, hypothesis: hypothesis! };
+      })
+    );
+    return result.filter(r => r.hypothesis);
+  }
+
+  async getHypothesisProjects(hypothesisId: string): Promise<(ProjectHypothesis & { project: ResearchProject })[]> {
+    const links = await db
+      .select()
+      .from(projectHypotheses)
+      .where(eq(projectHypotheses.hypothesisId, hypothesisId));
+    
+    const result = await Promise.all(
+      links.map(async (link) => {
+        const project = await this.getResearchProject(link.projectId);
+        return { ...link, project: project! };
+      })
+    );
+    return result.filter(r => r.project);
+  }
+
+  async linkProjectHypothesis(link: InsertProjectHypothesis): Promise<ProjectHypothesis> {
+    const [created] = await db.insert(projectHypotheses).values(link).returning();
+    return created;
+  }
+
+  async unlinkProjectHypothesis(projectId: string, hypothesisId: string): Promise<void> {
+    await db
+      .delete(projectHypotheses)
+      .where(
+        and(
+          eq(projectHypotheses.projectId, projectId),
+          eq(projectHypotheses.hypothesisId, hypothesisId)
+        )
+      );
   }
 }
 

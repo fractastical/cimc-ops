@@ -1,5 +1,14 @@
 import { storage } from "../storage";
-import type { InsertRepository, InsertActivityLog } from "@shared/schema";
+import type { InsertRepository, InsertActivityLog, InsertHypothesis } from "@shared/schema";
+
+interface GitHubFileContent {
+  name: string;
+  path: string;
+  sha: string;
+  content: string;
+  encoding: string;
+  type: string;
+}
 
 interface GitHubRepo {
   id: number;
@@ -357,6 +366,109 @@ export class GitHubService {
     }
 
     return null;
+  }
+
+  // Sync hypotheses from a repository containing markdown files
+  async syncHypotheses(owner: string, repo: string, path: string = ""): Promise<{ synced: number; updated: number; errors: string[] }> {
+    await this.initialize();
+    
+    const result = { synced: 0, updated: 0, errors: [] as string[] };
+    
+    if (!this.token) {
+      result.errors.push("GitHub token not configured");
+      return result;
+    }
+
+    try {
+      // Fetch directory contents
+      const contentsUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      const response = await fetch(contentsUrl, {
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
+
+      if (!response.ok) {
+        result.errors.push(`Failed to fetch repository contents: ${response.statusText}`);
+        return result;
+      }
+
+      const contents = await response.json();
+      
+      // Filter for markdown files
+      const mdFiles = Array.isArray(contents) 
+        ? contents.filter((item: any) => item.type === "file" && item.name.endsWith(".md"))
+        : [];
+
+      console.log(`Found ${mdFiles.length} markdown files in ${owner}/${repo}/${path}`);
+
+      for (const file of mdFiles) {
+        try {
+          // Fetch file content
+          const fileResponse = await fetch(file.url, {
+            headers: {
+              Authorization: `Bearer ${this.token}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+
+          if (!fileResponse.ok) {
+            result.errors.push(`Failed to fetch ${file.name}: ${fileResponse.statusText}`);
+            continue;
+          }
+
+          const fileData: GitHubFileContent = await fileResponse.json();
+          
+          // Decode base64 content
+          const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
+          
+          // Extract title from first heading or filename
+          const titleMatch = content.match(/^#\s+(.+)/m);
+          const title = titleMatch ? titleMatch[1].trim() : file.name.replace('.md', '');
+          
+          // Extract summary from first paragraph after title
+          const summaryMatch = content.match(/^#\s+.+\n+([^#\n][^\n]+)/m);
+          const summary = summaryMatch ? summaryMatch[1].trim().substring(0, 300) : null;
+
+          // Check if hypothesis already exists
+          const existing = await storage.getHypothesisByFilename(file.name);
+          
+          if (existing) {
+            // Update if SHA changed
+            if (existing.sha !== fileData.sha) {
+              await storage.updateHypothesis(existing.id, {
+                title,
+                content,
+                summary,
+                sha: fileData.sha,
+              });
+              result.updated++;
+              console.log(`Updated hypothesis: ${title}`);
+            }
+          } else {
+            // Create new hypothesis
+            await storage.createHypothesis({
+              filename: file.name,
+              title,
+              content,
+              summary,
+              sha: fileData.sha,
+              status: "active",
+            });
+            result.synced++;
+            console.log(`Created hypothesis: ${title}`);
+          }
+        } catch (fileError) {
+          result.errors.push(`Error processing ${file.name}: ${fileError}`);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      result.errors.push(`Error syncing hypotheses: ${error}`);
+      return result;
+    }
   }
 }
 

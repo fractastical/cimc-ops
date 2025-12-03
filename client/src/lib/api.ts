@@ -236,3 +236,88 @@ export async function deleteResearchProject(id: string): Promise<void> {
   });
   if (!res.ok) throw new Error("Failed to delete project");
 }
+
+// Hypotheses
+export interface Hypothesis {
+  id: string;
+  filename: string;
+  title: string;
+  content: string;
+  summary: string | null;
+  status: string;
+  sha: string | null;
+  syncedAt: string;
+  createdAt: string;
+}
+
+export interface ProjectHypothesisLink {
+  id: string;
+  projectId: string;
+  hypothesisId: string;
+  relationship: string;
+  createdAt: string;
+  hypothesis?: Hypothesis;
+  project?: ResearchProject;
+}
+
+export async function getHypotheses(): Promise<Hypothesis[]> {
+  const res = await fetch("/api/hypotheses");
+  if (!res.ok) throw new Error("Failed to fetch hypotheses");
+  return res.json();
+}
+
+export async function getHypothesis(id: string): Promise<Hypothesis> {
+  const res = await fetch(`/api/hypotheses/${id}`);
+  if (!res.ok) throw new Error("Failed to fetch hypothesis");
+  return res.json();
+}
+
+export async function syncHypotheses(owner: string, repo: string, path?: string): Promise<{ synced: number; updated: number; errors: string[] }> {
+  const res = await fetch("/api/hypotheses/sync", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ owner, repo, path }),
+  });
+  if (!res.ok) throw new Error("Failed to sync hypotheses");
+  return res.json();
+}
+
+export async function updateHypothesisStatus(id: string, status: string): Promise<Hypothesis> {
+  const res = await fetch(`/api/hypotheses/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error("Failed to update hypothesis");
+  return res.json();
+}
+
+export async function deleteHypothesis(id: string): Promise<void> {
+  const res = await fetch(`/api/hypotheses/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete hypothesis");
+}
+
+export async function getProjectHypotheses(projectId: string): Promise<ProjectHypothesisLink[]> {
+  const res = await fetch(`/api/research/projects/${projectId}/hypotheses`);
+  if (!res.ok) throw new Error("Failed to fetch project hypotheses");
+  return res.json();
+}
+
+export async function linkProjectToHypothesis(projectId: string, hypothesisId: string, relationship: string = "tests"): Promise<ProjectHypothesisLink> {
+  const res = await fetch(`/api/research/projects/${projectId}/hypotheses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hypothesisId, relationship }),
+  });
+  if (!res.ok) throw new Error("Failed to link project to hypothesis");
+  return res.json();
+}
+
+export async function unlinkProjectFromHypothesis(projectId: string, hypothesisId: string): Promise<void> {
+  const res = await fetch(`/api/research/projects/${projectId}/hypotheses/${hypothesisId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to unlink project from hypothesis");
+}

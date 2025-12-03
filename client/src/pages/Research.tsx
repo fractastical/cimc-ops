@@ -2,10 +2,22 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getResearchTimeline, importResearchNotes, type ResearchTimeline } from "@/lib/api";
+import { 
+  getResearchTimeline, 
+  importResearchNotes, 
+  getHypotheses,
+  syncHypotheses,
+  linkProjectToHypothesis,
+  getProjectHypotheses,
+  unlinkProjectFromHypothesis,
+  type ResearchTimeline,
+  type Hypothesis,
+} from "@/lib/api";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 const PROJECT_COLORS = [
@@ -202,6 +214,211 @@ function ResearchTimelineChart({ timeline }: { timeline: ResearchTimeline[] }) {
   );
 }
 
+function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
+  const queryClient = useQueryClient();
+  const [syncRepo, setSyncRepo] = useState({ owner: "", repo: "", path: "" });
+  const [showSync, setShowSync] = useState(false);
+  const [linkingProject, setLinkingProject] = useState<string | null>(null);
+  const [expandedHypothesis, setExpandedHypothesis] = useState<string | null>(null);
+
+  const { data: hypotheses = [], isLoading } = useQuery({
+    queryKey: ["hypotheses"],
+    queryFn: getHypotheses,
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: () => syncHypotheses(syncRepo.owner, syncRepo.repo, syncRepo.path),
+    onSuccess: (data) => {
+      toast.success(`Synced ${data.synced} new, updated ${data.updated} hypotheses`);
+      if (data.errors.length > 0) {
+        console.error("Sync errors:", data.errors);
+      }
+      queryClient.invalidateQueries({ queryKey: ["hypotheses"] });
+      setShowSync(false);
+    },
+    onError: () => {
+      toast.error("Failed to sync hypotheses");
+    },
+  });
+
+  const linkMutation = useMutation({
+    mutationFn: ({ projectId, hypothesisId }: { projectId: string; hypothesisId: string }) =>
+      linkProjectToHypothesis(projectId, hypothesisId, "tests"),
+    onSuccess: () => {
+      toast.success("Project linked to hypothesis");
+      queryClient.invalidateQueries({ queryKey: ["hypotheses"] });
+      queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
+      setLinkingProject(null);
+    },
+    onError: () => {
+      toast.error("Failed to link project");
+    },
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "validated": return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "invalidated": return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "archived": return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+      default: return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+    }
+  };
+
+  if (isLoading) {
+    return <RefreshCw className="h-6 w-6 animate-spin text-primary mx-auto" />;
+  }
+
+  return (
+    <Card className="glass-panel border-primary/20">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-mono text-lg flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-amber-400" />
+          Hypotheses
+        </CardTitle>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => setShowSync(!showSync)}
+        >
+          <GitBranch className="h-4 w-4 mr-2" />
+          Sync from GitHub
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {showSync && (
+          <div className="p-4 border border-border/50 rounded-lg bg-muted/10 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Sync hypotheses from a GitHub repository containing markdown files.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <Input
+                placeholder="Owner (e.g., myorg)"
+                value={syncRepo.owner}
+                onChange={(e) => setSyncRepo(s => ({ ...s, owner: e.target.value }))}
+                className="font-mono text-sm"
+              />
+              <Input
+                placeholder="Repo (e.g., hypotheses)"
+                value={syncRepo.repo}
+                onChange={(e) => setSyncRepo(s => ({ ...s, repo: e.target.value }))}
+                className="font-mono text-sm"
+              />
+              <Input
+                placeholder="Path (optional)"
+                value={syncRepo.path}
+                onChange={(e) => setSyncRepo(s => ({ ...s, path: e.target.value }))}
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending || !syncRepo.owner || !syncRepo.repo}
+              >
+                {syncMutation.isPending ? "Syncing..." : "Sync"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowSync(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {hypotheses.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8 font-mono">
+            No hypotheses yet. Sync from a GitHub repository to get started.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {hypotheses.map((hypothesis) => (
+              <div 
+                key={hypothesis.id}
+                className="p-4 border border-border/40 rounded-lg bg-muted/5 hover:bg-muted/10 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div 
+                    className="flex-1 cursor-pointer"
+                    onClick={() => setExpandedHypothesis(
+                      expandedHypothesis === hypothesis.id ? null : hypothesis.id
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      {expandedHypothesis === hypothesis.id ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <h4 className="font-medium text-sm">{hypothesis.title}</h4>
+                      <Badge variant="outline" className={`text-xs ${getStatusColor(hypothesis.status)}`}>
+                        {hypothesis.status}
+                      </Badge>
+                    </div>
+                    {hypothesis.summary && (
+                      <p className="text-xs text-muted-foreground ml-6 line-clamp-2">
+                        {hypothesis.summary}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLinkingProject(
+                      linkingProject === hypothesis.id ? null : hypothesis.id
+                    )}
+                  >
+                    <Link2 className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Expanded content */}
+                {expandedHypothesis === hypothesis.id && (
+                  <div className="mt-4 ml-6 p-3 bg-muted/20 rounded border border-border/30">
+                    <pre className="text-xs text-foreground/80 whitespace-pre-wrap font-mono overflow-x-auto max-h-64 overflow-y-auto">
+                      {hypothesis.content}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Link to project UI */}
+                {linkingProject === hypothesis.id && (
+                  <div className="mt-3 ml-6 p-3 border border-primary/30 rounded-lg bg-primary/5">
+                    <p className="text-xs text-muted-foreground mb-2">Link to a research project:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {timeline.map((t) => (
+                        <Button
+                          key={t.project.id}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => linkMutation.mutate({
+                            projectId: t.project.id,
+                            hypothesisId: hypothesis.id,
+                          })}
+                          disabled={linkMutation.isPending}
+                        >
+                          <div 
+                            className="w-2 h-2 rounded-full mr-2"
+                            style={{ backgroundColor: t.project.color || "#10b981" }}
+                          />
+                          {t.project.name}
+                        </Button>
+                      ))}
+                      {timeline.length === 0 && (
+                        <span className="text-xs text-muted-foreground">No projects available</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Research() {
   const queryClient = useQueryClient();
   const [jsonInput, setJsonInput] = useState("");
@@ -253,7 +470,7 @@ export default function Research() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground glow-text">Research Projects</h1>
           <p className="text-muted-foreground font-mono text-sm">
-            Track progress across research projects and grantees
+            Track progress across research projects, hypotheses, and grantees
           </p>
         </div>
         <Button 
@@ -300,6 +517,9 @@ export default function Research() {
           </CardContent>
         </Card>
       )}
+
+      {/* Hypotheses Section */}
+      <HypothesesSection timeline={timeline || []} />
 
       <ResearchTimelineChart timeline={timeline || []} />
     </div>

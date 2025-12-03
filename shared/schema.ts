@@ -139,3 +139,42 @@ export const insertSlackMessageSchema = createInsertSchema(slackMessages).omit({
 
 export type InsertSlackMessage = z.infer<typeof insertSlackMessageSchema>;
 export type SlackMessage = typeof slackMessages.$inferSelect;
+
+// Hypotheses from GitHub repository
+export const hypotheses = pgTable("hypotheses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  filename: text("filename").notNull().unique(), // e.g., "hypothesis-1.md"
+  title: text("title").notNull(),
+  content: text("content").notNull(), // Full markdown content
+  summary: text("summary"), // Short summary extracted from content
+  status: text("status").default("active"), // active, validated, invalidated, archived
+  sha: text("sha"), // Git SHA for detecting updates
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertHypothesisSchema = createInsertSchema(hypotheses).omit({
+  id: true,
+  createdAt: true,
+  syncedAt: true,
+});
+
+export type InsertHypothesis = z.infer<typeof insertHypothesisSchema>;
+export type Hypothesis = typeof hypotheses.$inferSelect;
+
+// Link between research projects and hypotheses (many-to-many)
+export const projectHypotheses = pgTable("project_hypotheses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => researchProjects.id, { onDelete: 'cascade' }),
+  hypothesisId: varchar("hypothesis_id").notNull().references(() => hypotheses.id, { onDelete: 'cascade' }),
+  relationship: text("relationship").default("tests"), // tests, supports, extends, challenges
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertProjectHypothesisSchema = createInsertSchema(projectHypotheses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProjectHypothesis = z.infer<typeof insertProjectHypothesisSchema>;
+export type ProjectHypothesis = typeof projectHypotheses.$inferSelect;

@@ -507,6 +507,113 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Hypotheses ============
+  app.get("/api/hypotheses", async (req, res) => {
+    try {
+      const hypotheses = await storage.getHypotheses();
+      res.json(hypotheses);
+    } catch (error) {
+      console.error("Error fetching hypotheses:", error);
+      res.status(500).json({ error: "Failed to fetch hypotheses" });
+    }
+  });
+
+  app.get("/api/hypotheses/:id", async (req, res) => {
+    try {
+      const hypothesis = await storage.getHypothesis(req.params.id);
+      if (!hypothesis) {
+        return res.status(404).json({ error: "Hypothesis not found" });
+      }
+      res.json(hypothesis);
+    } catch (error) {
+      console.error("Error fetching hypothesis:", error);
+      res.status(500).json({ error: "Failed to fetch hypothesis" });
+    }
+  });
+
+  app.post("/api/hypotheses/sync", async (req, res) => {
+    try {
+      const { owner, repo, path } = req.body;
+      
+      if (!owner || !repo) {
+        return res.status(400).json({ error: "Owner and repo are required" });
+      }
+      
+      const result = await githubService.syncHypotheses(owner, repo, path || "");
+      res.json(result);
+    } catch (error) {
+      console.error("Error syncing hypotheses:", error);
+      res.status(500).json({ error: "Failed to sync hypotheses" });
+    }
+  });
+
+  app.patch("/api/hypotheses/:id", async (req, res) => {
+    try {
+      const { status } = req.body;
+      const updated = await storage.updateHypothesis(req.params.id, { status });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating hypothesis:", error);
+      res.status(500).json({ error: "Failed to update hypothesis" });
+    }
+  });
+
+  app.delete("/api/hypotheses/:id", async (req, res) => {
+    try {
+      await storage.deleteHypothesis(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting hypothesis:", error);
+      res.status(500).json({ error: "Failed to delete hypothesis" });
+    }
+  });
+
+  // Project-Hypothesis Links
+  app.get("/api/research/projects/:projectId/hypotheses", async (req, res) => {
+    try {
+      const links = await storage.getProjectHypotheses(req.params.projectId);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching project hypotheses:", error);
+      res.status(500).json({ error: "Failed to fetch project hypotheses" });
+    }
+  });
+
+  app.get("/api/hypotheses/:hypothesisId/projects", async (req, res) => {
+    try {
+      const links = await storage.getHypothesisProjects(req.params.hypothesisId);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching hypothesis projects:", error);
+      res.status(500).json({ error: "Failed to fetch hypothesis projects" });
+    }
+  });
+
+  app.post("/api/research/projects/:projectId/hypotheses", async (req, res) => {
+    try {
+      const { hypothesisId, relationship } = req.body;
+      const link = await storage.linkProjectHypothesis({
+        projectId: req.params.projectId,
+        hypothesisId,
+        relationship: relationship || "tests",
+      });
+      res.json(link);
+    } catch (error) {
+      console.error("Error linking project to hypothesis:", error);
+      res.status(500).json({ error: "Failed to link project to hypothesis" });
+    }
+  });
+
+  app.delete("/api/research/projects/:projectId/hypotheses/:hypothesisId", async (req, res) => {
+    try {
+      await storage.unlinkProjectHypothesis(req.params.projectId, req.params.hypothesisId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unlinking project from hypothesis:", error);
+      res.status(500).json({ error: "Failed to unlink project from hypothesis" });
+    }
+  });
+
   return httpServer;
 }
 
