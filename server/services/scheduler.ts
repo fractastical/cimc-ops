@@ -1,8 +1,11 @@
 import { storage } from "../storage";
 import { slackService } from "./slack";
-import { subDays, format, startOfWeek, endOfWeek, getDay } from "date-fns";
+import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay } from "date-fns";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+export type SummaryType = "repo" | "research" | "both";
+export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly";
 
 export class SchedulerService {
   private checkInterval: NodeJS.Timeout | null = null;
@@ -115,11 +118,45 @@ export class SchedulerService {
   }
 
   async sendWeeklySummary() {
+    await this.sendRepoSummary("weekly");
+  }
+
+  // Flexible summary methods
+  async sendRepoSummary(timeframe: TimeFrame) {
     const now = new Date();
-    const weekStart = startOfWeek(subDays(now, 7));
-    const weekEnd = endOfWeek(subDays(now, 7));
+    let days: number;
+    let periodStart: Date;
+    let periodEnd: Date;
+    let periodLabel: string;
+
+    switch (timeframe) {
+      case "daily":
+        days = 1;
+        periodStart = subDays(now, 1);
+        periodEnd = now;
+        periodLabel = format(subDays(now, 1), "MMM d, yyyy");
+        break;
+      case "weekly":
+        days = 7;
+        periodStart = startOfWeek(subDays(now, 7));
+        periodEnd = endOfWeek(subDays(now, 7));
+        periodLabel = `${format(periodStart, "MMM d")} - ${format(periodEnd, "MMM d, yyyy")}`;
+        break;
+      case "monthly":
+        days = 30;
+        periodStart = startOfMonth(subMonths(now, 1));
+        periodEnd = endOfMonth(subMonths(now, 1));
+        periodLabel = format(periodStart, "MMMM yyyy");
+        break;
+      case "quarterly":
+        days = 90;
+        periodStart = subDays(now, 90);
+        periodEnd = now;
+        periodLabel = `${format(periodStart, "MMM d")} - ${format(periodEnd, "MMM d, yyyy")}`;
+        break;
+    }
     
-    const activities = await storage.getRecentActivity(7);
+    const activities = await storage.getRecentActivity(days);
 
     const commits = activities.filter(a => a.eventType === "push");
     const prs = activities.filter(a => a.eventType === "pull_request" || a.eventType === "pull_request_merged");
@@ -137,7 +174,7 @@ export class SchedulerService {
     const repos = await storage.getActiveRepositories();
     const repoActivity = await Promise.all(
       repos.map(async (repo) => {
-        const stats = await storage.getActivityByRepository(repo.id, 7);
+        const stats = await storage.getActivityByRepository(repo.id, days);
         return {
           repo: repo.name,
           commits: stats.filter(s => s.eventType === "push").length,
@@ -147,22 +184,86 @@ export class SchedulerService {
     );
 
     const summary = {
+      timeframe,
+      periodLabel,
       totalCommits: commits.length,
       totalPRs: prs.length,
       totalIssues: issues.length,
       activeRepos: repoActivity.filter(r => r.commits > 0 || r.prs > 0).length,
       contributors,
       repoActivity: repoActivity.filter(r => r.commits > 0 || r.prs > 0),
-      weekStart: format(weekStart, "MMM d"),
-      weekEnd: format(weekEnd, "MMM d, yyyy"),
     };
 
-    await slackService.sendWeeklySummary(summary);
+    await slackService.sendRepoSummary(summary);
     
     // Log to database
     await storage.createSlackMessage({
       user: "Ops Bot",
-      message: `Weekly summary sent: ${summary.totalCommits} commits, ${summary.totalPRs} PRs, ${summary.contributors.length} contributors`,
+      message: `${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} repo summary sent: ${summary.totalCommits} commits, ${summary.totalPRs} PRs`,
+      isBot: true,
+      channel: "#ops",
+    });
+  }
+
+  async sendResearchSummary(timeframe: TimeFrame) {
+    const now = new Date();
+    let days: number;
+    let periodLabel: string;
+
+    switch (timeframe) {
+      case "daily":
+        days = 1;
+        periodLabel = format(subDays(now, 1), "MMM d, yyyy");
+        break;
+      case "weekly":
+        days = 7;
+        periodLabel = `${format(subDays(now, 7), "MMM d")} - ${format(now, "MMM d, yyyy")}`;
+        break;
+      case "monthly":
+        days = 30;
+        periodLabel = format(subMonths(now, 1), "MMMM yyyy");
+        break;
+      case "quarterly":
+        days = 90;
+        periodLabel = `${format(subDays(now, 90), "MMM d")} - ${format(now, "MMM d, yyyy")}`;
+        break;
+    }
+
+    const cutoffDate = subDays(now, days);
+    const timeline = await storage.getResearchTimeline();
+    
+    // Filter updates to only those within the timeframe
+    const projectUpdates = timeline.map(t => ({
+      project: t.project,
+      updates: t.updates.filter(u => new Date(u.date) >= cutoffDate)
+    })).filter(t => t.updates.length > 0);
+
+    // Get unique grantees
+    const grantees = new Set<string>();
+    projectUpdates.forEach(p => p.updates.forEach(u => {
+      if (u.grantee) grantees.add(u.grantee);
+    }));
+
+    const summary = {
+      timeframe,
+      periodLabel,
+      totalProjects: projectUpdates.length,
+      totalUpdates: projectUpdates.reduce((sum, p) => sum + p.updates.length, 0),
+      grantees: Array.from(grantees),
+      projectUpdates: projectUpdates.map(p => ({
+        name: p.project.name,
+        updateCount: p.updates.length,
+        latestUpdate: p.updates[0]?.description.slice(0, 150) + (p.updates[0]?.description.length > 150 ? "..." : ""),
+        grantee: p.updates[0]?.grantee,
+      })),
+    };
+
+    await slackService.sendResearchSummary(summary);
+    
+    // Log to database
+    await storage.createSlackMessage({
+      user: "Ops Bot",
+      message: `${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} research summary sent: ${summary.totalProjects} projects, ${summary.totalUpdates} updates`,
       isBot: true,
       channel: "#ops",
     });

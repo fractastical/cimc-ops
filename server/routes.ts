@@ -295,6 +295,35 @@ export async function registerRoutes(
     }
   });
 
+  // Flexible summary endpoints
+  app.post("/api/slack/send-repo-summary/:timeframe", async (req, res) => {
+    try {
+      const timeframe = req.params.timeframe as "daily" | "weekly" | "monthly" | "quarterly";
+      if (!["daily", "weekly", "monthly", "quarterly"].includes(timeframe)) {
+        return res.status(400).json({ error: "Invalid timeframe. Use: daily, weekly, monthly, or quarterly" });
+      }
+      await schedulerService.sendRepoSummary(timeframe);
+      res.json({ success: true, message: `${timeframe} repo summary sent to Slack` });
+    } catch (error) {
+      console.error("Error sending repo summary:", error);
+      res.status(500).json({ error: "Failed to send summary" });
+    }
+  });
+
+  app.post("/api/slack/send-research-summary/:timeframe", async (req, res) => {
+    try {
+      const timeframe = req.params.timeframe as "daily" | "weekly" | "monthly" | "quarterly";
+      if (!["daily", "weekly", "monthly", "quarterly"].includes(timeframe)) {
+        return res.status(400).json({ error: "Invalid timeframe. Use: daily, weekly, monthly, or quarterly" });
+      }
+      await schedulerService.sendResearchSummary(timeframe);
+      res.json({ success: true, message: `${timeframe} research summary sent to Slack` });
+    } catch (error) {
+      console.error("Error sending research summary:", error);
+      res.status(500).json({ error: "Failed to send summary" });
+    }
+  });
+
   // ============ Research Projects ============
   app.get("/api/research/projects", async (req, res) => {
     try {

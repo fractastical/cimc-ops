@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, syncOrganization, addRepositoryByName } from "@/lib/api";
+import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, syncOrganization, addRepositoryByName, sendRepoSummary, sendResearchSummary, type TimeFrame } from "@/lib/api";
 import { toast } from "sonner";
-import { Save, RefreshCw, Send, GitBranch, Plus } from "lucide-react";
+import { Save, RefreshCw, Send, GitBranch, Plus, Rocket, Microscope } from "lucide-react";
 
 const DAYS_OF_WEEK = [
   { value: "monday", label: "Monday" },
@@ -114,6 +114,28 @@ export default function Settings() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to add repository");
+    },
+  });
+
+  const repoSummaryMutation = useMutation({
+    mutationFn: (timeframe: TimeFrame) => sendRepoSummary(timeframe),
+    onSuccess: (_, timeframe) => {
+      toast.success(`${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} repo summary sent to Slack`);
+      queryClient.invalidateQueries({ queryKey: ["slackMessages"] });
+    },
+    onError: () => {
+      toast.error("Failed to send repo summary. Check your Slack webhook configuration.");
+    },
+  });
+
+  const researchSummaryMutation = useMutation({
+    mutationFn: (timeframe: TimeFrame) => sendResearchSummary(timeframe),
+    onSuccess: (_, timeframe) => {
+      toast.success(`${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} research summary sent to Slack`);
+      queryClient.invalidateQueries({ queryKey: ["slackMessages"] });
+    },
+    onError: () => {
+      toast.error("Failed to send research summary. Check your Slack webhook configuration.");
     },
   });
 
@@ -407,6 +429,65 @@ export default function Settings() {
                   </Button>
                 </div>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Manual Summaries */}
+        <Card className="glass-panel border-primary/20">
+          <CardHeader>
+            <CardTitle className="font-mono">Send Slack Summaries</CardTitle>
+            <CardDescription>
+              Manually send summaries to Slack with different timeframes
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Repository Summaries */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Rocket className="h-4 w-4 text-primary" />
+                <Label className="font-mono text-sm">Repository Summary</Label>
+              </div>
+              <div className="flex flex-wrap gap-2 pl-6">
+                {(["weekly", "monthly", "quarterly"] as TimeFrame[]).map((timeframe) => (
+                  <Button
+                    key={`repo-${timeframe}`}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => repoSummaryMutation.mutate(timeframe)}
+                    disabled={repoSummaryMutation.isPending}
+                    data-testid={`button-repo-${timeframe}`}
+                  >
+                    <Send className="h-3 w-3 mr-2" />
+                    {repoSummaryMutation.isPending ? "..." : timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Research Summaries */}
+            <div className="space-y-3 pt-4 border-t border-border/50">
+              <div className="flex items-center gap-2">
+                <Microscope className="h-4 w-4 text-emerald-500" />
+                <Label className="font-mono text-sm">Research Summary</Label>
+              </div>
+              <div className="flex flex-wrap gap-2 pl-6">
+                {(["weekly", "monthly", "quarterly"] as TimeFrame[]).map((timeframe) => (
+                  <Button
+                    key={`research-${timeframe}`}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => researchSummaryMutation.mutate(timeframe)}
+                    disabled={researchSummaryMutation.isPending}
+                    data-testid={`button-research-${timeframe}`}
+                  >
+                    <Send className="h-3 w-3 mr-2" />
+                    {researchSummaryMutation.isPending ? "..." : timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
+                  </Button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

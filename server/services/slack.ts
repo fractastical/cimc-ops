@@ -121,6 +121,84 @@ export class SlackService {
     return await this.sendMessage(text);
   }
 
+  async sendRepoSummary(summary: {
+    timeframe: string;
+    periodLabel: string;
+    totalCommits: number;
+    totalPRs: number;
+    totalIssues: number;
+    activeRepos: number;
+    contributors: string[];
+    repoActivity: Array<{ repo: string; commits: number; prs: number }>;
+  }) {
+    const timeframeEmoji = {
+      daily: ":sunrise:",
+      weekly: ":calendar:",
+      monthly: ":date:",
+      quarterly: ":chart_with_upwards_trend:",
+    }[summary.timeframe] || ":bar_chart:";
+
+    const text = `${timeframeEmoji} *${summary.timeframe.charAt(0).toUpperCase() + summary.timeframe.slice(1)} Repository Summary*\n` +
+                 `_${summary.periodLabel}_\n\n` +
+                 `*Overview:*\n` +
+                 `• Total Commits: ${summary.totalCommits}\n` +
+                 `• Pull Requests: ${summary.totalPRs}\n` +
+                 `• Issues: ${summary.totalIssues}\n` +
+                 `• Active Repositories: ${summary.activeRepos}\n` +
+                 `• Contributors: ${summary.contributors.length}\n\n` +
+                 `*Top Contributors:*\n` +
+                 (summary.contributors.length > 0 
+                   ? summary.contributors.slice(0, 5).map((c, i) => `  ${i + 1}. ${c}`).join("\n")
+                   : "  No activity") +
+                 `\n\n*Repository Breakdown:*\n` +
+                 (summary.repoActivity.length > 0
+                   ? summary.repoActivity.map(r => `  • *${r.repo}*: ${r.commits} commits, ${r.prs} PRs`).join("\n")
+                   : "  No activity");
+
+    return await this.sendMessage(text);
+  }
+
+  async sendResearchSummary(summary: {
+    timeframe: string;
+    periodLabel: string;
+    totalProjects: number;
+    totalUpdates: number;
+    grantees: string[];
+    projectUpdates: Array<{ name: string; updateCount: number; latestUpdate: string; grantee?: string | null }>;
+  }) {
+    const timeframeEmoji = {
+      daily: ":microscope:",
+      weekly: ":dna:",
+      monthly: ":bulb:",
+      quarterly: ":trophy:",
+    }[summary.timeframe] || ":rocket:";
+
+    let text = `${timeframeEmoji} *${summary.timeframe.charAt(0).toUpperCase() + summary.timeframe.slice(1)} Research Summary*\n` +
+               `_${summary.periodLabel}_\n\n` +
+               `*Overview:*\n` +
+               `• Active Projects: ${summary.totalProjects}\n` +
+               `• Total Updates: ${summary.totalUpdates}\n` +
+               `• Contributors: ${summary.grantees.length}\n\n`;
+
+    if (summary.projectUpdates.length > 0) {
+      text += `*Project Updates:*\n`;
+      for (const project of summary.projectUpdates) {
+        text += `\n:small_blue_diamond: *${project.name}* (${project.updateCount} update${project.updateCount !== 1 ? "s" : ""})\n`;
+        if (project.latestUpdate) {
+          text += `   _Latest:_ ${project.latestUpdate}`;
+          if (project.grantee) {
+            text += ` — ${project.grantee}`;
+          }
+          text += "\n";
+        }
+      }
+    } else {
+      text += `_No research updates in this period._`;
+    }
+
+    return await this.sendMessage(text);
+  }
+
   private getEventEmoji(event: string): string {
     const emojiMap: Record<string, string> = {
       push: ":rocket:",

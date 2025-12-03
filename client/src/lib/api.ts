@@ -163,6 +163,22 @@ export async function sendWeeklySummary(): Promise<void> {
   if (!res.ok) throw new Error("Failed to send summary");
 }
 
+export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly";
+
+export async function sendRepoSummary(timeframe: TimeFrame): Promise<void> {
+  const res = await fetch(`/api/slack/send-repo-summary/${timeframe}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to send summary");
+}
+
+export async function sendResearchSummary(timeframe: TimeFrame): Promise<void> {
+  const res = await fetch(`/api/slack/send-research-summary/${timeframe}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to send summary");
+}
+
 // Research Projects
 export interface ResearchProject {
   id: string;
