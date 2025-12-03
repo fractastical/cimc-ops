@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import ReactMarkdown from "react-markdown";
 
 const PROJECT_COLORS = [
   "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", 
@@ -453,10 +454,23 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
 
                 {/* Expanded content */}
                 {expandedHypothesis === hypothesis.id && (
-                  <div className="mt-4 ml-6 p-3 bg-muted/20 rounded border border-border/30">
-                    <pre className="text-xs text-foreground/80 whitespace-pre-wrap font-mono overflow-x-auto max-h-64 overflow-y-auto">
-                      {hypothesis.content}
-                    </pre>
+                  <div className="mt-4 ml-6 p-4 bg-muted/20 rounded border border-border/30 max-h-96 overflow-y-auto">
+                    <div className="prose prose-sm prose-invert max-w-none
+                      prose-headings:text-foreground prose-headings:font-mono prose-headings:font-semibold
+                      prose-h1:text-xl prose-h1:border-b prose-h1:border-border/50 prose-h1:pb-2 prose-h1:mb-4
+                      prose-h2:text-lg prose-h2:mt-6 prose-h2:mb-2
+                      prose-h3:text-base prose-h3:mt-4
+                      prose-p:text-foreground/80 prose-p:leading-relaxed
+                      prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                      prose-strong:text-foreground prose-strong:font-semibold
+                      prose-ul:text-foreground/80 prose-ol:text-foreground/80
+                      prose-li:marker:text-primary
+                      prose-code:text-primary prose-code:bg-muted/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+                      prose-pre:bg-muted/30 prose-pre:border prose-pre:border-border/50
+                      prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground
+                    ">
+                      <ReactMarkdown>{hypothesis.content}</ReactMarkdown>
+                    </div>
                   </div>
                 )}
 
