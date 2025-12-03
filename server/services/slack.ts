@@ -174,6 +174,7 @@ export class SlackService {
 
     switch (subcommand) {
       case "list":
+      case "projects":
         return await this.getProjectList();
       case "summary":
         const timeframe = args[1] || "weekly";
@@ -181,9 +182,19 @@ export class SlackService {
       default:
         return {
           response_type: "ephemeral",
-          text: "📊 *Research Commands:*\n" +
-                "• `/research list` - Show all active research projects\n" +
-                "• `/research summary [weekly|monthly|quarterly]` - Get research summary"
+          blocks: [
+            {
+              type: "header",
+              text: { type: "plain_text", text: "📊 Research Commands", emoji: true }
+            },
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: "• `/research projects` - Show all research projects\n• `/research summary [weekly|monthly|quarterly]` - Get research summary"
+              }
+            }
+          ]
         };
     }
   }
@@ -268,38 +279,71 @@ export class SlackService {
 
   private async getProjectList(): Promise<any> {
     const projects = await storage.getResearchProjects();
+    const updates = await storage.getResearchUpdates();
     
     if (projects.length === 0) {
-      return { text: "No research projects found." };
+      return { 
+        response_type: "in_channel",
+        text: "No research projects found." 
+      };
     }
 
-    const projectBlocks = projects.slice(0, 10).map((p: any) => ({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*${p.name}*\n${p.description || "No description"}\n_Status: ${p.status}_${p.grantee ? ` | Grantee: ${p.grantee}` : ""}`
-      }
-    }));
-
-    return {
-      response_type: "ephemeral",
-      blocks: [
-        {
-          type: "header",
-          text: {
-            type: "plain_text",
-            text: "🔬 Research Projects",
-            emoji: true
-          }
+    const projectBlocks: any[] = [];
+    
+    for (const p of projects.slice(0, 10)) {
+      const projectUpdates = updates.filter((u: any) => u.projectId === p.id);
+      const latestUpdate = projectUpdates[0];
+      
+      const latestGrantee = latestUpdate?.grantee;
+      projectBlocks.push({
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*${p.name}*${latestGrantee ? ` — _${latestGrantee}_` : ""}\n${p.description || "No description"}`
         },
-        ...projectBlocks,
-        {
+        accessory: {
+          type: "button",
+          text: { type: "plain_text", text: `${projectUpdates.length} updates`, emoji: true },
+          value: p.id,
+          action_id: `view_project_${p.id}`
+        }
+      });
+      
+      if (latestUpdate) {
+        projectBlocks.push({
           type: "context",
           elements: [
             {
               type: "mrkdwn",
-              text: `Showing ${Math.min(projects.length, 10)} of ${projects.length} projects`
+              text: `📅 Latest: ${new Date(latestUpdate.date).toLocaleDateString()} — ${latestUpdate.description?.substring(0, 100)}${(latestUpdate.description?.length || 0) > 100 ? "..." : ""}`
             }
+          ]
+        });
+      }
+      
+      projectBlocks.push({ type: "divider" });
+    }
+
+    return {
+      response_type: "in_channel",
+      blocks: [
+        {
+          type: "header",
+          text: { type: "plain_text", text: "🔬 Research Projects", emoji: true }
+        },
+        {
+          type: "section",
+          fields: [
+            { type: "mrkdwn", text: `*Total Projects:*\n${projects.length}` },
+            { type: "mrkdwn", text: `*Total Updates:*\n${updates.length}` }
+          ]
+        },
+        { type: "divider" },
+        ...projectBlocks,
+        {
+          type: "context",
+          elements: [
+            { type: "mrkdwn", text: `Showing ${Math.min(projects.length, 10)} of ${projects.length} projects | Use \`/research summary\` for detailed reports` }
           ]
         }
       ]
@@ -310,57 +354,111 @@ export class SlackService {
     const now = new Date();
     let startDate: Date;
     let periodLabel: string;
+    let emoji: string;
 
     switch (timeframe) {
       case "monthly":
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         periodLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        emoji = "📅";
         break;
       case "quarterly":
         const quarter = Math.floor(now.getMonth() / 3);
         startDate = new Date(now.getFullYear(), quarter * 3, 1);
         periodLabel = `Q${quarter + 1} ${now.getFullYear()}`;
+        emoji = "📊";
         break;
       default:
         const dayOfWeek = now.getDay();
         startDate = new Date(now);
         startDate.setDate(now.getDate() - dayOfWeek);
         periodLabel = `Week of ${startDate.toLocaleDateString()}`;
+        emoji = "📆";
+        timeframe = "weekly";
     }
 
     const projects = await storage.getResearchProjects();
     const allUpdates = await storage.getResearchUpdates();
     const updates = allUpdates.filter((u: any) => new Date(u.date) >= startDate);
+    
+    // Group updates by project
+    const projectUpdateMap = new Map<string, any[]>();
+    for (const update of updates) {
+      const existing = projectUpdateMap.get(update.projectId) || [];
+      existing.push(update);
+      projectUpdateMap.set(update.projectId, existing);
+    }
+
+    // Get unique grantees
+    const grantees = Array.from(new Set(updates.map((u: any) => u.grantee).filter(Boolean)));
+
+    const blocks: any[] = [
+      {
+        type: "header",
+        text: { type: "plain_text", text: `${emoji} ${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} Research Summary`, emoji: true }
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*📅 Period:*\n${periodLabel}` },
+          { type: "mrkdwn", text: `*🔬 Active Projects:*\n${projects.length}` },
+          { type: "mrkdwn", text: `*📝 Updates:*\n${updates.length}` },
+          { type: "mrkdwn", text: `*👥 Contributors:*\n${grantees.length}` }
+        ]
+      }
+    ];
+
+    if (updates.length > 0) {
+      blocks.push({ type: "divider" });
+      blocks.push({
+        type: "section",
+        text: { type: "mrkdwn", text: "*Project Updates:*" }
+      });
+
+      // Add updates grouped by project
+      for (const project of projects) {
+        const projectUpdates = projectUpdateMap.get(project.id) || [];
+        if (projectUpdates.length > 0) {
+          blocks.push({
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*${project.name}* — ${projectUpdates.length} update${projectUpdates.length !== 1 ? "s" : ""}`
+            }
+          });
+          
+          // Show latest updates (max 3)
+          for (const update of projectUpdates.slice(0, 3)) {
+            blocks.push({
+              type: "context",
+              elements: [
+                {
+                  type: "mrkdwn",
+                  text: `📌 ${new Date(update.date).toLocaleDateString()} ${update.grantee ? `(${update.grantee})` : ""}: ${update.description?.substring(0, 150)}${(update.description?.length || 0) > 150 ? "..." : ""}`
+                }
+              ]
+            });
+          }
+        }
+      }
+    } else {
+      blocks.push({
+        type: "section",
+        text: { type: "mrkdwn", text: "_No updates recorded for this period._" }
+      });
+    }
+
+    blocks.push({ type: "divider" });
+    blocks.push({
+      type: "context",
+      elements: [
+        { type: "mrkdwn", text: `Generated ${new Date().toLocaleString()} | Use \`/research projects\` to see all projects` }
+      ]
+    });
 
     return {
       response_type: "in_channel",
-      blocks: [
-        {
-          type: "header",
-          text: {
-            type: "plain_text",
-            text: `📊 ${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} Research Summary`,
-            emoji: true
-          }
-        },
-        {
-          type: "section",
-          fields: [
-            {
-              type: "mrkdwn",
-              text: `*Period:*\n${periodLabel}`
-            },
-            {
-              type: "mrkdwn",
-              text: `*Active Projects:*\n${projects.filter((p: any) => p.status === "active").length}`
-            },
-            {
-              type: "mrkdwn",
-              text: `*Updates:*\n${updates.length}`
-            }
-          ]
-        }
-      ]
+      blocks
     };
   }
 
