@@ -216,7 +216,7 @@ function ResearchTimelineChart({ timeline }: { timeline: ResearchTimeline[] }) {
 
 function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
   const queryClient = useQueryClient();
-  const [syncRepo, setSyncRepo] = useState({ owner: "", repo: "", path: "" });
+  const [syncRepo, setSyncRepo] = useState({ owner: "CIMC-ai", repo: "hypotheses", path: "" });
   const [showSync, setShowSync] = useState(false);
   const [linkingProject, setLinkingProject] = useState<string | null>(null);
   const [expandedHypothesis, setExpandedHypothesis] = useState<string | null>(null);
@@ -227,7 +227,10 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
   });
 
   const syncMutation = useMutation({
-    mutationFn: () => syncHypotheses(syncRepo.owner, syncRepo.repo, syncRepo.path),
+    mutationFn: (params?: { owner: string; repo: string; path: string }) => {
+      const { owner, repo, path } = params || syncRepo;
+      return syncHypotheses(owner, repo, path);
+    },
     onSuccess: (data) => {
       toast.success(`Synced ${data.synced} new, updated ${data.updated} hypotheses`);
       if (data.errors.length > 0) {
@@ -240,6 +243,10 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
       toast.error("Failed to sync hypotheses");
     },
   });
+
+  const quickSync = () => {
+    syncMutation.mutate({ owner: "CIMC-ai", repo: "hypotheses", path: "" });
+  };
 
   const linkMutation = useMutation({
     mutationFn: ({ projectId, hypothesisId }: { projectId: string; hypothesisId: string }) =>
@@ -274,15 +281,28 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
         <CardTitle className="font-mono text-lg flex items-center gap-2">
           <Lightbulb className="h-5 w-5 text-amber-400" />
           Hypotheses
+          <Badge variant="outline" className="text-xs font-mono text-muted-foreground">
+            CIMC-ai/hypotheses
+          </Badge>
         </CardTitle>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => setShowSync(!showSync)}
-        >
-          <GitBranch className="h-4 w-4 mr-2" />
-          Sync from GitHub
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="default" 
+            size="sm"
+            onClick={quickSync}
+            disabled={syncMutation.isPending}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+            {syncMutation.isPending ? "Syncing..." : "Sync Now"}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowSync(!showSync)}
+          >
+            <GitBranch className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {showSync && (
@@ -313,7 +333,7 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
             <div className="flex gap-2">
               <Button
                 size="sm"
-                onClick={() => syncMutation.mutate()}
+                onClick={() => syncMutation.mutate(syncRepo)}
                 disabled={syncMutation.isPending || !syncRepo.owner || !syncRepo.repo}
               >
                 {syncMutation.isPending ? "Syncing..." : "Sync"}
