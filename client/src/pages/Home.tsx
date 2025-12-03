@@ -2,9 +2,8 @@ import { StatusCard } from "@/components/dashboard/StatusCard";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { BotTerminal } from "@/components/dashboard/BotTerminal";
 import { ResearchBoard } from "@/components/dashboard/ResearchBoard";
-import { mockResearch } from "@/lib/mockData";
 import { useQuery } from "@tanstack/react-query";
-import { getRepositories, getSlackMessages } from "@/lib/api";
+import { getRepositories, getSlackMessages, getResearchProjects, getResearchUpdates } from "@/lib/api";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 
@@ -20,7 +19,17 @@ export default function Home() {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  if (reposLoading || messagesLoading) {
+  const { data: researchProjects = [], isLoading: projectsLoading } = useQuery({
+    queryKey: ["researchProjects"],
+    queryFn: getResearchProjects,
+  });
+
+  const { data: researchUpdates = [], isLoading: updatesLoading } = useQuery({
+    queryKey: ["researchUpdates"],
+    queryFn: getResearchUpdates,
+  });
+
+  if (reposLoading || messagesLoading || projectsLoading || updatesLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <RefreshCw className="h-8 w-8 animate-spin text-primary" />
@@ -83,7 +92,7 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="md:col-span-7 lg:col-span-8 h-[500px]"
         >
-          <ResearchBoard items={mockResearch} />
+          <ResearchBoard projects={researchProjects} updates={researchUpdates} />
         </motion.div>
       </div>
     </div>

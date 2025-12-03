@@ -411,6 +411,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/research/updates", async (req, res) => {
+    try {
+      const updates = await storage.getResearchUpdates();
+      res.json(updates);
+    } catch (error) {
+      console.error("Error fetching research updates:", error);
+      res.status(500).json({ error: "Failed to fetch updates" });
+    }
+  });
+
   app.get("/api/research/timeline", async (req, res) => {
     try {
       const timeline = await storage.getResearchTimeline();

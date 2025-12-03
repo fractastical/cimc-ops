@@ -208,6 +208,12 @@ export async function getResearchProjects(): Promise<ResearchProject[]> {
   return res.json();
 }
 
+export async function getResearchUpdates(): Promise<ResearchUpdate[]> {
+  const res = await fetch("/api/research/updates");
+  if (!res.ok) throw new Error("Failed to fetch research updates");
+  return res.json();
+}
+
 export async function getResearchTimeline(): Promise<ResearchTimeline[]> {
   const res = await fetch("/api/research/timeline");
   if (!res.ok) throw new Error("Failed to fetch research timeline");
