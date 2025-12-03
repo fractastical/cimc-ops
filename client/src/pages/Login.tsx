@@ -47,7 +47,7 @@ export default function Login({ onLogin }: LoginProps) {
             <Lock className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold">
-            <span className="font-mono">OPS</span>
+            <span className="font-mono">CIMC</span>
             <span className="text-primary">.AI</span>
           </CardTitle>
           <p className="text-sm text-muted-foreground font-mono">

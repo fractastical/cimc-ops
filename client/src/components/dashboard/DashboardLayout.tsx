@@ -43,7 +43,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
             <div className="h-6 w-6 bg-primary rounded-sm mr-3 shadow-[0_0_10px_hsl(var(--primary))] animate-pulse" />
             <span className="font-mono font-bold text-lg tracking-widest text-sidebar-foreground">
-                OPS<span className="text-primary">.AI</span>
+                CIMC<span className="text-primary">.AI</span>
             </span>
         </div>
 
@@ -73,7 +73,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <div className="flex flex-col">
                     <span className="text-sm font-medium text-sidebar-foreground">Joel Dietz</span>
-                    <span className="text-xs text-muted-foreground font-mono">Lead Researcher</span>
+                    <span className="text-xs text-muted-foreground font-mono">Research</span>
                 </div>
             </div>
         </div>
