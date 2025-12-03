@@ -144,7 +144,7 @@ export class SlackService {
     switch (command) {
       case "/research":
         return await this.handleResearchCommand(args, payload);
-      case "/status":
+      case "/opstatus":
         return await this.handleStatusCommand(args, payload);
       case "/ops":
         return await this.handleOpsCommand(args, payload);
@@ -428,7 +428,7 @@ export class SlackService {
                  `*Slash Commands:*\n` +
                  `• \`/research list\` - List research projects\n` +
                  `• \`/research summary [timeframe]\` - Research summary\n` +
-                 `• \`/status\` - System status\n` +
+                 `• \`/opstatus\` - System status\n` +
                  `• \`/ops sync\` - Sync repositories\n` +
                  `• \`/ops alert <message>\` - Send alert`;
 
