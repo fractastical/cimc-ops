@@ -2,12 +2,17 @@ import { StatusCard } from "@/components/dashboard/StatusCard";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { BotTerminal } from "@/components/dashboard/BotTerminal";
 import { ResearchBoard } from "@/components/dashboard/ResearchBoard";
-import { useQuery } from "@tanstack/react-query";
-import { getRepositories, getSlackMessages, getResearchProjects, getResearchUpdates } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getRepositories, getSlackMessages, getResearchProjects, getResearchUpdates, sendDailySummary, sendWeeklySummary, sendRepoSummary, sendResearchSummary, TimeFrame } from "@/lib/api";
 import { motion } from "framer-motion";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Send, Calendar, CalendarDays, Rocket, Microscope } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function Home() {
+  const queryClient = useQueryClient();
+  
   const { data: repos = [], isLoading: reposLoading } = useQuery({
     queryKey: ["repositories"],
     queryFn: getRepositories,
@@ -29,6 +34,42 @@ export default function Home() {
     queryFn: getResearchUpdates,
   });
 
+  const dailyMutation = useMutation({
+    mutationFn: sendDailySummary,
+    onSuccess: () => {
+      toast.success("Daily summary sent to Slack");
+      queryClient.invalidateQueries({ queryKey: ["slackMessages"] });
+    },
+    onError: () => toast.error("Failed to send daily summary"),
+  });
+
+  const weeklyMutation = useMutation({
+    mutationFn: sendWeeklySummary,
+    onSuccess: () => {
+      toast.success("Weekly summary sent to Slack");
+      queryClient.invalidateQueries({ queryKey: ["slackMessages"] });
+    },
+    onError: () => toast.error("Failed to send weekly summary"),
+  });
+
+  const repoMutation = useMutation({
+    mutationFn: sendRepoSummary,
+    onSuccess: () => {
+      toast.success("Repository summary sent to Slack");
+      queryClient.invalidateQueries({ queryKey: ["slackMessages"] });
+    },
+    onError: () => toast.error("Failed to send repository summary"),
+  });
+
+  const researchMutation = useMutation({
+    mutationFn: sendResearchSummary,
+    onSuccess: () => {
+      toast.success("Research summary sent to Slack");
+      queryClient.invalidateQueries({ queryKey: ["slackMessages"] });
+    },
+    onError: () => toast.error("Failed to send research summary"),
+  });
+
   if (reposLoading || messagesLoading || projectsLoading || updatesLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -39,11 +80,66 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground glow-text">Mission Control</h1>
-        <p className="text-muted-foreground font-mono text-sm">
-          System Overview // {new Date().toLocaleDateString()}
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground glow-text">Mission Control</h1>
+          <p className="text-muted-foreground font-mono text-sm">
+            System Overview // {new Date().toLocaleDateString()}
+          </p>
+        </div>
+
+        <Card className="glass-panel border-primary/20">
+          <CardContent className="p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-mono text-muted-foreground mr-2">Quick Updates:</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => dailyMutation.mutate()}
+                disabled={dailyMutation.isPending}
+                data-testid="button-quick-daily"
+                className="h-7 text-xs"
+              >
+                <Calendar className="h-3 w-3 mr-1" />
+                {dailyMutation.isPending ? "..." : "Daily"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => weeklyMutation.mutate()}
+                disabled={weeklyMutation.isPending}
+                data-testid="button-quick-weekly"
+                className="h-7 text-xs"
+              >
+                <CalendarDays className="h-3 w-3 mr-1" />
+                {weeklyMutation.isPending ? "..." : "Weekly"}
+              </Button>
+              <div className="w-px h-4 bg-border mx-1" />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => repoMutation.mutate("weekly")}
+                disabled={repoMutation.isPending}
+                data-testid="button-quick-repo"
+                className="h-7 text-xs"
+              >
+                <Rocket className="h-3 w-3 mr-1" />
+                {repoMutation.isPending ? "..." : "Repos"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => researchMutation.mutate("weekly")}
+                disabled={researchMutation.isPending}
+                data-testid="button-quick-research"
+                className="h-7 text-xs"
+              >
+                <Microscope className="h-3 w-3 mr-1" />
+                {researchMutation.isPending ? "..." : "Research"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
