@@ -423,41 +423,94 @@ export class GitHubService {
           // Decode base64 content
           const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
           
-          // Extract title from first heading or filename
-          const titleMatch = content.match(/^#\s+(.+)/m);
-          const title = titleMatch ? titleMatch[1].trim() : file.name.replace('.md', '');
+          // Check if file contains multiple numbered hypotheses (e.g., "## C1 – ...", "## A2 – ...")
+          // Pattern: ## followed by letter+number, then space/dash/colon
+          const multiHypothesisPattern = /^##\s+([A-Z]\d+)\s*[–\-:]\s*(.+)$/gm;
+          const matches = [...content.matchAll(multiHypothesisPattern)];
           
-          // Extract summary from first paragraph after title
-          const summaryMatch = content.match(/^#\s+.+\n+([^#\n][^\n]+)/m);
-          const summary = summaryMatch ? summaryMatch[1].trim().substring(0, 300) : null;
+          if (matches.length > 1) {
+            // File contains multiple numbered hypotheses - split them
+            console.log(`Found ${matches.length} sub-hypotheses in ${file.name}`);
+            
+            // Get file title from first H1
+            const fileTitleMatch = content.match(/^#\s+(.+)/m);
+            const fileTitle = fileTitleMatch ? fileTitleMatch[1].trim() : file.name.replace('.md', '');
+            
+            // Split content by ## headings
+            const sections = content.split(/(?=^##\s+[A-Z]\d+\s*[–\-:])/m);
+            
+            for (const section of sections) {
+              const sectionMatch = section.match(/^##\s+([A-Z]\d+)\s*[–\-:]\s*(.+)/m);
+              if (!sectionMatch) continue;
+              
+              const hypothesisId = sectionMatch[1]; // e.g., "C5"
+              const hypothesisName = sectionMatch[2].trim(); // e.g., "Cortical Conductor Theory (CTC)"
+              const subFilename = `${file.name.replace('.md', '')}_${hypothesisId}.md`;
+              const subTitle = `${hypothesisId} – ${hypothesisName}`;
+              
+              // Extract content for this hypothesis (everything from this heading to the next ## or end)
+              const subContent = section.trim();
+              const subSummary = subContent.split('\n').slice(1).find(line => line.trim() && !line.startsWith('#'))?.trim()?.substring(0, 300) || null;
+              
+              const existing = await storage.getHypothesisByFilename(subFilename);
+              
+              if (existing) {
+                if (existing.sha !== fileData.sha) {
+                  await storage.updateHypothesis(existing.id, {
+                    title: subTitle,
+                    content: subContent,
+                    summary: subSummary,
+                    sha: fileData.sha,
+                  });
+                  result.updated++;
+                  console.log(`Updated sub-hypothesis: ${subTitle}`);
+                }
+              } else {
+                await storage.createHypothesis({
+                  filename: subFilename,
+                  title: subTitle,
+                  content: subContent,
+                  summary: subSummary,
+                  sha: fileData.sha,
+                  status: "active",
+                });
+                result.synced++;
+                console.log(`Created sub-hypothesis: ${subTitle}`);
+              }
+            }
+          } else {
+            // Single hypothesis file - process as before
+            const titleMatch = content.match(/^#\s+(.+)/m);
+            const title = titleMatch ? titleMatch[1].trim() : file.name.replace('.md', '');
+            
+            const summaryMatch = content.match(/^#\s+.+\n+([^#\n][^\n]+)/m);
+            const summary = summaryMatch ? summaryMatch[1].trim().substring(0, 300) : null;
 
-          // Check if hypothesis already exists
-          const existing = await storage.getHypothesisByFilename(file.name);
-          
-          if (existing) {
-            // Update if SHA changed
-            if (existing.sha !== fileData.sha) {
-              await storage.updateHypothesis(existing.id, {
+            const existing = await storage.getHypothesisByFilename(file.name);
+            
+            if (existing) {
+              if (existing.sha !== fileData.sha) {
+                await storage.updateHypothesis(existing.id, {
+                  title,
+                  content,
+                  summary,
+                  sha: fileData.sha,
+                });
+                result.updated++;
+                console.log(`Updated hypothesis: ${title}`);
+              }
+            } else {
+              await storage.createHypothesis({
+                filename: file.name,
                 title,
                 content,
                 summary,
                 sha: fileData.sha,
+                status: "active",
               });
-              result.updated++;
-              console.log(`Updated hypothesis: ${title}`);
+              result.synced++;
+              console.log(`Created hypothesis: ${title}`);
             }
-          } else {
-            // Create new hypothesis
-            await storage.createHypothesis({
-              filename: file.name,
-              title,
-              content,
-              summary,
-              sha: fileData.sha,
-              status: "active",
-            });
-            result.synced++;
-            console.log(`Created hypothesis: ${title}`);
           }
         } catch (fileError) {
           result.errors.push(`Error processing ${file.name}: ${fileError}`);
