@@ -381,6 +381,30 @@ export class SlackService {
     const allUpdates = await storage.getResearchUpdates();
     const updates = allUpdates.filter((u: any) => new Date(u.date) >= startDate);
     
+    // Get repository activity for the same period
+    const repos = await storage.getRepositories();
+    const recentActivity = await storage.getRecentActivity(90);
+    const repoActivity = recentActivity.filter((a: any) => {
+      const activityDate = a.activityDate ? new Date(a.activityDate) : new Date(a.createdAt);
+      return activityDate >= startDate;
+    });
+    
+    // Group activity by repo
+    const repoActivityMap = new Map<string, { commits: number; repoName: string }>();
+    for (const activity of repoActivity) {
+      if (activity.eventType === "push") {
+        const repo = repos.find((r: any) => r.id === activity.repositoryId);
+        if (repo) {
+          const existing = repoActivityMap.get(repo.id) || { commits: 0, repoName: repo.name };
+          existing.commits++;
+          repoActivityMap.set(repo.id, existing);
+        }
+      }
+    }
+    const activeRepos = Array.from(repoActivityMap.entries())
+      .map(([id, data]) => ({ id, ...data }))
+      .sort((a, b) => b.commits - a.commits);
+    
     // Group updates by project
     const projectUpdateMap = new Map<string, any[]>();
     for (const update of updates) {
@@ -391,6 +415,9 @@ export class SlackService {
 
     // Get unique grantees
     const grantees = Array.from(new Set(updates.map((u: any) => u.grantee).filter(Boolean)));
+    
+    // Total commits
+    const totalCommits = activeRepos.reduce((sum, r) => sum + r.commits, 0);
 
     const blocks: any[] = [
       {
@@ -401,18 +428,44 @@ export class SlackService {
         type: "section",
         fields: [
           { type: "mrkdwn", text: `*📅 Period:*\n${periodLabel}` },
-          { type: "mrkdwn", text: `*🔬 Active Projects:*\n${projects.length}` },
+          { type: "mrkdwn", text: `*🔬 Projects:*\n${projects.length}` },
           { type: "mrkdwn", text: `*📝 Updates:*\n${updates.length}` },
           { type: "mrkdwn", text: `*👥 Contributors:*\n${grantees.length}` }
+        ]
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*📦 Active Repos:*\n${activeRepos.length}` },
+          { type: "mrkdwn", text: `*🚀 Commits:*\n${totalCommits}` }
         ]
       }
     ];
 
+    // Repository Activity Section
+    if (activeRepos.length > 0) {
+      blocks.push({ type: "divider" });
+      blocks.push({
+        type: "section",
+        text: { type: "mrkdwn", text: "*📦 Repository Activity:*" }
+      });
+      
+      const repoLines = activeRepos.slice(0, 8).map(r => 
+        `• *${r.repoName}* — ${r.commits} commit${r.commits !== 1 ? "s" : ""}`
+      ).join("\n");
+      
+      blocks.push({
+        type: "section",
+        text: { type: "mrkdwn", text: repoLines }
+      });
+    }
+
+    // Research Updates Section
     if (updates.length > 0) {
       blocks.push({ type: "divider" });
       blocks.push({
         type: "section",
-        text: { type: "mrkdwn", text: "*Project Updates:*" }
+        text: { type: "mrkdwn", text: "*🔬 Research Updates:*" }
       });
 
       // Add updates grouped by project
@@ -427,24 +480,24 @@ export class SlackService {
             }
           });
           
-          // Show latest updates (max 3)
-          for (const update of projectUpdates.slice(0, 3)) {
+          // Show latest updates (max 2)
+          for (const update of projectUpdates.slice(0, 2)) {
             blocks.push({
               type: "context",
               elements: [
                 {
                   type: "mrkdwn",
-                  text: `📌 ${new Date(update.date).toLocaleDateString()} ${update.grantee ? `(${update.grantee})` : ""}: ${update.description?.substring(0, 150)}${(update.description?.length || 0) > 150 ? "..." : ""}`
+                  text: `📌 ${new Date(update.date).toLocaleDateString()} ${update.grantee ? `(${update.grantee})` : ""}: ${update.description?.substring(0, 120)}${(update.description?.length || 0) > 120 ? "..." : ""}`
                 }
               ]
             });
           }
         }
       }
-    } else {
+    } else if (activeRepos.length === 0) {
       blocks.push({
         type: "section",
-        text: { type: "mrkdwn", text: "_No updates recorded for this period._" }
+        text: { type: "mrkdwn", text: "_No activity recorded for this period._" }
       });
     }
 
