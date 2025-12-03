@@ -353,10 +353,12 @@ export async function registerRoutes(
   // Slack Events API endpoint (for receiving events like mentions, messages)
   app.post("/api/slack/events", async (req, res) => {
     try {
+      console.log("Received Slack event:", JSON.stringify(req.body).substring(0, 200));
       const rawBody = JSON.stringify(req.body);
       if (!verifySlackRequest(req, res, rawBody)) return;
 
       const result = await slackService.handleEvent(req.body);
+      console.log("Slack event handled, result:", JSON.stringify(result));
       res.json(result);
     } catch (error) {
       console.error("Error handling Slack event:", error);

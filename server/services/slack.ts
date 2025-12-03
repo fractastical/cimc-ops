@@ -101,14 +101,19 @@ export class SlackService {
   }
 
   async handleEvent(payload: SlackEventPayload): Promise<any> {
+    console.log("handleEvent called with type:", payload.type);
+    
     if (payload.type === "url_verification") {
+      console.log("URL verification request received");
       return { challenge: payload.challenge };
     }
 
     if (payload.type === "event_callback" && payload.event) {
       const event = payload.event;
+      console.log("Event callback received, event type:", event.type, "channel:", event.channel);
       
       if (event.type === "app_mention") {
+        console.log("App mention detected, text:", event.text);
         await this.handleMention(event);
       } else if (event.type === "message" && !event.thread_ts) {
         await this.logMessage(event);
@@ -363,10 +368,11 @@ export class SlackService {
     await this.initialize();
     
     if (!this.botToken) {
-      console.warn("Slack bot token not configured");
+      console.warn("Slack bot token not configured - checking env:", !!process.env.SLACK_BOT_TOKEN);
       return false;
     }
 
+    console.log("Sending bot message to channel:", channel);
     try {
       const response = await fetch("https://slack.com/api/chat.postMessage", {
         method: "POST",
