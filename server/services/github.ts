@@ -508,18 +508,17 @@ export class GitHubService {
             }
           } else {
             // Single hypothesis file - extract the actual hypothesis name from ### heading
-            // Look for patterns like "### Name: The "Something" Hypothesis" or just use the first ### title
+            // Look for patterns like "### Name: The "Something" Hypothesis/Theory" or just use the first ### title
             let title: string;
             
-            // Try to find a named hypothesis in the content
-            const hypothesisHeadingMatch = content.match(/^###?\s+(?:\*\*)?(?:([^:*\n]+):\s+)?(?:The\s+)?["""]?([^"""\n]+?)["""]?\s*Hypothesis(?:\*\*)?/m);
+            // Try to find a named hypothesis/theory in the content
+            // Pattern: ### Author Name: The "Concept Name" Hypothesis/Theory or ### Author Name: The Concept Name
+            const hypothesisHeadingMatch = content.match(/^###?\s+(?:\*\*)?([^:*\n]+):\s+(?:The\s+)?["""]?([^"""\n]+?)["""]?/m);
             
             if (hypothesisHeadingMatch) {
               const authorName = hypothesisHeadingMatch[1]?.trim();
               const conceptName = hypothesisHeadingMatch[2].trim();
-              title = authorName 
-                ? `${authorName}: ${conceptName} Hypothesis`
-                : `${conceptName} Hypothesis`;
+              title = `${authorName}: ${conceptName}`;
             } else {
               // Fall back to first H1 title
               const titleMatch = content.match(/^#\s+(.+)/m);
