@@ -512,12 +512,13 @@ export class GitHubService {
             let title: string;
             
             // Try to find a named hypothesis/theory in the content
-            // Pattern: ### Author Name: The "Concept Name" Hypothesis/Theory or ### Author Name: The Concept Name
-            const hypothesisHeadingMatch = content.match(/^###?\s+(?:\*\*)?([^:*\n]+):\s+(?:The\s+)?["""]?([^"""\n]+?)["""]?/m);
+            // Pattern: ### Author Name: The "Concept Name" or ### Author Name: The Concept Name
+            const hypothesisHeadingMatch = content.match(/^###?\s+(?:\*\*)?([^:*\n]+):\s+(?:The\s+)?["""]([^"""]+)["""]|^###?\s+(?:\*\*)?([^:*\n]+):\s+(?:The\s+)?([^*\n]+?)(?:\*\*)?$/m);
             
             if (hypothesisHeadingMatch) {
-              const authorName = hypothesisHeadingMatch[1]?.trim();
-              const conceptName = hypothesisHeadingMatch[2].trim();
+              // First pattern (with quotes) captures groups 1,2; second pattern captures groups 3,4
+              const authorName = (hypothesisHeadingMatch[1] || hypothesisHeadingMatch[3])?.trim();
+              const conceptName = (hypothesisHeadingMatch[2] || hypothesisHeadingMatch[4])?.trim();
               title = `${authorName}: ${conceptName}`;
             } else {
               // Fall back to first H1 title
