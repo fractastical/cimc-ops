@@ -10,6 +10,34 @@ import { githubService } from "./services/github";
 import { slackService } from "./services/slack";
 import { schedulerService } from "./services/scheduler";
 
+async function autoSyncOnStartup() {
+  console.log("Running auto-sync on startup...");
+  try {
+    const settings = await storage.getIntegrationSettings();
+    if (settings?.githubOrgs && settings.githubOrgs.length > 0) {
+      console.log(`Auto-syncing ${settings.githubOrgs.length} GitHub organization(s)...`);
+      for (const org of settings.githubOrgs) {
+        try {
+          await githubService.syncOrganization(org);
+          console.log(`Auto-synced org: ${org}`);
+        } catch (error) {
+          console.error(`Failed to auto-sync org ${org}:`, error);
+        }
+      }
+      
+      // Also sync hypotheses if configured
+      try {
+        const result = await githubService.syncHypotheses();
+        console.log(`Auto-synced hypotheses: ${result.synced} synced, ${result.skipped} skipped`);
+      } catch (error) {
+        console.error("Failed to auto-sync hypotheses:", error);
+      }
+    }
+  } catch (error) {
+    console.error("Auto-sync failed:", error);
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -17,6 +45,9 @@ export async function registerRoutes(
   
   // Start the scheduler service
   schedulerService.start();
+  
+  // Auto-sync repos and hypotheses on startup (run in background)
+  setTimeout(() => autoSyncOnStartup(), 5000);
 
   // ============ Integration Settings ============
   app.get("/api/settings", async (req, res) => {
