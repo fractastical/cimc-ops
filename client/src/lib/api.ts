@@ -120,6 +120,17 @@ export async function addRepositoryByName(fullName: string): Promise<Repository>
 }
 
 // Activity
+export interface MonthlyActivityStats {
+  month: string;
+  commits: number;
+}
+
+export async function getMonthlyActivity(): Promise<MonthlyActivityStats[]> {
+  const res = await fetch("/api/activity/monthly");
+  if (!res.ok) throw new Error("Failed to fetch monthly activity");
+  return res.json();
+}
+
 export async function getActivity(days: number = 30): Promise<ActivityLog[]> {
   const res = await fetch(`/api/activity?days=${days}`);
   if (!res.ok) throw new Error("Failed to fetch activity");

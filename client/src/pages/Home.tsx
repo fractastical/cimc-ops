@@ -2,6 +2,7 @@ import { StatusCard } from "@/components/dashboard/StatusCard";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { BotTerminal } from "@/components/dashboard/BotTerminal";
 import { ResearchBoard } from "@/components/dashboard/ResearchBoard";
+import { MonthlyActivityChart } from "@/components/dashboard/MonthlyActivityChart";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getRepositories, getSlackMessages, getResearchProjects, getResearchUpdates, sendDailySummary, sendWeeklySummary, sendRepoSummary, sendResearchSummary, TimeFrame } from "@/lib/api";
 import { motion } from "framer-motion";
@@ -170,6 +171,16 @@ export default function Home() {
               </div>
             )}
           </div>
+        </motion.div>
+
+        {/* Monthly Activity Chart */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="md:col-span-12"
+        >
+          <MonthlyActivityChart />
         </motion.div>
 
         {/* Middle/Bottom Row: Operations & Research */}

@@ -88,6 +88,17 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Activity Stats ============
+  app.get("/api/activity/monthly", async (req, res) => {
+    try {
+      const monthlyStats = await storage.getMonthlyActivityStats();
+      res.json(monthlyStats);
+    } catch (error) {
+      console.error("Error fetching monthly activity stats:", error);
+      res.status(500).json({ error: "Failed to fetch monthly activity stats" });
+    }
+  });
+
   // ============ Repositories ============
   app.get("/api/repositories", async (req, res) => {
     try {

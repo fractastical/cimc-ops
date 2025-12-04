@@ -55,6 +55,7 @@ export interface IStorage {
   getActivityByRepository(repositoryId: string, days?: number): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   getActivityStats(repositoryId: string, days?: number): Promise<{ date: string; count: number }[]>;
+  getMonthlyActivityStats(): Promise<{ month: string; commits: number }[]>;
 
   // Slack Messages
   getRecentSlackMessages(limit?: number): Promise<SlackMessage[]>;
@@ -233,6 +234,19 @@ export class DatabaseStorage implements IStorage {
     }
 
     return result;
+  }
+
+  async getMonthlyActivityStats(): Promise<{ month: string; commits: number }[]> {
+    const stats = await db
+      .select({
+        month: sql<string>`TO_CHAR(COALESCE(${activityLog.activityDate}, ${activityLog.createdAt}), 'YYYY-MM')`.as('month'),
+        commits: sql<number>`COUNT(*)::int`.as('commits'),
+      })
+      .from(activityLog)
+      .groupBy(sql`TO_CHAR(COALESCE(${activityLog.activityDate}, ${activityLog.createdAt}), 'YYYY-MM')`)
+      .orderBy(sql`TO_CHAR(COALESCE(${activityLog.activityDate}, ${activityLog.createdAt}), 'YYYY-MM')`);
+
+    return stats;
   }
 
   // Slack Messages
