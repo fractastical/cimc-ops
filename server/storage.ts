@@ -40,6 +40,7 @@ export interface IStorage {
   // Integration Settings
   getIntegrationSettings(): Promise<IntegrationSettings | undefined>;
   upsertIntegrationSettings(settings: InsertIntegrationSettings): Promise<IntegrationSettings>;
+  updateSchedulerTimestamp(type: "daily" | "weekly", timestamp: Date): Promise<void>;
 
   // Repositories
   getRepositories(): Promise<Repository[]>;
@@ -128,6 +129,23 @@ export class DatabaseStorage implements IStorage {
         .values(settings)
         .returning();
       return created;
+    }
+  }
+
+  async updateSchedulerTimestamp(type: "daily" | "weekly", timestamp: Date): Promise<void> {
+    const existing = await this.getIntegrationSettings();
+    if (!existing) return;
+
+    if (type === "daily") {
+      await db
+        .update(integrationSettings)
+        .set({ lastDailySentAt: timestamp })
+        .where(eq(integrationSettings.id, existing.id));
+    } else {
+      await db
+        .update(integrationSettings)
+        .set({ lastWeeklySentAt: timestamp })
+        .where(eq(integrationSettings.id, existing.id));
     }
   }
 

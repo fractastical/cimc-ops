@@ -9,8 +9,6 @@ export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly";
 
 export class SchedulerService {
   private checkInterval: NodeJS.Timeout | null = null;
-  private lastDailySent: Date | null = null;
-  private lastWeeklySent: Date | null = null;
 
   async start() {
     console.log("Starting scheduler service...");
@@ -20,8 +18,8 @@ export class SchedulerService {
       await this.checkSummaries();
     }, 60 * 60 * 1000); // Every hour
 
-    // Also check on start
-    await this.checkSummaries();
+    // Also check on start (with a delay to avoid startup race conditions)
+    setTimeout(() => this.checkSummaries(), 10000);
   }
 
   stop() {
@@ -39,35 +37,37 @@ export class SchedulerService {
     const currentHour = now.getHours();
     const currentDay = DAYS_OF_WEEK[getDay(now)];
 
-    // Check daily summary
+    // Check daily summary - using database-persisted timestamp
     if (settings.enableDailySummary) {
       const targetHour = parseInt(settings.dailySummaryTime.split(":")[0], 10);
       
       if (currentHour === targetHour) {
         const today = format(now, "yyyy-MM-dd");
-        const lastSentDay = this.lastDailySent ? format(this.lastDailySent, "yyyy-MM-dd") : null;
+        const lastSentDay = settings.lastDailySentAt ? format(new Date(settings.lastDailySentAt), "yyyy-MM-dd") : null;
         
         if (lastSentDay !== today) {
           console.log("Sending daily summary...");
           await this.sendDailySummary();
-          this.lastDailySent = now;
+          // Persist the timestamp to database to prevent duplicates across restarts
+          await storage.updateSchedulerTimestamp("daily", now);
         }
       }
     }
 
-    // Check weekly summary
+    // Check weekly summary - using database-persisted timestamp
     if (settings.enableWeeklySummary) {
       const targetDay = settings.weeklySummaryDay.toLowerCase();
       const targetHour = parseInt(settings.weeklySummaryTime.split(":")[0], 10);
       
       if (currentDay === targetDay && currentHour === targetHour) {
         const thisWeek = format(startOfWeek(now), "yyyy-MM-dd");
-        const lastSentWeek = this.lastWeeklySent ? format(startOfWeek(this.lastWeeklySent), "yyyy-MM-dd") : null;
+        const lastSentWeek = settings.lastWeeklySentAt ? format(startOfWeek(new Date(settings.lastWeeklySentAt)), "yyyy-MM-dd") : null;
         
         if (lastSentWeek !== thisWeek) {
           console.log("Sending weekly summary...");
           await this.sendWeeklySummary();
-          this.lastWeeklySent = now;
+          // Persist the timestamp to database to prevent duplicates across restarts
+          await storage.updateSchedulerTimestamp("weekly", now);
         }
       }
     }

@@ -31,6 +31,8 @@ export const integrationSettings = pgTable("integration_settings", {
   enableWeeklySummary: boolean("enable_weekly_summary").default(true).notNull(),
   weeklySummaryDay: text("weekly_summary_day").default("monday").notNull(), // Day of week
   weeklySummaryTime: text("weekly_summary_time").default("09:00").notNull(), // HH:mm format
+  lastDailySentAt: timestamp("last_daily_sent_at"), // Prevent duplicate sends
+  lastWeeklySentAt: timestamp("last_weekly_sent_at"), // Prevent duplicate sends
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
