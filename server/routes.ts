@@ -43,8 +43,14 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Start the scheduler service
-  schedulerService.start();
+  // Only start the scheduler in production to prevent duplicate sends from dev + production
+  const isProduction = process.env.NODE_ENV === "production";
+  if (isProduction) {
+    console.log("Production environment detected - starting scheduler service...");
+    schedulerService.start();
+  } else {
+    console.log("Development environment - scheduler disabled to prevent duplicate sends");
+  }
   
   // Auto-sync repos and hypotheses on startup (run in background)
   setTimeout(() => autoSyncOnStartup(), 5000);
