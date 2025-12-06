@@ -44,9 +44,12 @@ export async function registerRoutes(
 ): Promise<Server> {
   
   // Only start the scheduler in production to prevent duplicate sends from dev + production
-  const isProduction = process.env.NODE_ENV === "production";
+  // Check multiple indicators for production environment
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const isProduction = process.env.NODE_ENV === "production" || !isDevelopment;
+  
   if (isProduction) {
-    console.log("Production environment detected - starting scheduler service...");
+    console.log(`Production environment detected (NODE_ENV=${process.env.NODE_ENV}) - starting scheduler service...`);
     schedulerService.start();
   } else {
     console.log("Development environment - scheduler disabled to prevent duplicate sends");
