@@ -232,7 +232,7 @@ function ProjectHypothesesBadges({ projectId, hypotheses }: { projectId: string;
       unlinkProjectFromHypothesis(projectId, hypothesisId),
     onSuccess: () => {
       toast.success("Hypothesis unlinked");
-      queryClient.invalidateQueries({ queryKey: ["projectHypotheses", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
     },
     onError: () => {
       toast.error("Failed to unlink hypothesis");
