@@ -27,8 +27,137 @@ const PROJECT_COLORS = [
   "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"
 ];
 
+function MapHypothesesModal({ 
+  project, 
+  hypotheses, 
+  onClose 
+}: { 
+  project: ResearchTimeline; 
+  hypotheses: Hypothesis[]; 
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const { data: links = [] } = useQuery({
+    queryKey: ["projectHypotheses", project.project.id],
+    queryFn: () => getProjectHypotheses(project.project.id),
+  });
+
+  const linkedIds = new Set(links.map(l => l.hypothesisId));
+
+  const linkMutation = useMutation({
+    mutationFn: (hypothesisId: string) =>
+      linkProjectToHypothesis(project.project.id, hypothesisId, "tests"),
+    onSuccess: () => {
+      toast.success("Hypothesis linked");
+      queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
+    },
+    onError: () => {
+      toast.error("Failed to link hypothesis");
+    },
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: (hypothesisId: string) =>
+      unlinkProjectFromHypothesis(project.project.id, hypothesisId),
+    onSuccess: () => {
+      toast.success("Hypothesis unlinked");
+      queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
+    },
+    onError: () => {
+      toast.error("Failed to unlink hypothesis");
+    },
+  });
+
+  const filteredHypotheses = hypotheses.filter(h =>
+    h.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (h.summary && h.summary.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div 
+        className="bg-background border border-border rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-amber-400" />
+            <h3 className="font-mono font-semibold">Map Hypotheses to {project.project.name}</h3>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="p-4 border-b border-border">
+          <Input
+            placeholder="Search hypotheses..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="font-mono"
+            data-testid="input-search-hypotheses"
+          />
+        </div>
+        <div className="p-4 space-y-2 max-h-[50vh] overflow-y-auto">
+          {filteredHypotheses.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-4">No hypotheses found</p>
+          ) : (
+            filteredHypotheses.map((hypothesis) => {
+              const isLinked = linkedIds.has(hypothesis.id);
+              return (
+                <div
+                  key={hypothesis.id}
+                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                    isLinked 
+                      ? 'border-amber-500/50 bg-amber-500/10' 
+                      : 'border-border/40 hover:border-primary/40 hover:bg-muted/10'
+                  }`}
+                  onClick={() => {
+                    if (isLinked) {
+                      unlinkMutation.mutate(hypothesis.id);
+                    } else {
+                      linkMutation.mutate(hypothesis.id);
+                    }
+                  }}
+                  data-testid={`hypothesis-toggle-${hypothesis.id}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm truncate">{hypothesis.title}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {hypothesis.status}
+                        </Badge>
+                      </div>
+                      {hypothesis.summary && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          {hypothesis.summary}
+                        </p>
+                      )}
+                    </div>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                      isLinked ? 'border-amber-500 bg-amber-500' : 'border-muted-foreground'
+                    }`}>
+                      {isLinked && <span className="text-white text-xs">✓</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div className="p-4 border-t border-border flex justify-end">
+          <Button onClick={onClose} data-testid="button-close-modal">Done</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTimeline[]; hypotheses: Hypothesis[] }) {
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
+  const [mappingProject, setMappingProject] = useState<ResearchTimeline | null>(null);
 
   if (timeline.length === 0) {
     return (
@@ -162,6 +291,21 @@ function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTim
                   {/* Expanded details */}
                   {isExpanded && (
                     <div className="ml-8 pl-4 border-l-2 border-primary/30 py-2 space-y-3">
+                      <div className="flex items-center gap-2 pb-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMappingProject(project);
+                          }}
+                          data-testid={`button-map-hypotheses-${project.project.id}`}
+                        >
+                          <Lightbulb className="h-3 w-3 mr-1 text-amber-400" />
+                          Map Hypotheses
+                        </Button>
+                      </div>
                       {project.updates
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                         .map(update => (
@@ -215,6 +359,15 @@ function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTim
           </div>
         </CardContent>
       </Card>
+
+      {/* Map Hypotheses Modal */}
+      {mappingProject && (
+        <MapHypothesesModal
+          project={mappingProject}
+          hypotheses={hypotheses}
+          onClose={() => setMappingProject(null)}
+        />
+      )}
     </div>
   );
 }
