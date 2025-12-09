@@ -798,14 +798,19 @@ function HypothesisActivityPanel() {
   // Sort by total updates descending
   const sortedActivity = [...linkedActivity].sort((a, b) => b.totalUpdates - a.totalUpdates);
 
-  // Prepare chart data - merge all hypothesis timelines into one array
+  // Prepare chart data - merge all hypothesis timelines into one array with cumulative counts
   const chartData = linkedTimeline.length > 0 
     ? linkedTimeline[0].data.map((_, weekIndex) => {
         const point: Record<string, string | number> = { 
           week: linkedTimeline[0].data[weekIndex].week 
         };
-        linkedTimeline.forEach((h, idx) => {
-          point[h.hypothesisTitle] = h.data[weekIndex]?.count || 0;
+        linkedTimeline.forEach((h) => {
+          // Sum all counts from week 0 to current week for cumulative total
+          let cumulative = 0;
+          for (let i = 0; i <= weekIndex; i++) {
+            cumulative += h.data[i]?.count || 0;
+          }
+          point[h.hypothesisTitle] = cumulative;
         });
         return point;
       })
