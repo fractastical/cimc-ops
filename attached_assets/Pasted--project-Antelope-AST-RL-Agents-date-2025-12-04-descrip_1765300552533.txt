@@ -1,0 +1,47 @@
+[
+  {
+    "project": "Antelope (AST RL Agents)",
+    "date": "2025-12-04",
+    "description": "Geetanjali Normandale reported Antelope has not started yet but is planned to begin in January; the team is drafting a review/position paper on attention schema theory, their approach, and LLM metacognition, targeting submission to an April conference (with noted schedule risk)."
+  },
+  {
+    "project": "Coherent Active States / Neuron Groups",
+    "date": "2025-12-04",
+    "description": "Jochen said their workload peak has passed and they can focus more until ~end of March; near-term work is preparing the data acquisition (binocular) rig for training data production and sketching how high-level control could integrate indirectly with their current low-level system, including deeper study of subcortical circuits (basal ganglia/thalamus)."
+  },
+  {
+    "project": "Coherent Active States / Neuron Groups",
+    "date": "2025-12-04",
+    "description": "Priska Herger indicated improved availability going forward (after resolving sleep deprivation) and plans to collaborate more with Yan to advance their self-organized learning/neuron-group work in the coming months."
+  },
+  {
+    "project": "Self-Organizing MoE / NCA",
+    "date": "2025-12-04",
+    "description": "Aleksandr Groznykh described progress on the patch-NCA border-condition problem via a training regime that exchanges borders between adjacent patches at every step (parallelizable on a GPU cluster but requiring distributed communication), and is exploring using an NCA channel as a learned signal for whether a cell fires an update to guide patch movement."
+  },
+  {
+    "project": "Self-Organizing MoE / NCA",
+    "date": "2025-12-04",
+    "description": "The group discussed catastrophic forgetting when patch NCAs concentrate on one spatial region; Jochen suggested mitigating this by selectively training only a subset of weights (chosen by a criterion/metric) rather than updating the full parameter set each step."
+  },
+  {
+    "project": "Child LLM Project",
+    "date": "2025-12-04",
+    "description": "Joscha Bach reiterated the 'Baby LLM' vision: a model trained primarily on the inner monologue of an agent interacting with its environment (Piagetian-style learning), using a sparse high-quality synthetic dataset with limited vocabulary; he noted that purely linguistic monologue may be insufficient and suggested augmenting with structured representations (e.g., JSON) for spatial context."
+  },
+  {
+    "project": "Cognitive Architectures (Core Internal Project)",
+    "date": "2025-12-04",
+    "description": "Hikari Sorensen shared that after the offsite, the internal technical project set has been refined, with 'Baby LLM' and 'Cognitive Architectures' identified as core internal projects for early work."
+  },
+  {
+    "project": "Consciousness as Information Binding (Core Internal Project)",
+    "date": "2025-12-04",
+    "description": "Hikari Sorensen described a third internal project in early drafting that explores the function of consciousness as binding information from different perceptual models—framed as asking what concrete task consciousness could be solving, potentially involving agentic control under energy constraints."
+  },
+  {
+    "project": "Research Dashboard / Unified Progress Tracking Tool",
+    "date": "2025-12-04",
+    "description": "Joel Ðietz demoed a new unified research dashboard that aggregates Gemini notes, hypotheses from CIMC talks, and supports Slack-based querying; they indicated it can integrate updates from public repositories if given access and are working to make the dashboard accessible to attendees."
+  }
+]
