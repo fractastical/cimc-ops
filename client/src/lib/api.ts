@@ -290,6 +290,18 @@ export async function getHypothesisActivity(): Promise<HypothesisActivity[]> {
   return res.json();
 }
 
+export interface HypothesisActivityTimeline {
+  hypothesisId: string;
+  hypothesisTitle: string;
+  data: Array<{ week: string; count: number }>;
+}
+
+export async function getHypothesisActivityTimeline(): Promise<HypothesisActivityTimeline[]> {
+  const res = await fetch("/api/hypotheses/activity/timeline");
+  if (!res.ok) throw new Error("Failed to fetch hypothesis activity timeline");
+  return res.json();
+}
+
 export async function getHypothesis(id: string): Promise<Hypothesis> {
   const res = await fetch(`/api/hypotheses/${id}`);
   if (!res.ok) throw new Error("Failed to fetch hypothesis");

@@ -102,6 +102,12 @@ export interface IStorage {
     lastActivityDate: string | null;
     linkedProjects: Array<{ id: string; name: string; color: string | null; updateCount: number }>;
   }>>;
+  
+  getHypothesisActivityTimeline(): Promise<Array<{
+    hypothesisId: string;
+    hypothesisTitle: string;
+    data: Array<{ week: string; count: number }>;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -483,6 +489,71 @@ export class DatabaseStorage implements IStorage {
           totalUpdates,
           lastActivityDate,
           linkedProjects,
+        };
+      })
+    );
+  }
+
+  async getHypothesisActivityTimeline(): Promise<Array<{
+    hypothesisId: string;
+    hypothesisTitle: string;
+    data: Array<{ week: string; count: number }>;
+  }>> {
+    const allHypotheses = await this.getHypotheses();
+    
+    // Get last 12 weeks of data
+    const weeks: string[] = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const weekDate = new Date(now);
+      weekDate.setDate(weekDate.getDate() - (i * 7));
+      const weekStr = format(weekDate, 'yyyy-MM-dd');
+      weeks.push(weekStr);
+    }
+    
+    return await Promise.all(
+      allHypotheses.map(async (hypothesis) => {
+        const linkedProjectsData = await this.getHypothesisProjects(hypothesis.id);
+        
+        // Get all updates from linked projects
+        const allUpdates: Date[] = [];
+        await Promise.all(
+          linkedProjectsData.map(async (link) => {
+            const updates = await db
+              .select({ date: researchUpdates.date })
+              .from(researchUpdates)
+              .where(eq(researchUpdates.projectId, link.projectId));
+            
+            updates.forEach(u => allUpdates.push(u.date));
+          })
+        );
+        
+        // Aggregate by week
+        const weekCounts = new Map<string, number>();
+        weeks.forEach(w => weekCounts.set(w, 0));
+        
+        allUpdates.forEach(updateDate => {
+          // Find which week this update belongs to
+          const updateTime = updateDate.getTime();
+          for (let i = 0; i < weeks.length; i++) {
+            const weekStart = new Date(weeks[i]).getTime();
+            // Each week spans 7 days
+            const weekEnd = weekStart + (7 * 24 * 60 * 60 * 1000);
+            
+            if (updateTime >= weekStart && updateTime < weekEnd) {
+              weekCounts.set(weeks[i], (weekCounts.get(weeks[i]) || 0) + 1);
+              break;
+            }
+          }
+        });
+        
+        return {
+          hypothesisId: hypothesis.id,
+          hypothesisTitle: hypothesis.title,
+          data: weeks.map(week => ({
+            week: format(new Date(week), 'MMM d'),
+            count: weekCounts.get(week) || 0,
+          })),
         };
       })
     );

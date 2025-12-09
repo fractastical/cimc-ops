@@ -15,10 +15,12 @@ import {
   getProjectHypotheses,
   unlinkProjectFromHypothesis,
   getHypothesisActivity,
+  getHypothesisActivityTimeline,
   type ResearchTimeline,
   type Hypothesis,
   type HypothesisActivity,
 } from "@/lib/api";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -55,6 +57,7 @@ function MapHypothesesModal({
       toast.success("Hypothesis linked");
       queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
       queryClient.invalidateQueries({ queryKey: ["hypothesisActivity"] });
+      queryClient.invalidateQueries({ queryKey: ["hypothesisActivityTimeline"] });
     },
     onError: () => {
       toast.error("Failed to link hypothesis");
@@ -68,6 +71,7 @@ function MapHypothesesModal({
       toast.success("Hypothesis unlinked");
       queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
       queryClient.invalidateQueries({ queryKey: ["hypothesisActivity"] });
+      queryClient.invalidateQueries({ queryKey: ["hypothesisActivityTimeline"] });
     },
     onError: () => {
       toast.error("Failed to unlink hypothesis");
@@ -391,6 +395,7 @@ function ProjectHypothesesBadges({ projectId, hypotheses }: { projectId: string;
       toast.success("Hypothesis unlinked");
       queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
       queryClient.invalidateQueries({ queryKey: ["hypothesisActivity"] });
+      queryClient.invalidateQueries({ queryKey: ["hypothesisActivityTimeline"] });
     },
     onError: () => {
       toast.error("Failed to unlink hypothesis");
@@ -488,6 +493,7 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
       queryClient.invalidateQueries({ queryKey: ["hypotheses"] });
       queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
       queryClient.invalidateQueries({ queryKey: ["hypothesisActivity"] });
+      queryClient.invalidateQueries({ queryKey: ["hypothesisActivityTimeline"] });
       setLinkingProject(null);
     },
     onError: () => {
@@ -729,14 +735,29 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
   );
 }
 
+const HYPOTHESIS_COLORS = [
+  "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444", 
+  "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"
+];
+
 function HypothesisActivityPanel() {
-  const { data: activity = [], isLoading } = useQuery({
+  const { data: activity = [], isLoading: activityLoading } = useQuery({
     queryKey: ["hypothesisActivity"],
     queryFn: getHypothesisActivity,
   });
 
+  const { data: timeline = [], isLoading: timelineLoading } = useQuery({
+    queryKey: ["hypothesisActivityTimeline"],
+    queryFn: getHypothesisActivityTimeline,
+  });
+
   // Only show hypotheses with linked projects
   const linkedActivity = activity.filter(a => a.linkedProjects.length > 0);
+  const linkedTimeline = timeline.filter(t => 
+    linkedActivity.some(a => a.hypothesis.id === t.hypothesisId)
+  );
+
+  const isLoading = activityLoading || timelineLoading;
 
   if (isLoading) {
     return (
@@ -777,6 +798,19 @@ function HypothesisActivityPanel() {
   // Sort by total updates descending
   const sortedActivity = [...linkedActivity].sort((a, b) => b.totalUpdates - a.totalUpdates);
 
+  // Prepare chart data - merge all hypothesis timelines into one array
+  const chartData = linkedTimeline.length > 0 
+    ? linkedTimeline[0].data.map((_, weekIndex) => {
+        const point: Record<string, string | number> = { 
+          week: linkedTimeline[0].data[weekIndex].week 
+        };
+        linkedTimeline.forEach((h, idx) => {
+          point[h.hypothesisTitle] = h.data[weekIndex]?.count || 0;
+        });
+        return point;
+      })
+    : [];
+
   return (
     <Card className="glass-panel border-primary/20">
       <CardHeader>
@@ -785,9 +819,53 @@ function HypothesisActivityPanel() {
           Hypothesis Activity
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-6">
+        {/* Line Chart */}
+        {chartData.length > 0 && (
+          <div className="h-64" data-testid="hypothesis-activity-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                <XAxis 
+                  dataKey="week" 
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                />
+                <YAxis 
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                  allowDecimals={false}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    fontSize: '12px'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '11px' }}
+                />
+                {linkedTimeline.map((h, idx) => (
+                  <Line
+                    key={h.hypothesisId}
+                    type="monotone"
+                    dataKey={h.hypothesisTitle}
+                    stroke={HYPOTHESIS_COLORS[idx % HYPOTHESIS_COLORS.length]}
+                    strokeWidth={2}
+                    dot={{ fill: HYPOTHESIS_COLORS[idx % HYPOTHESIS_COLORS.length], r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Activity Summary Cards */}
         <div className="space-y-4">
-          {sortedActivity.map(({ hypothesis, totalUpdates, lastActivityDate, linkedProjects }) => (
+          {sortedActivity.map(({ hypothesis, totalUpdates, lastActivityDate, linkedProjects }, idx) => (
             <div 
               key={hypothesis.id}
               className="p-4 border border-border/40 rounded-lg bg-muted/5"
@@ -796,13 +874,17 @@ function HypothesisActivityPanel() {
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: HYPOTHESIS_COLORS[idx % HYPOTHESIS_COLORS.length] }}
+                    />
                     <h4 className="font-medium text-sm truncate">{hypothesis.title}</h4>
                     <Badge variant="outline" className="text-xs shrink-0">
                       {hypothesis.status}
                     </Badge>
                   </div>
                   {hypothesis.summary && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                    <p className="text-xs text-muted-foreground mt-1 ml-5 line-clamp-1">
                       {hypothesis.summary}
                     </p>
                   )}
@@ -813,7 +895,7 @@ function HypothesisActivityPanel() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center justify-between text-xs text-muted-foreground ml-5">
                 <div className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
                   <span>

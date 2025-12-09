@@ -580,6 +580,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/hypotheses/activity/timeline", async (req, res) => {
+    try {
+      const timeline = await storage.getHypothesisActivityTimeline();
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error fetching hypothesis activity timeline:", error);
+      res.status(500).json({ error: "Failed to fetch hypothesis activity timeline" });
+    }
+  });
+
   app.get("/api/hypotheses/:id", async (req, res) => {
     try {
       const hypothesis = await storage.getHypothesis(req.params.id);
