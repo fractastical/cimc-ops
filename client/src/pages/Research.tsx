@@ -14,8 +14,10 @@ import {
   linkProjectToHypothesis,
   getProjectHypotheses,
   unlinkProjectFromHypothesis,
+  getHypothesisActivity,
   type ResearchTimeline,
   type Hypothesis,
+  type HypothesisActivity,
 } from "@/lib/api";
 import { toast } from "sonner";
 import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github } from "lucide-react";
@@ -52,6 +54,7 @@ function MapHypothesesModal({
     onSuccess: () => {
       toast.success("Hypothesis linked");
       queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
+      queryClient.invalidateQueries({ queryKey: ["hypothesisActivity"] });
     },
     onError: () => {
       toast.error("Failed to link hypothesis");
@@ -64,6 +67,7 @@ function MapHypothesesModal({
     onSuccess: () => {
       toast.success("Hypothesis unlinked");
       queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
+      queryClient.invalidateQueries({ queryKey: ["hypothesisActivity"] });
     },
     onError: () => {
       toast.error("Failed to unlink hypothesis");
@@ -386,6 +390,7 @@ function ProjectHypothesesBadges({ projectId, hypotheses }: { projectId: string;
     onSuccess: () => {
       toast.success("Hypothesis unlinked");
       queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
+      queryClient.invalidateQueries({ queryKey: ["hypothesisActivity"] });
     },
     onError: () => {
       toast.error("Failed to unlink hypothesis");
@@ -482,6 +487,7 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
       toast.success("Project linked to hypothesis");
       queryClient.invalidateQueries({ queryKey: ["hypotheses"] });
       queryClient.invalidateQueries({ queryKey: ["projectHypotheses"] });
+      queryClient.invalidateQueries({ queryKey: ["hypothesisActivity"] });
       setLinkingProject(null);
     },
     onError: () => {
@@ -723,6 +729,124 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
   );
 }
 
+function HypothesisActivityPanel() {
+  const { data: activity = [], isLoading } = useQuery({
+    queryKey: ["hypothesisActivity"],
+    queryFn: getHypothesisActivity,
+  });
+
+  // Only show hypotheses with linked projects
+  const linkedActivity = activity.filter(a => a.linkedProjects.length > 0);
+
+  if (isLoading) {
+    return (
+      <Card className="glass-panel border-primary/20">
+        <CardHeader>
+          <CardTitle className="font-mono text-lg flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-amber-400" />
+            Hypothesis Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (linkedActivity.length === 0) {
+    return (
+      <Card className="glass-panel border-primary/20">
+        <CardHeader>
+          <CardTitle className="font-mono text-lg flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-amber-400" />
+            Hypothesis Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm text-center py-6">
+            No hypotheses are linked to projects yet. Map hypotheses to projects to see activity.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Sort by total updates descending
+  const sortedActivity = [...linkedActivity].sort((a, b) => b.totalUpdates - a.totalUpdates);
+
+  return (
+    <Card className="glass-panel border-primary/20">
+      <CardHeader>
+        <CardTitle className="font-mono text-lg flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-amber-400" />
+          Hypothesis Activity
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {sortedActivity.map(({ hypothesis, totalUpdates, lastActivityDate, linkedProjects }) => (
+            <div 
+              key={hypothesis.id}
+              className="p-4 border border-border/40 rounded-lg bg-muted/5"
+              data-testid={`hypothesis-activity-${hypothesis.id}`}
+            >
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-sm truncate">{hypothesis.title}</h4>
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {hypothesis.status}
+                    </Badge>
+                  </div>
+                  {hypothesis.summary && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                      {hypothesis.summary}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-2xl font-bold text-primary">{totalUpdates}</div>
+                  <div className="text-xs text-muted-foreground">updates</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  <span>
+                    Last: {lastActivityDate 
+                      ? format(parseISO(lastActivityDate), 'MMM d, yyyy')
+                      : 'No activity'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {linkedProjects.map(project => (
+                    <div 
+                      key={project.id}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/30"
+                      title={`${project.name}: ${project.updateCount} updates`}
+                    >
+                      <div 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: project.color || "#10b981" }}
+                      />
+                      <span className="truncate max-w-[80px]">{project.name}</span>
+                      <span className="text-primary font-mono">({project.updateCount})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Research() {
   const queryClient = useQueryClient();
   const [jsonInput, setJsonInput] = useState("");
@@ -826,6 +950,9 @@ export default function Research() {
           </CardContent>
         </Card>
       )}
+
+      {/* Hypothesis Activity Panel */}
+      <HypothesisActivityPanel />
 
       {/* Hypotheses Section */}
       <HypothesesSection timeline={timeline || []} />

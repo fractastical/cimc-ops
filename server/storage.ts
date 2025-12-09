@@ -94,6 +94,14 @@ export interface IStorage {
   getAllProjectHypothesisLinks(): Promise<ProjectHypothesis[]>;
   linkProjectHypothesis(link: InsertProjectHypothesis): Promise<ProjectHypothesis>;
   unlinkProjectHypothesis(projectId: string, hypothesisId: string): Promise<void>;
+  
+  // Hypothesis Activity
+  getHypothesisActivity(): Promise<Array<{
+    hypothesis: Hypothesis;
+    totalUpdates: number;
+    lastActivityDate: string | null;
+    linkedProjects: Array<{ id: string; name: string; color: string | null; updateCount: number }>;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -427,6 +435,57 @@ export class DatabaseStorage implements IStorage {
           eq(projectHypotheses.hypothesisId, hypothesisId)
         )
       );
+  }
+
+  async getHypothesisActivity(): Promise<Array<{
+    hypothesis: Hypothesis;
+    totalUpdates: number;
+    lastActivityDate: string | null;
+    linkedProjects: Array<{ id: string; name: string; color: string | null; updateCount: number }>;
+  }>> {
+    const allHypotheses = await this.getHypotheses();
+    
+    return await Promise.all(
+      allHypotheses.map(async (hypothesis) => {
+        const linkedProjectsData = await this.getHypothesisProjects(hypothesis.id);
+        
+        let totalUpdates = 0;
+        let lastActivityDate: string | null = null;
+        
+        const linkedProjects = await Promise.all(
+          linkedProjectsData.map(async (link) => {
+            const updates = await db
+              .select()
+              .from(researchUpdates)
+              .where(eq(researchUpdates.projectId, link.projectId))
+              .orderBy(desc(researchUpdates.date));
+            
+            totalUpdates += updates.length;
+            
+            if (updates.length > 0) {
+              const projectLastUpdate = updates[0].date.toISOString();
+              if (!lastActivityDate || projectLastUpdate > lastActivityDate) {
+                lastActivityDate = projectLastUpdate;
+              }
+            }
+            
+            return {
+              id: link.project.id,
+              name: link.project.name,
+              color: link.project.color,
+              updateCount: updates.length,
+            };
+          })
+        );
+        
+        return {
+          hypothesis,
+          totalUpdates,
+          lastActivityDate,
+          linkedProjects,
+        };
+      })
+    );
   }
 }
 

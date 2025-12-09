@@ -569,6 +569,17 @@ export async function registerRoutes(
     }
   });
 
+  // Hypothesis Activity - must be before :id route
+  app.get("/api/hypotheses/activity", async (req, res) => {
+    try {
+      const activity = await storage.getHypothesisActivity();
+      res.json(activity);
+    } catch (error) {
+      console.error("Error fetching hypothesis activity:", error);
+      res.status(500).json({ error: "Failed to fetch hypothesis activity" });
+    }
+  });
+
   app.get("/api/hypotheses/:id", async (req, res) => {
     try {
       const hypothesis = await storage.getHypothesis(req.params.id);

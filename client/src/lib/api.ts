@@ -277,6 +277,19 @@ export async function getHypotheses(): Promise<Hypothesis[]> {
   return res.json();
 }
 
+export interface HypothesisActivity {
+  hypothesis: Hypothesis;
+  totalUpdates: number;
+  lastActivityDate: string | null;
+  linkedProjects: Array<{ id: string; name: string; color: string | null; updateCount: number }>;
+}
+
+export async function getHypothesisActivity(): Promise<HypothesisActivity[]> {
+  const res = await fetch("/api/hypotheses/activity");
+  if (!res.ok) throw new Error("Failed to fetch hypothesis activity");
+  return res.json();
+}
+
 export async function getHypothesis(id: string): Promise<Hypothesis> {
   const res = await fetch(`/api/hypotheses/${id}`);
   if (!res.ok) throw new Error("Failed to fetch hypothesis");
