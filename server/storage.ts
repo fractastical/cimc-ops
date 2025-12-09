@@ -74,6 +74,12 @@ export interface IStorage {
   createResearchUpdate(update: InsertResearchUpdate): Promise<ResearchUpdate>;
   getResearchTimeline(): Promise<{ project: ResearchProject; updates: ResearchUpdate[] }[]>;
 
+  // Project-Hypothesis Links
+  getProjectHypotheses(projectId: string): Promise<Array<{ projectId: string; hypothesisId: string; relationship: string | null; hypothesis: Hypothesis }>>;
+  getAllProjectHypothesisLinks(): Promise<Array<{ id: string; projectId: string; hypothesisId: string; relationship: string | null }>>;
+  linkProjectHypothesis(link: InsertProjectHypothesis): Promise<{ id: string; projectId: string; hypothesisId: string; relationship: string | null }>;
+  unlinkProjectHypothesis(projectId: string, hypothesisId: string): Promise<void>;
+
   // Hypotheses
   getHypotheses(): Promise<Hypothesis[]>;
   getHypothesis(id: string): Promise<Hypothesis | undefined>;

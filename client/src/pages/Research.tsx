@@ -27,7 +27,7 @@ const PROJECT_COLORS = [
   "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"
 ];
 
-function ResearchTimelineChart({ timeline }: { timeline: ResearchTimeline[] }) {
+function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTimeline[]; hypotheses: Hypothesis[] }) {
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
 
   if (timeline.length === 0) {
@@ -156,6 +156,9 @@ function ResearchTimelineChart({ timeline }: { timeline: ResearchTimeline[] }) {
                     </div>
                   </div>
 
+                  {/* Linked Hypotheses */}
+                  <ProjectHypothesesBadges projectId={project.project.id} hypotheses={hypotheses} />
+
                   {/* Expanded details */}
                   {isExpanded && (
                     <div className="ml-8 pl-4 border-l-2 border-primary/30 py-2 space-y-3">
@@ -212,6 +215,60 @@ function ResearchTimelineChart({ timeline }: { timeline: ResearchTimeline[] }) {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ProjectHypothesesBadges({ projectId, hypotheses }: { projectId: string; hypotheses: Hypothesis[] }) {
+  const queryClient = useQueryClient();
+  
+  const { data: links = [] } = useQuery({
+    queryKey: ["projectHypotheses", projectId],
+    queryFn: () => getProjectHypotheses(projectId),
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: ({ hypothesisId }: { hypothesisId: string }) =>
+      unlinkProjectFromHypothesis(projectId, hypothesisId),
+    onSuccess: () => {
+      toast.success("Hypothesis unlinked");
+      queryClient.invalidateQueries({ queryKey: ["projectHypotheses", projectId] });
+    },
+    onError: () => {
+      toast.error("Failed to unlink hypothesis");
+    },
+  });
+
+  if (links.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-2">
+      {links.map((link) => {
+        const hypothesis = link.hypothesis || hypotheses.find(h => h.id === link.hypothesisId);
+        if (!hypothesis) return null;
+        return (
+          <Badge
+            key={link.hypothesisId}
+            variant="outline"
+            className="text-xs bg-amber-500/10 text-amber-400 border-amber-500/30 flex items-center gap-1 group"
+          >
+            <Lightbulb className="h-3 w-3" />
+            <span className="max-w-[150px] truncate" title={hypothesis.title}>
+              {hypothesis.title}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                unlinkMutation.mutate({ hypothesisId: link.hypothesisId });
+              }}
+              className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity ml-1"
+              title="Unlink hypothesis"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        );
+      })}
     </div>
   );
 }
@@ -523,6 +580,11 @@ export default function Research() {
     queryFn: getResearchTimeline,
   });
 
+  const { data: hypotheses = [] } = useQuery({
+    queryKey: ["hypotheses"],
+    queryFn: getHypotheses,
+  });
+
   const importMutation = useMutation({
     mutationFn: (notes: { project: string; date: string; description: string }[]) => 
       importResearchNotes(notes),
@@ -615,7 +677,7 @@ export default function Research() {
       {/* Hypotheses Section */}
       <HypothesesSection timeline={timeline || []} />
 
-      <ResearchTimelineChart timeline={timeline || []} />
+      <ResearchTimelineChart timeline={timeline || []} hypotheses={hypotheses} />
     </div>
   );
 }
