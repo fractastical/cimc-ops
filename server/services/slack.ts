@@ -796,17 +796,28 @@ export class SlackService {
     totalPRs: number;
     activeRepos: number;
     topContributor: string;
-    repoActivity: Array<{ repo: string; commits: number }>;
+    repoActivity: Array<{ repo: string; commits: number; longestMessage?: string | null }>;
   }) {
+    // Build repo activity section with longest commit messages
+    const repoLines = summary.repoActivity.map(r => {
+      let line = `  • *${r.repo}*: ${r.commits} commits`;
+      if (r.longestMessage) {
+        // Truncate long messages to 150 chars
+        const msg = r.longestMessage.length > 150 
+          ? r.longestMessage.substring(0, 147) + "..." 
+          : r.longestMessage;
+        line += `\n      _"${msg}"_`;
+      }
+      return line;
+    }).join("\n");
+
     const text = `:bar_chart: *Daily GitHub Activity Summary*\n\n` +
                  `• Total Commits: ${summary.totalCommits}\n` +
                  `• Pull Requests: ${summary.totalPRs}\n` +
                  `• Active Repositories: ${summary.activeRepos}\n` +
                  `• Top Contributor: ${summary.topContributor}\n\n` +
                  `*Repository Activity:*\n` +
-                 summary.repoActivity
-                   .map(r => `  • ${r.repo}: ${r.commits} commits`)
-                   .join("\n");
+                 repoLines;
 
     return await this.sendMessage(text);
   }

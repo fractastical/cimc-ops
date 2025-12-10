@@ -91,9 +91,20 @@ export class SchedulerService {
     const repoActivity = await Promise.all(
       repos.map(async (repo) => {
         const stats = await storage.getActivityByRepository(repo.id, 1);
+        const commitActivities = stats.filter(s => s.eventType === "push");
+        
+        // Find the longest commit message from this repo
+        let longestMessage = "";
+        commitActivities.forEach(activity => {
+          if (activity.message && activity.message.length > longestMessage.length) {
+            longestMessage = activity.message;
+          }
+        });
+        
         return {
           repo: repo.name,
-          commits: stats.filter(s => s.eventType === "push").length,
+          commits: commitActivities.length,
+          longestMessage: longestMessage || null,
         };
       })
     );
