@@ -854,7 +854,6 @@ export async function registerRoutes(
 
   // Hypothesis Activity Timeline Embed
   app.get("/embed/charts/hypotheses", async (req, res) => {
-    const baseUrl = getBaseUrl(req);
     const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -897,7 +896,9 @@ export async function registerRoutes(
     
     async function loadChart() {
       try {
-        const response = await fetch('${baseUrl}/api/hypotheses/activity/timeline');
+        // Use absolute URL based on current page origin
+        const apiUrl = window.location.origin + '/api/hypotheses/activity/timeline';
+        const response = await fetch(apiUrl);
         const data = await response.json();
         
         if (!data || data.length === 0) {
@@ -979,7 +980,6 @@ export async function registerRoutes(
 
   // Monthly Activity Bar Chart Embed
   app.get("/embed/charts/activity", async (req, res) => {
-    const baseUrl = getBaseUrl(req);
     const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -1020,7 +1020,8 @@ export async function registerRoutes(
   <script>
     async function loadChart() {
       try {
-        const response = await fetch('${baseUrl}/api/activity/monthly');
+        const apiUrl = window.location.origin + '/api/activity/monthly';
+        const response = await fetch(apiUrl);
         const data = await response.json();
         
         if (!data || data.length === 0) {
@@ -1100,7 +1101,6 @@ export async function registerRoutes(
 
   // Research Projects Status Donut Chart Embed
   app.get("/embed/charts/projects", async (req, res) => {
-    const baseUrl = getBaseUrl(req);
     const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -1149,7 +1149,8 @@ export async function registerRoutes(
     
     async function loadChart() {
       try {
-        const response = await fetch('${baseUrl}/api/research/timeline');
+        const apiUrl = window.location.origin + '/api/research/timeline';
+        const response = await fetch(apiUrl);
         const data = await response.json();
         
         if (!data || !data.projects || data.projects.length === 0) {
