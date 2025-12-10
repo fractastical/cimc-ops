@@ -838,8 +838,8 @@ export async function registerRoutes(
     </div>
     
     <div class="card">
-      <h2>Research Projects Status</h2>
-      <p>Current status breakdown of all research projects as a donut chart</p>
+      <h2>Research Project Activity</h2>
+      <p>Number of research updates per project, sorted by most active</p>
       <div class="endpoint">${baseUrl}/embed/charts/projects</div>
       <a href="/embed/charts/projects" target="_blank" class="preview-link">→ Preview chart</a>
       <div class="embed-code">
@@ -1099,7 +1099,7 @@ export async function registerRoutes(
     res.type('html').send(html);
   });
 
-  // Research Projects Status Donut Chart Embed
+  // Research Projects Activity Bar Chart Embed
   app.get("/embed/charts/projects", async (req, res) => {
     const html = `
 <!DOCTYPE html>
@@ -1139,13 +1139,7 @@ export async function registerRoutes(
     <div class="error" id="error" style="display: none;"></div>
   </div>
   <script>
-    const STATUS_COLORS = {
-      'active': '#10b981',
-      'planning': '#f59e0b',
-      'completed': '#3b82f6',
-      'on-hold': '#6b7280',
-      'archived': '#374151'
-    };
+    const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'];
     
     async function loadChart() {
       try {
@@ -1153,7 +1147,6 @@ export async function registerRoutes(
         const response = await fetch(apiUrl);
         const data = await response.json();
         
-        // API returns array directly, not {projects: [...]}
         if (!data || !Array.isArray(data) || data.length === 0) {
           document.getElementById('loading').style.display = 'none';
           document.getElementById('error').style.display = 'block';
@@ -1161,44 +1154,52 @@ export async function registerRoutes(
           return;
         }
         
-        // Count projects by status
-        const statusCounts = {};
-        data.forEach(p => {
-          const status = p.project?.status || 'active';
-          statusCounts[status] = (statusCounts[status] || 0) + 1;
-        });
+        // Sort by number of updates descending
+        const sorted = data
+          .map(p => ({ name: p.project?.name || 'Unknown', updates: p.updates?.length || 0 }))
+          .sort((a, b) => b.updates - a.updates);
         
-        const labels = Object.keys(statusCounts);
-        const values = Object.values(statusCounts);
-        const colors = labels.map(s => STATUS_COLORS[s] || '#6b7280');
+        const labels = sorted.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
+        const values = sorted.map(p => p.updates);
+        const colors = sorted.map((_, i) => COLORS[i % COLORS.length]);
         
         document.getElementById('loading').style.display = 'none';
         document.getElementById('chart').style.display = 'block';
         
         const ctx = document.getElementById('chart').getContext('2d');
         new Chart(ctx, {
-          type: 'doughnut',
+          type: 'bar',
           data: {
-            labels: labels.map(s => s.charAt(0).toUpperCase() + s.slice(1)),
+            labels,
             datasets: [{
+              label: 'Research Updates',
               data: values,
               backgroundColor: colors,
-              borderWidth: 0
+              borderRadius: 4
             }]
           },
           options: {
+            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-              legend: { 
-                position: 'bottom',
-                labels: { color: '#94a3b8', font: { size: 11 } }
-              },
+              legend: { display: false },
               title: {
                 display: true,
-                text: 'Research Projects by Status',
+                text: 'Research Project Activity',
                 color: '#e2e8f0',
                 font: { size: 14, weight: 'bold' }
+              }
+            },
+            scales: {
+              x: { 
+                beginAtZero: true,
+                ticks: { color: '#94a3b8', font: { size: 10 } },
+                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+              },
+              y: { 
+                ticks: { color: '#94a3b8', font: { size: 10 } },
+                grid: { display: false }
               }
             }
           }
