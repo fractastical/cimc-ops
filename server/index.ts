@@ -32,6 +32,23 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// CORS for embed routes - allow cross-origin requests for chart embeds
+app.use((req, res, next) => {
+  // Allow CORS for embed routes and their API dependencies
+  if (req.path.startsWith('/embed/') || 
+      req.path === '/api/hypotheses/activity/timeline' ||
+      req.path === '/api/activity/monthly' ||
+      req.path === '/api/research/timeline') {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+  }
+  next();
+});
+
 // Session middleware
 app.use(
   session({
@@ -93,6 +110,14 @@ app.use((req, res, next) => {
   
   // Skip auth for auth endpoints
   if (req.path.startsWith("/api/auth/")) {
+    return next();
+  }
+  
+  // Skip auth for embed routes and their API dependencies (public endpoints)
+  if (req.path.startsWith("/embed/") ||
+      req.path === "/api/hypotheses/activity/timeline" ||
+      req.path === "/api/activity/monthly" ||
+      req.path === "/api/research/timeline") {
     return next();
   }
   
