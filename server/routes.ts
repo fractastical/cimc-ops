@@ -740,6 +740,480 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Embed Routes (Public, for iframing into external sites) ============
+  
+  // Get base URL for API calls within embeds
+  const getBaseUrl = (req: any) => `${req.protocol}://${req.get('host')}`;
+
+  // Index page listing all available embed endpoints
+  app.get("/embed/charts", async (req, res) => {
+    const baseUrl = getBaseUrl(req);
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIMC.AI - Embeddable Charts</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { 
+      font-size: 1.75rem; 
+      margin-bottom: 0.5rem;
+      color: #10b981;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .subtitle { color: #94a3b8; margin-bottom: 2rem; }
+    .card {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    .card p { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem; }
+    .endpoint {
+      background: #0f172a;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #10b981;
+      word-break: break-all;
+    }
+    .preview-link {
+      display: inline-block;
+      margin-top: 0.75rem;
+      color: #60a5fa;
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    .preview-link:hover { text-decoration: underline; }
+    .embed-code {
+      margin-top: 1rem;
+      background: #0f172a;
+      padding: 1rem;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 CIMC.AI Embeddable Charts</h1>
+    <p class="subtitle">Use these endpoints to embed live research charts into any website</p>
+    
+    <div class="card">
+      <h2>Hypothesis Activity Timeline</h2>
+      <p>Cumulative research updates over time for each hypothesis, displayed as a line chart</p>
+      <div class="endpoint">${baseUrl}/embed/charts/hypotheses</div>
+      <a href="/embed/charts/hypotheses" target="_blank" class="preview-link">→ Preview chart</a>
+      <div class="embed-code">
+        &lt;iframe src="${baseUrl}/embed/charts/hypotheses" width="100%" height="400" frameborder="0"&gt;&lt;/iframe&gt;
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Monthly Activity Chart</h2>
+      <p>GitHub commits and research updates aggregated by month as a bar chart</p>
+      <div class="endpoint">${baseUrl}/embed/charts/activity</div>
+      <a href="/embed/charts/activity" target="_blank" class="preview-link">→ Preview chart</a>
+      <div class="embed-code">
+        &lt;iframe src="${baseUrl}/embed/charts/activity" width="100%" height="400" frameborder="0"&gt;&lt;/iframe&gt;
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Research Projects Status</h2>
+      <p>Current status breakdown of all research projects as a donut chart</p>
+      <div class="endpoint">${baseUrl}/embed/charts/projects</div>
+      <a href="/embed/charts/projects" target="_blank" class="preview-link">→ Preview chart</a>
+      <div class="embed-code">
+        &lt;iframe src="${baseUrl}/embed/charts/projects" width="100%" height="400" frameborder="0"&gt;&lt;/iframe&gt;
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+    res.type('html').send(html);
+  });
+
+  // Hypothesis Activity Timeline Embed
+  app.get("/embed/charts/hypotheses", async (req, res) => {
+    const baseUrl = getBaseUrl(req);
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hypothesis Activity - CIMC.AI</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: transparent;
+      padding: 1rem;
+    }
+    .chart-container { 
+      position: relative; 
+      width: 100%; 
+      height: calc(100vh - 2rem);
+      min-height: 300px;
+    }
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #94a3b8;
+    }
+    .error { color: #ef4444; text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="chart-container">
+    <div class="loading" id="loading">Loading chart data...</div>
+    <canvas id="chart" style="display: none;"></canvas>
+    <div class="error" id="error" style="display: none;"></div>
+  </div>
+  <script>
+    const COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'];
+    
+    async function loadChart() {
+      try {
+        const response = await fetch('${baseUrl}/api/hypotheses/activity/timeline');
+        const data = await response.json();
+        
+        if (!data || data.length === 0) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('error').textContent = 'No hypothesis data available';
+          return;
+        }
+        
+        // Get labels from first hypothesis timeline
+        const labels = data[0].data.map(d => d.week);
+        
+        // Build cumulative datasets
+        const datasets = data.map((h, idx) => {
+          let cumulative = 0;
+          const cumulativeData = h.data.map(d => {
+            cumulative += d.count;
+            return cumulative;
+          });
+          return {
+            label: h.hypothesisTitle,
+            data: cumulativeData,
+            borderColor: COLORS[idx % COLORS.length],
+            backgroundColor: COLORS[idx % COLORS.length] + '20',
+            tension: 0.3,
+            fill: false,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          };
+        });
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('chart').style.display = 'block';
+        
+        const ctx = document.getElementById('chart').getContext('2d');
+        new Chart(ctx, {
+          type: 'line',
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { 
+                position: 'bottom',
+                labels: { color: '#94a3b8', font: { size: 11 } }
+              },
+              title: {
+                display: true,
+                text: 'Hypothesis Activity Over Time',
+                color: '#e2e8f0',
+                font: { size: 14, weight: 'bold' }
+              }
+            },
+            scales: {
+              x: { 
+                ticks: { color: '#94a3b8', font: { size: 10 } },
+                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+              },
+              y: { 
+                beginAtZero: true,
+                ticks: { color: '#94a3b8', font: { size: 10 } },
+                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+              }
+            }
+          }
+        });
+      } catch (err) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'Failed to load chart: ' + err.message;
+      }
+    }
+    loadChart();
+  </script>
+</body>
+</html>`;
+    res.type('html').send(html);
+  });
+
+  // Monthly Activity Bar Chart Embed
+  app.get("/embed/charts/activity", async (req, res) => {
+    const baseUrl = getBaseUrl(req);
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monthly Activity - CIMC.AI</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: transparent;
+      padding: 1rem;
+    }
+    .chart-container { 
+      position: relative; 
+      width: 100%; 
+      height: calc(100vh - 2rem);
+      min-height: 300px;
+    }
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #94a3b8;
+    }
+    .error { color: #ef4444; text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="chart-container">
+    <div class="loading" id="loading">Loading chart data...</div>
+    <canvas id="chart" style="display: none;"></canvas>
+    <div class="error" id="error" style="display: none;"></div>
+  </div>
+  <script>
+    async function loadChart() {
+      try {
+        const response = await fetch('${baseUrl}/api/activity/monthly');
+        const data = await response.json();
+        
+        if (!data || data.length === 0) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('error').textContent = 'No activity data available';
+          return;
+        }
+        
+        const labels = data.map(d => d.month);
+        const commits = data.map(d => d.commits);
+        const updates = data.map(d => d.researchUpdates);
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('chart').style.display = 'block';
+        
+        const ctx = document.getElementById('chart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'GitHub Commits',
+                data: commits,
+                backgroundColor: '#10b981',
+                borderRadius: 4
+              },
+              {
+                label: 'Research Updates',
+                data: updates,
+                backgroundColor: '#3b82f6',
+                borderRadius: 4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { 
+                position: 'bottom',
+                labels: { color: '#94a3b8', font: { size: 11 } }
+              },
+              title: {
+                display: true,
+                text: 'Monthly Activity',
+                color: '#e2e8f0',
+                font: { size: 14, weight: 'bold' }
+              }
+            },
+            scales: {
+              x: { 
+                ticks: { color: '#94a3b8', font: { size: 10 } },
+                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+              },
+              y: { 
+                beginAtZero: true,
+                ticks: { color: '#94a3b8', font: { size: 10 } },
+                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+              }
+            }
+          }
+        });
+      } catch (err) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'Failed to load chart: ' + err.message;
+      }
+    }
+    loadChart();
+  </script>
+</body>
+</html>`;
+    res.type('html').send(html);
+  });
+
+  // Research Projects Status Donut Chart Embed
+  app.get("/embed/charts/projects", async (req, res) => {
+    const baseUrl = getBaseUrl(req);
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Research Projects - CIMC.AI</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: transparent;
+      padding: 1rem;
+    }
+    .chart-container { 
+      position: relative; 
+      width: 100%; 
+      height: calc(100vh - 2rem);
+      min-height: 300px;
+    }
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #94a3b8;
+    }
+    .error { color: #ef4444; text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="chart-container">
+    <div class="loading" id="loading">Loading chart data...</div>
+    <canvas id="chart" style="display: none;"></canvas>
+    <div class="error" id="error" style="display: none;"></div>
+  </div>
+  <script>
+    const STATUS_COLORS = {
+      'active': '#10b981',
+      'planning': '#f59e0b',
+      'completed': '#3b82f6',
+      'on-hold': '#6b7280',
+      'archived': '#374151'
+    };
+    
+    async function loadChart() {
+      try {
+        const response = await fetch('${baseUrl}/api/research/timeline');
+        const data = await response.json();
+        
+        if (!data || !data.projects || data.projects.length === 0) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('error').textContent = 'No project data available';
+          return;
+        }
+        
+        // Count projects by status
+        const statusCounts = {};
+        data.projects.forEach(p => {
+          const status = p.project.status || 'active';
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        
+        const labels = Object.keys(statusCounts);
+        const values = Object.values(statusCounts);
+        const colors = labels.map(s => STATUS_COLORS[s] || '#6b7280');
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('chart').style.display = 'block';
+        
+        const ctx = document.getElementById('chart').getContext('2d');
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels.map(s => s.charAt(0).toUpperCase() + s.slice(1)),
+            datasets: [{
+              data: values,
+              backgroundColor: colors,
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { 
+                position: 'bottom',
+                labels: { color: '#94a3b8', font: { size: 11 } }
+              },
+              title: {
+                display: true,
+                text: 'Research Projects by Status',
+                color: '#e2e8f0',
+                font: { size: 14, weight: 'bold' }
+              }
+            }
+          }
+        });
+      } catch (err) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'Failed to load chart: ' + err.message;
+      }
+    }
+    loadChart();
+  </script>
+</body>
+</html>`;
+    res.type('html').send(html);
+  });
+
   return httpServer;
 }
 

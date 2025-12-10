@@ -56,7 +56,7 @@ export interface IStorage {
   getActivityByRepository(repositoryId: string, days?: number): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   getActivityStats(repositoryId: string, days?: number): Promise<{ date: string; count: number }[]>;
-  getMonthlyActivityStats(): Promise<{ month: string; commits: number }[]>;
+  getMonthlyActivityStats(): Promise<{ month: string; commits: number; researchUpdates: number }[]>;
 
   // Slack Messages
   getRecentSlackMessages(limit?: number): Promise<SlackMessage[]>;
@@ -274,8 +274,9 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getMonthlyActivityStats(): Promise<{ month: string; commits: number }[]> {
-    const stats = await db
+  async getMonthlyActivityStats(): Promise<{ month: string; commits: number; researchUpdates: number }[]> {
+    // Get commit stats from activity log
+    const commitStats = await db
       .select({
         month: sql<string>`TO_CHAR(COALESCE(${activityLog.activityDate}, ${activityLog.createdAt}), 'YYYY-MM')`.as('month'),
         commits: sql<number>`COUNT(*)::int`.as('commits'),
@@ -284,7 +285,27 @@ export class DatabaseStorage implements IStorage {
       .groupBy(sql`TO_CHAR(COALESCE(${activityLog.activityDate}, ${activityLog.createdAt}), 'YYYY-MM')`)
       .orderBy(sql`TO_CHAR(COALESCE(${activityLog.activityDate}, ${activityLog.createdAt}), 'YYYY-MM')`);
 
-    return stats;
+    // Get research update stats
+    const updateStats = await db
+      .select({
+        month: sql<string>`TO_CHAR(${researchUpdates.date}, 'YYYY-MM')`.as('month'),
+        updates: sql<number>`COUNT(*)::int`.as('updates'),
+      })
+      .from(researchUpdates)
+      .groupBy(sql`TO_CHAR(${researchUpdates.date}, 'YYYY-MM')`);
+
+    // Merge the two datasets
+    const updateMap = new Map(updateStats.map(u => [u.month, u.updates]));
+    const allMonths = new Set([...commitStats.map(c => c.month), ...updateStats.map(u => u.month)]);
+    const commitMap = new Map(commitStats.map(c => [c.month, c.commits]));
+
+    return Array.from(allMonths)
+      .sort()
+      .map(month => ({
+        month,
+        commits: commitMap.get(month) || 0,
+        researchUpdates: updateMap.get(month) || 0,
+      }));
   }
 
   // Slack Messages
