@@ -1153,7 +1153,8 @@ export async function registerRoutes(
         const response = await fetch(apiUrl);
         const data = await response.json();
         
-        if (!data || !data.projects || data.projects.length === 0) {
+        // API returns array directly, not {projects: [...]}
+        if (!data || !Array.isArray(data) || data.length === 0) {
           document.getElementById('loading').style.display = 'none';
           document.getElementById('error').style.display = 'block';
           document.getElementById('error').textContent = 'No project data available';
@@ -1162,8 +1163,8 @@ export async function registerRoutes(
         
         // Count projects by status
         const statusCounts = {};
-        data.projects.forEach(p => {
-          const status = p.project.status || 'active';
+        data.forEach(p => {
+          const status = p.project?.status || 'active';
           statusCounts[status] = (statusCounts[status] || 0) + 1;
         });
         
