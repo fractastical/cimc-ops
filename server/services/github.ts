@@ -178,31 +178,44 @@ export class GitHubService {
       if (commitsResponse.ok) {
         const commits = await commitsResponse.json();
         
-        // Group commits by date and author
-        const dailyCommits = new Map<string, { count: number; authors: Set<string> }>();
+        // Group commits by date and track longest message
+        const dailyCommits = new Map<string, { 
+          count: number; 
+          authors: Set<string>; 
+          longestMessage: string;
+        }>();
         
         for (const commit of commits) {
           const date = commit.commit.author.date.split("T")[0];
           const author = commit.author?.login || commit.commit.author.name || "Unknown";
+          const commitMessage = commit.commit.message || "";
           
           if (!dailyCommits.has(date)) {
-            dailyCommits.set(date, { count: 0, authors: new Set() });
+            dailyCommits.set(date, { count: 0, authors: new Set(), longestMessage: "" });
           }
           const day = dailyCommits.get(date)!;
           day.count++;
           day.authors.add(author);
+          // Track the longest commit message for the day
+          if (commitMessage.length > day.longestMessage.length) {
+            day.longestMessage = commitMessage;
+          }
         }
 
         // Create activity log entries for each day
         for (const [date, data] of dailyCommits) {
           const authors = Array.from(data.authors);
+          // Use the longest commit message if available, otherwise use summary
+          const message = data.longestMessage || 
+            `${data.count} commit${data.count !== 1 ? 's' : ''} by ${authors.length} contributor${authors.length !== 1 ? 's' : ''}`;
+          
           const activityLog = {
             repositoryId: repoId,
             eventType: "push",
             author: authors[0] || "Unknown",
-            message: `${data.count} commit${data.count !== 1 ? 's' : ''} by ${authors.length} contributor${authors.length !== 1 ? 's' : ''}`,
+            message,
             url: `https://github.com/${fullName}/commits`,
-            metadata: { commits: data.count, authors, date },
+            metadata: { commits: data.count, authors, date, longestMessage: data.longestMessage },
             activityDate: new Date(date), // Use the actual commit date
           };
           

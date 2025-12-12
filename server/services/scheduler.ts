@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import { slackService } from "./slack";
+import { githubService } from "./github";
 import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay } from "date-fns";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -9,6 +10,8 @@ export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly";
 
 export class SchedulerService {
   private checkInterval: NodeJS.Timeout | null = null;
+  private syncInterval: NodeJS.Timeout | null = null;
+  private lastSyncTime: Date | null = null;
 
   async start() {
     console.log("Starting scheduler service...");
@@ -18,14 +21,47 @@ export class SchedulerService {
       await this.checkSummaries();
     }, 60 * 60 * 1000); // Every hour
 
+    // Sync GitHub every 6 hours
+    this.syncInterval = setInterval(async () => {
+      await this.syncGitHub();
+    }, 6 * 60 * 60 * 1000); // Every 6 hours
+
     // Also check on start (with a delay to avoid startup race conditions)
     setTimeout(() => this.checkSummaries(), 10000);
+    
+    // Do an initial GitHub sync shortly after startup
+    setTimeout(() => this.syncGitHub(), 30000);
+  }
+  
+  private async syncGitHub() {
+    try {
+      console.log("Running scheduled GitHub sync...");
+      const settings = await storage.getIntegrationSettings();
+      if (settings?.githubOrgs && settings.githubOrgs.length > 0) {
+        for (const org of settings.githubOrgs) {
+          try {
+            await githubService.syncOrganization(org);
+            console.log(`Synced org: ${org}`);
+          } catch (error) {
+            console.error(`Failed to sync org ${org}:`, error);
+          }
+        }
+      }
+      this.lastSyncTime = new Date();
+      console.log("GitHub sync completed at", this.lastSyncTime.toISOString());
+    } catch (error) {
+      console.error("GitHub sync failed:", error);
+    }
   }
 
   stop() {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
+    }
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+      this.syncInterval = null;
     }
   }
 
