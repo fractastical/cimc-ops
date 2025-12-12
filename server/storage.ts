@@ -53,7 +53,9 @@ export interface IStorage {
 
   // Activity Logs
   getRecentActivity(days?: number): Promise<ActivityLog[]>;
+  getActivitySince(since: Date): Promise<ActivityLog[]>;
   getActivityByRepository(repositoryId: string, days?: number): Promise<ActivityLog[]>;
+  getActivityByRepositorySince(repositoryId: string, since: Date): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   getActivityStats(repositoryId: string, days?: number): Promise<{ date: string; count: number }[]>;
   getMonthlyActivityStats(): Promise<{ month: string; commits: number; researchUpdates: number }[]>;
@@ -222,6 +224,15 @@ export class DatabaseStorage implements IStorage {
       .limit(100);
   }
 
+  async getActivitySince(since: Date): Promise<ActivityLog[]> {
+    // Get all activity since a specific date
+    return await db
+      .select()
+      .from(activityLog)
+      .where(gte(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`, since))
+      .orderBy(desc(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`));
+  }
+
   async getActivityByRepository(repositoryId: string, days: number = 30): Promise<ActivityLog[]> {
     const cutoff = subDays(new Date(), days);
     // Use activityDate (actual date of activity) if available, otherwise fall back to createdAt
@@ -232,6 +243,20 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(activityLog.repositoryId, repositoryId),
           gte(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`, cutoff)
+        )
+      )
+      .orderBy(desc(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`));
+  }
+
+  async getActivityByRepositorySince(repositoryId: string, since: Date): Promise<ActivityLog[]> {
+    // Get activity for a specific repo since a date
+    return await db
+      .select()
+      .from(activityLog)
+      .where(
+        and(
+          eq(activityLog.repositoryId, repositoryId),
+          gte(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`, since)
         )
       )
       .orderBy(desc(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`));
