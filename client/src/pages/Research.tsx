@@ -440,7 +440,7 @@ function ProjectHypothesesBadges({ projectId, hypotheses }: { projectId: string;
 
 function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
   const queryClient = useQueryClient();
-  const [syncRepo, setSyncRepo] = useState({ owner: "CIMC-ai", repo: "hypotheses", path: "" });
+  const [syncRepo, setSyncRepo] = useState({ owner: "cimcai", repo: "hypotheses", path: "" });
   const [showSync, setShowSync] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newHypothesis, setNewHypothesis] = useState({ title: "", content: "" });
@@ -484,7 +484,7 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
   });
 
   const quickSync = () => {
-    syncMutation.mutate({ owner: "CIMC-ai", repo: "hypotheses", path: "" });
+    syncMutation.mutate({ owner: "cimcai", repo: "hypotheses", path: "" });
   };
 
   const linkMutation = useMutation({
@@ -523,7 +523,7 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
           <Lightbulb className="h-5 w-5 text-amber-400" />
           Hypotheses
           <Badge variant="outline" className="text-xs font-mono text-muted-foreground">
-            CIMC-ai/hypotheses
+            cimcai/hypotheses
           </Badge>
         </CardTitle>
         <div className="flex gap-2">
@@ -557,7 +557,7 @@ function HypothesesSection({ timeline }: { timeline: ResearchTimeline[] }) {
           <div className="p-4 border border-primary/30 rounded-lg bg-primary/5 space-y-3">
             <div className="flex items-center gap-2 text-sm font-mono text-primary">
               <Github className="h-4 w-4" />
-              New Hypothesis → CIMC-ai/hypotheses
+              New Hypothesis → cimcai/hypotheses
             </div>
             <Input
               placeholder="Hypothesis title"

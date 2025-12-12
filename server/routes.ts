@@ -634,7 +634,7 @@ export async function registerRoutes(
       // Push to GitHub if requested
       if (pushToGitHub) {
         const pushResult = await githubService.pushHypothesis(
-          "CIMC-ai",
+          "cimcai",
           "hypotheses", 
           title,
           content
@@ -649,7 +649,7 @@ export async function registerRoutes(
         filename = pushResult.filename;
         
         // Sync to get the SHA
-        await githubService.syncHypotheses("CIMC-ai", "hypotheses", "");
+        await githubService.syncHypotheses("cimcai", "hypotheses", "");
         
         // Get the newly created hypothesis
         const hypothesis = await storage.getHypothesisByFilename(filename);
@@ -697,7 +697,7 @@ export async function registerRoutes(
   // ============ Papers Pipeline ============
   app.get("/api/papers", async (req, res) => {
     try {
-      const result = await githubService.fetchPapers("CIMC-ai", "paper-pipeline");
+      const result = await githubService.fetchPapers("cimcai", "paper-pipeline");
       if (result.error) {
         return res.status(500).json({ error: result.error, papers: [] });
       }

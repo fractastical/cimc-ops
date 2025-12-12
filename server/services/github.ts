@@ -691,7 +691,7 @@ export class GitHubService {
   }
 
   // Fetch papers from the paper-pipeline repository
-  async fetchPapers(owner: string = "CIMC-ai", repo: string = "paper-pipeline"): Promise<{
+  async fetchPapers(owner: string = "cimcai", repo: string = "paper-pipeline"): Promise<{
     papers: Array<{
       id: string;
       title: string;

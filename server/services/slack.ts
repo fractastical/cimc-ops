@@ -210,7 +210,7 @@ export class SlackService {
     if (hypotheses.length === 0) {
       return { 
         response_type: "in_channel",
-        text: "No hypotheses tracked yet. Sync from CIMC-ai/hypotheses repo to get started." 
+        text: "No hypotheses tracked yet. Sync from cimcai/hypotheses repo to get started." 
       };
     }
 
