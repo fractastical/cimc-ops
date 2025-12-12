@@ -16,13 +16,15 @@ import {
   unlinkProjectFromHypothesis,
   getHypothesisActivity,
   getHypothesisActivityTimeline,
+  getPapers,
   type ResearchTimeline,
   type Hypothesis,
   type HypothesisActivity,
+  type Paper,
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, FileText, ExternalLink } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";
 
@@ -740,6 +742,174 @@ const HYPOTHESIS_COLORS = [
   "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"
 ];
 
+const STATUS_COLORS: Record<string, string> = {
+  "pending": "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  "in_progress": "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  "reviewing": "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  "completed": "bg-green-500/20 text-green-400 border-green-500/30",
+  "published": "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  "archived": "bg-gray-500/20 text-gray-400 border-gray-500/30",
+  "unknown": "bg-gray-500/20 text-gray-400 border-gray-500/30",
+};
+
+function PapersPipelineSection() {
+  const queryClient = useQueryClient();
+  
+  const { data: papers = [], isLoading, error } = useQuery({
+    queryKey: ["papers"],
+    queryFn: getPapers,
+    retry: 1,
+  });
+
+  const refetchMutation = useMutation({
+    mutationFn: getPapers,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["papers"], data);
+      toast.success(`Refreshed ${data.length} papers`);
+    },
+    onError: () => {
+      toast.error("Failed to refresh papers");
+    },
+  });
+
+  const getStatusColor = (status: string) => {
+    const normalized = status.toLowerCase().replace(/\s+/g, '_');
+    return STATUS_COLORS[normalized] || STATUS_COLORS.unknown;
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="glass-panel border-primary/20">
+        <CardHeader>
+          <CardTitle className="font-mono text-lg flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-400" />
+            Papers Pipeline
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="glass-panel border-primary/20">
+        <CardHeader>
+          <CardTitle className="font-mono text-lg flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-400" />
+            Papers Pipeline
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm text-center py-6">
+            Could not load papers from paper-pipeline repo
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const statusGroups = papers.reduce((acc, paper) => {
+    const status = paper.status || "unknown";
+    if (!acc[status]) acc[status] = [];
+    acc[status].push(paper);
+    return acc;
+  }, {} as Record<string, Paper[]>);
+
+  return (
+    <Card className="glass-panel border-primary/20">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-mono text-lg flex items-center gap-2">
+          <FileText className="h-5 w-5 text-blue-400" />
+          Papers Pipeline
+          <Badge variant="outline" className="ml-2 text-xs font-normal">
+            {papers.length} papers
+          </Badge>
+        </CardTitle>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetchMutation.mutate()}
+          disabled={refetchMutation.isPending}
+          data-testid="button-refresh-papers"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${refetchMutation.isPending ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {papers.length === 0 ? (
+          <p className="text-muted-foreground text-sm text-center py-6">
+            No papers found in the paper-pipeline repository
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {Object.entries(statusGroups).map(([status, statusPapers]) => (
+              <div key={status}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge className={`${getStatusColor(status)} border`}>
+                    {status.replace(/_/g, ' ')}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    ({statusPapers.length})
+                  </span>
+                </div>
+                <div className="space-y-2 pl-2">
+                  {statusPapers.map((paper) => (
+                    <div
+                      key={paper.id}
+                      data-testid={`card-paper-${paper.id}`}
+                      className="flex items-start justify-between p-3 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-medium text-foreground truncate">
+                            {paper.title}
+                          </h4>
+                          {paper.arxivId && (
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              arXiv:{paper.arxivId}
+                            </Badge>
+                          )}
+                        </div>
+                        {paper.authors && paper.authors.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {paper.authors.join(", ")}
+                          </p>
+                        )}
+                        {paper.abstract && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {paper.abstract}
+                          </p>
+                        )}
+                      </div>
+                      {paper.url && (
+                        <a
+                          href={paper.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 ml-2 p-1 text-muted-foreground hover:text-primary transition-colors"
+                          data-testid={`link-paper-${paper.id}`}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function HypothesisActivityPanel() {
   const { data: activity = [], isLoading: activityLoading } = useQuery({
     queryKey: ["hypothesisActivity"],
@@ -1037,6 +1207,9 @@ export default function Research() {
           </CardContent>
         </Card>
       )}
+
+      {/* Papers Pipeline Section */}
+      <PapersPipelineSection />
 
       {/* Hypothesis Activity Panel */}
       <HypothesisActivityPanel />

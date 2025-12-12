@@ -67,6 +67,8 @@ Preferred communication style: Simple, everyday language.
 - Service layer (`server/services/github.ts`) handles API communication
 - Supports organization-wide repository monitoring
 - Activity logging for commits, issues, and pull requests
+- Papers Pipeline: Fetches paper status from CIMC-ai/paper-pipeline JSON files
+- Automatic sync every 6 hours in production, plus on startup
 
 **Slack Integration**:
 - Incoming webhooks for posting messages to Slack channels

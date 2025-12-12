@@ -110,11 +110,24 @@ export class SchedulerService {
   }
 
   async sendDailySummary() {
-    const activities = await storage.getRecentActivity(1);
+    // Get the last time daily summary was sent to calculate activity since then
+    const settings = await storage.getIntegrationSettings();
+    const lastSentAt = settings?.lastDailySentAt 
+      ? new Date(settings.lastDailySentAt)
+      : subDays(new Date(), 1); // Default to 1 day ago if never sent
+
+    // Get all activity since the last summary
+    const activities = await storage.getActivitySince(lastSentAt);
 
     const commits = activities.filter(a => a.eventType === "push");
     const prs = activities.filter(a => a.eventType === "pull_request" || a.eventType === "pull_request_merged");
     
+    // Skip posting if zero activity
+    if (activities.length === 0) {
+      console.log("No activity since last daily summary - skipping Slack post");
+      return;
+    }
+
     const authorCounts = new Map<string, number>();
     activities.forEach(a => {
       authorCounts.set(a.author, (authorCounts.get(a.author) || 0) + 1);
@@ -126,7 +139,7 @@ export class SchedulerService {
     const repos = await storage.getActiveRepositories();
     const repoActivity = await Promise.all(
       repos.map(async (repo) => {
-        const stats = await storage.getActivityByRepository(repo.id, 1);
+        const stats = await storage.getActivityByRepositorySince(repo.id, lastSentAt);
         const commitActivities = stats.filter(s => s.eventType === "push");
         
         // Find the longest commit message from this repo

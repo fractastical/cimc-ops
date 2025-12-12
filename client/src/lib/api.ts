@@ -370,3 +370,22 @@ export async function unlinkProjectFromHypothesis(projectId: string, hypothesisI
   });
   if (!res.ok) throw new Error("Failed to unlink project from hypothesis");
 }
+
+// Papers
+export interface Paper {
+  id: string;
+  title: string;
+  status: string;
+  arxivId?: string;
+  url?: string;
+  authors?: string[];
+  abstract?: string;
+  addedDate?: string;
+  lastUpdated?: string;
+}
+
+export async function getPapers(): Promise<Paper[]> {
+  const res = await fetch("/api/papers");
+  if (!res.ok) throw new Error("Failed to fetch papers");
+  return res.json();
+}
