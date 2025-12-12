@@ -213,26 +213,28 @@ export class DatabaseStorage implements IStorage {
   // Activity Logs
   async getRecentActivity(days: number = 30): Promise<ActivityLog[]> {
     const cutoff = subDays(new Date(), days);
+    // Use activityDate (actual date of activity) if available, otherwise fall back to createdAt
     return await db
       .select()
       .from(activityLog)
-      .where(gte(activityLog.createdAt, cutoff))
-      .orderBy(desc(activityLog.createdAt))
+      .where(gte(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`, cutoff))
+      .orderBy(desc(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`))
       .limit(100);
   }
 
   async getActivityByRepository(repositoryId: string, days: number = 30): Promise<ActivityLog[]> {
     const cutoff = subDays(new Date(), days);
+    // Use activityDate (actual date of activity) if available, otherwise fall back to createdAt
     return await db
       .select()
       .from(activityLog)
       .where(
         and(
           eq(activityLog.repositoryId, repositoryId),
-          gte(activityLog.createdAt, cutoff)
+          gte(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`, cutoff)
         )
       )
-      .orderBy(desc(activityLog.createdAt));
+      .orderBy(desc(sql`COALESCE(${activityLog.activityDate}, ${activityLog.createdAt})`));
   }
 
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
