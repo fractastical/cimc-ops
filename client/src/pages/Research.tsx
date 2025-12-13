@@ -17,10 +17,12 @@ import {
   getHypothesisActivity,
   getHypothesisActivityTimeline,
   getPapers,
+  syncPapers,
   type ResearchTimeline,
   type Hypothesis,
   type HypothesisActivity,
   type Paper,
+  type PaperStage,
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
@@ -752,8 +754,29 @@ const STATUS_COLORS: Record<string, string> = {
   "unknown": "bg-gray-500/20 text-gray-400 border-gray-500/30",
 };
 
+function getStageProgress(stage: PaperStage | undefined): { completed: number; total: number; percent: number } {
+  if (!stage || !stage.factors) return { completed: 0, total: 0, percent: 0 };
+  const factors = Object.values(stage.factors);
+  const total = factors.length;
+  const completedCount = factors.filter(f => f.current >= f.target).length;
+  
+  // Calculate actual percentage based on sum of current/target ratios
+  let sumRatio = 0;
+  for (const f of factors) {
+    if (f.target > 0) {
+      sumRatio += Math.min(f.current / f.target, 1);
+    } else if (f.current > 0) {
+      sumRatio += 1;
+    }
+  }
+  const percent = total > 0 ? Math.round((sumRatio / total) * 100) : 0;
+  
+  return { completed: completedCount, total, percent };
+}
+
 function PapersPipelineSection() {
   const queryClient = useQueryClient();
+  const [expandedPaper, setExpandedPaper] = useState<string | null>(null);
   
   const { data: papers = [], isLoading, error } = useQuery({
     queryKey: ["papers"],
@@ -761,21 +784,20 @@ function PapersPipelineSection() {
     retry: 1,
   });
 
-  const refetchMutation = useMutation({
-    mutationFn: getPapers,
-    onSuccess: (data) => {
-      queryClient.setQueryData(["papers"], data);
-      toast.success(`Refreshed ${data.length} papers`);
+  const syncMutation = useMutation({
+    mutationFn: syncPapers,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["papers"] });
+      toast.success(`Synced ${result.synced} new, updated ${result.updated} papers`);
     },
     onError: () => {
-      toast.error("Failed to refresh papers");
+      toast.error("Failed to sync papers");
     },
   });
 
-  const getStatusColor = (status: string) => {
-    const normalized = status.toLowerCase().replace(/\s+/g, '_');
-    return STATUS_COLORS[normalized] || STATUS_COLORS.unknown;
-  };
+  const stageEmoji = { before: "📝", mid: "🔄", after: "✅" };
+  const stageNames = { before: "Draft", mid: "Review", after: "Published" };
+  const stageColors = { before: "text-yellow-400", mid: "text-blue-400", after: "text-green-400" };
 
   if (isLoading) {
     return (
@@ -806,19 +828,25 @@ function PapersPipelineSection() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm text-center py-6">
-            Could not load papers from paper-pipeline repo
+            Could not load papers. Click Sync to fetch from GitHub.
           </p>
+          <div className="flex justify-center">
+            <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+              Sync from GitHub
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
-  const statusGroups = papers.reduce((acc, paper) => {
-    const status = paper.status || "unknown";
-    if (!acc[status]) acc[status] = [];
-    acc[status].push(paper);
-    return acc;
-  }, {} as Record<string, Paper[]>);
+  // Group by current stage
+  const stageGroups = {
+    before: papers.filter(p => p.currentStage === "before"),
+    mid: papers.filter(p => p.currentStage === "mid"),
+    after: papers.filter(p => p.currentStage === "after"),
+  };
 
   return (
     <Card className="glass-panel border-primary/20">
@@ -833,76 +861,137 @@ function PapersPipelineSection() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => refetchMutation.mutate()}
-          disabled={refetchMutation.isPending}
-          data-testid="button-refresh-papers"
+          onClick={() => syncMutation.mutate()}
+          disabled={syncMutation.isPending}
+          data-testid="button-sync-papers"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${refetchMutation.isPending ? 'animate-spin' : ''}`} />
-          Refresh
+          <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+          Sync
         </Button>
       </CardHeader>
       <CardContent>
         {papers.length === 0 ? (
-          <p className="text-muted-foreground text-sm text-center py-6">
-            No papers found in the paper-pipeline repository
-          </p>
+          <div className="text-center py-6">
+            <p className="text-muted-foreground text-sm mb-4">
+              No papers found. Sync from cimcai/paper-pipeline to get started.
+            </p>
+            <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+              Sync from GitHub
+            </Button>
+          </div>
         ) : (
-          <div className="space-y-4">
-            {Object.entries(statusGroups).map(([status, statusPapers]) => (
-              <div key={status}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className={`${getStatusColor(status)} border`}>
-                    {status.replace(/_/g, ' ')}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    ({statusPapers.length})
-                  </span>
+          <div className="space-y-6">
+            {/* Stage summary */}
+            <div className="grid grid-cols-3 gap-3">
+              {(["before", "mid", "after"] as const).map(stage => (
+                <div key={stage} className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span>{stageEmoji[stage]}</span>
+                    <span className={`text-sm font-medium ${stageColors[stage]}`}>{stageNames[stage]}</span>
+                  </div>
+                  <div className="text-2xl font-bold">{stageGroups[stage].length}</div>
                 </div>
-                <div className="space-y-2 pl-2">
-                  {statusPapers.map((paper) => (
-                    <div
-                      key={paper.id}
-                      data-testid={`card-paper-${paper.id}`}
-                      className="flex items-start justify-between p-3 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 transition-colors"
+              ))}
+            </div>
+
+            {/* Papers list */}
+            <div className="space-y-3">
+              {papers.map((paper) => {
+                const currentStage = paper.currentStage as "before" | "mid" | "after";
+                const stageData = paper.stages?.[currentStage];
+                const progress = getStageProgress(stageData);
+                const isExpanded = expandedPaper === paper.paperId;
+
+                return (
+                  <div
+                    key={paper.paperId}
+                    data-testid={`card-paper-${paper.paperId}`}
+                    className="p-4 rounded-lg bg-muted/20 border border-border/50 hover:border-primary/30 transition-colors"
+                  >
+                    <div 
+                      className="flex items-start justify-between cursor-pointer"
+                      onClick={() => setExpandedPaper(isExpanded ? null : paper.paperId)}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span>{stageEmoji[currentStage]}</span>
                           <h4 className="text-sm font-medium text-foreground truncate">
                             {paper.title}
                           </h4>
-                          {paper.arxivId && (
-                            <Badge variant="outline" className="text-xs shrink-0">
-                              arXiv:{paper.arxivId}
-                            </Badge>
-                          )}
                         </div>
-                        {paper.authors && paper.authors.length > 0 && (
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            {paper.authors.join(", ")}
-                          </p>
-                        )}
-                        {paper.abstract && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                            {paper.abstract}
-                          </p>
+                        
+                        {/* Progress bar */}
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-2 bg-muted/50 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all ${
+                                progress.percent === 100 ? 'bg-green-500' : 
+                                progress.percent >= 50 ? 'bg-blue-500' : 'bg-yellow-500'
+                              }`}
+                              style={{ width: `${progress.percent}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground font-mono w-16 text-right">
+                            {progress.percent}% ({progress.completed}/{progress.total})
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="ml-3">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         )}
                       </div>
-                      {paper.url && (
-                        <a
-                          href={paper.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 ml-2 p-1 text-muted-foreground hover:text-primary transition-colors"
-                          data-testid={`link-paper-${paper.id}`}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+
+                    {/* Expanded details */}
+                    {isExpanded && stageData && (
+                      <div className="mt-4 pt-4 border-t border-border/30 space-y-3">
+                        <div className="text-xs text-muted-foreground">
+                          Stage: <span className={stageColors[currentStage]}>{stageData.stage_name || stageNames[currentStage]}</span>
+                        </div>
+                        
+                        {/* Factor details */}
+                        {stageData.factors && Object.entries(stageData.factors).map(([key, factor]) => {
+                          const factorPercent = factor.target > 0 ? Math.round((factor.current / factor.target) * 100) : 0;
+                          const isComplete = factor.current >= factor.target;
+                          const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                          
+                          return (
+                            <div key={key} className="flex items-center gap-3">
+                              <span className={`text-xs ${isComplete ? 'text-green-400' : 'text-muted-foreground'}`}>
+                                {isComplete ? '✓' : '○'}
+                              </span>
+                              <span className="text-xs flex-1 truncate" title={displayName}>
+                                {displayName}
+                              </span>
+                              <div className="w-20 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full ${isComplete ? 'bg-green-500' : 'bg-blue-500'}`}
+                                  style={{ width: `${Math.min(factorPercent, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-muted-foreground font-mono w-12 text-right">
+                                {factor.current}/{factor.target}
+                              </span>
+                            </div>
+                          );
+                        })}
+
+                        {paper.latexFile && (
+                          <div className="text-xs text-muted-foreground mt-2">
+                            File: <code className="bg-muted/50 px-1 rounded">{paper.latexFile}</code>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </CardContent>
