@@ -709,9 +709,9 @@ export class GitHubService {
     }
 
     try {
-      // Fetch papers.json specifically
+      // Fetch papers-progress.json specifically
       const fileResponse = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/contents/papers.json`,
+        `https://api.github.com/repos/${owner}/${repo}/contents/papers-progress.json`,
         {
           headers: {
             Authorization: `Bearer ${this.token}`,
