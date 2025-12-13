@@ -190,14 +190,25 @@ export class GitHubService {
           const author = commit.author?.login || commit.commit.author.name || "Unknown";
           const commitMessage = commit.commit.message || "";
           
+          // Skip Replit system commits (deployment checkpoints)
+          const isReplitCommit = 
+            author.toLowerCase().includes("replit") ||
+            commitMessage.includes("Replit-Commit-") ||
+            commitMessage.includes("Replit-Commit-Author:") ||
+            author === "Deployment";
+          
+          if (isReplitCommit) {
+            continue;
+          }
+          
           if (!dailyCommits.has(date)) {
             dailyCommits.set(date, { count: 0, authors: new Set(), longestMessage: "" });
           }
           const day = dailyCommits.get(date)!;
           day.count++;
           day.authors.add(author);
-          // Track the longest commit message for the day
-          if (commitMessage.length > day.longestMessage.length) {
+          // Track the longest commit message for the day (excluding Replit metadata)
+          if (commitMessage.length > day.longestMessage.length && !commitMessage.includes("Replit-Commit-")) {
             day.longestMessage = commitMessage;
           }
         }
