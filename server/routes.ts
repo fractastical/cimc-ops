@@ -32,6 +32,14 @@ async function autoSyncOnStartup() {
       } catch (error) {
         console.error("Failed to auto-sync hypotheses:", error);
       }
+
+      // Also sync papers from paper-pipeline repo
+      try {
+        const papersResult = await githubService.syncPapers();
+        console.log(`Auto-synced papers: ${papersResult.synced} new, ${papersResult.updated} updated`);
+      } catch (error) {
+        console.error("Failed to auto-sync papers:", error);
+      }
     }
   } catch (error) {
     console.error("Auto-sync failed:", error);
