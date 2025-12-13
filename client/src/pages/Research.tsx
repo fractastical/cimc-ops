@@ -755,21 +755,13 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function getStageProgress(stage: PaperStage | undefined): { completed: number; total: number; percent: number } {
-  if (!stage || !stage.factors) return { completed: 0, total: 0, percent: 0 };
-  const factors = Object.values(stage.factors);
+  if (!stage) return { completed: 0, total: 0, percent: 0 };
+  const factors = stage.factors ? Object.values(stage.factors) : [];
   const total = factors.length;
   const completedCount = factors.filter(f => f.current >= f.target).length;
   
-  // Calculate actual percentage based on sum of current/target ratios
-  let sumRatio = 0;
-  for (const f of factors) {
-    if (f.target > 0) {
-      sumRatio += Math.min(f.current / f.target, 1);
-    } else if (f.current > 0) {
-      sumRatio += 1;
-    }
-  }
-  const percent = total > 0 ? Math.round((sumRatio / total) * 100) : 0;
+  // Use pre-calculated completion_percentage from JSON
+  const percent = Math.round(stage.completion_percentage ?? 0);
   
   return { completed: completedCount, total, percent };
 }

@@ -382,6 +382,7 @@ export interface PaperFactor {
 export interface PaperStage {
   stage_name: string;
   completed: boolean;
+  completion_percentage: number;
   factors: Record<string, PaperFactor>;
 }
 
