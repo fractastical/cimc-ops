@@ -17,6 +17,8 @@ import {
   type InsertHypothesis,
   type ProjectHypothesis,
   type InsertProjectHypothesis,
+  type Paper,
+  type InsertPaper,
   users,
   integrationSettings,
   repositories,
@@ -26,6 +28,7 @@ import {
   researchUpdates,
   hypotheses,
   projectHypotheses,
+  papers,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -110,6 +113,11 @@ export interface IStorage {
     hypothesisTitle: string;
     data: Array<{ week: string; count: number }>;
   }>>;
+
+  // Papers
+  getPapers(): Promise<Paper[]>;
+  getPaperByPaperId(paperId: string): Promise<Paper | undefined>;
+  upsertPaper(paper: InsertPaper): Promise<Paper>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -605,6 +613,32 @@ export class DatabaseStorage implements IStorage {
         };
       })
     );
+  }
+
+  // Papers
+  async getPapers(): Promise<Paper[]> {
+    return await db.select().from(papers).orderBy(papers.title);
+  }
+
+  async getPaperByPaperId(paperId: string): Promise<Paper | undefined> {
+    const [paper] = await db.select().from(papers).where(eq(papers.paperId, paperId));
+    return paper || undefined;
+  }
+
+  async upsertPaper(paper: InsertPaper): Promise<Paper> {
+    const existing = await this.getPaperByPaperId(paper.paperId);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(papers)
+        .set({ ...paper, syncedAt: new Date() })
+        .where(eq(papers.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(papers).values(paper).returning();
+      return created;
+    }
   }
 }
 

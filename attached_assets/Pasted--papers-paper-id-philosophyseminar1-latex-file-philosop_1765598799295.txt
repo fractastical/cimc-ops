@@ -1,0 +1,582 @@
+{
+  "papers": [
+    {
+      "paper_id": "philosophyseminar1",
+      "latex_file": "philosophyseminar1.tex",
+      "title": "Philosophy Seminar 1: Computationalism and Determinism",
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 2920,
+              "target": 3500,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 0,
+              "target": 3,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": []
+            },
+            "target_publication_venue_found": {
+              "current": 0,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          }
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          }
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          }
+        }
+      },
+      "last_updated": null
+    },
+    {
+      "paper_id": "xenopus1",
+      "latex_file": "xenopus.tex",
+      "title": "Inter-embryo Calcium Signaling and Spatial Coordination in Xenopus laevis",
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 87,
+              "target": 107,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 0,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 5,
+              "target": 3,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": ["Patrick T. McMillen", "Parande Tayyebi", "Hananel Hazan", "Douglas Hazel", "Michael Levin"]
+            },
+            "target_publication_venue_found": {
+              "current": 0,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          }
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          }
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          }
+        }
+      },
+      "last_updated": null
+    },
+    {
+      "paper_id": "activeinference",
+      "latex_file": "activeinference.tex",
+      "title": "Active Inference: A Unified Framework for Perception, Action, and Learning",
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 0,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 1,
+              "target": 3,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": ["Daniel Friedman"]
+            },
+            "target_publication_venue_found": {
+              "current": 0,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          }
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          }
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          }
+        }
+      },
+      "last_updated": "2025-12-12T19:53:23.923616"
+    },
+    {
+      "paper_id": "higherorderentropy",
+      "latex_file": "higherorderentropy.tex",
+      "title": "Higher Order Entropy Across Computational Lifeforms",
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 0,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 0,
+              "target": 3,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": []
+            },
+            "target_publication_venue_found": {
+              "current": 0,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          }
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          }
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          }
+        }
+      },
+      "last_updated": "2025-12-12T19:54:08.577856"
+    },
+    {
+      "paper_id": "interactioncombinators",
+      "latex_file": "interactioncombinators.tex",
+      "title": "Interaction Combinators as a Possible Substrate for Modeling Life",
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 0,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 1,
+              "target": 3,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": ["Marius Buglia"]
+            },
+            "target_publication_venue_found": {
+              "current": 0,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          }
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          }
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          }
+        }
+      },
+      "last_updated": "2025-12-12T19:55:26.320621"
+    },
+    {
+      "paper_id": "aifriendbenchmark",
+      "latex_file": "aifriendbenchmark.tex",
+      "title": "AI Friend Benchmark: Evaluating Social Intelligence and Relationship Quality in AI Systems",
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 0,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 2,
+              "target": 3,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": ["Athena Aktipis", "Sandy Pentland"]
+            },
+            "target_publication_venue_found": {
+              "current": 0,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          }
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          }
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          }
+        }
+      },
+      "last_updated": "2025-12-12T20:00:57.634414"
+    }
+  ],
+  "metadata": {
+    "schema_version": "2.0",
+    "description": "Tracking progress and success factors for papers across three stages: before (draft), mid (editorial), and after (published)",
+    "stages": {
+      "before": "Draft Finished - Research and writing phase",
+      "mid": "Editorial Process - Submission and review phase",
+      "after": "Published - Post-publication impact tracking"
+    },
+    "factor_types": {
+      "percentage_based": "Factors with current/target values where percentage = (current / target) * 100",
+      "binary": "Factors that are either 0 or 1 (not done / done)",
+      "cumulative": "Factors that accumulate over time (citations, press mentions) without a fixed target"
+    }
+  }
+}

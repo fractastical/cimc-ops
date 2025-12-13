@@ -182,6 +182,9 @@ export class SlackService {
       case "hypotheses":
       case "hypothesis":
         return await this.getHypothesisList();
+      case "papers":
+      case "paper":
+        return await this.getPapersList();
       default:
         return {
           response_type: "ephemeral",
@@ -194,7 +197,7 @@ export class SlackService {
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: "• `/research projects` - Show all research projects\n• `/research hypotheses` - Show tracked hypotheses\n• `/research summary [weekly|monthly|quarterly]` - Get research summary"
+                text: "• `/research projects` - Show all research projects\n• `/research hypotheses` - Show tracked hypotheses\n• `/research papers` - Show papers pipeline status\n• `/research summary [weekly|monthly|quarterly]` - Get research summary"
               }
             }
           ]
@@ -287,6 +290,93 @@ export class SlackService {
         ]
       });
     }
+
+    return {
+      response_type: "in_channel",
+      blocks
+    };
+  }
+
+  private async getPapersList(): Promise<any> {
+    const papers = await storage.getPapers();
+    
+    if (papers.length === 0) {
+      return { 
+        response_type: "in_channel",
+        text: "No papers tracked yet. Papers sync from cimcai/paper-pipeline." 
+      };
+    }
+
+    // Group by stage
+    const stageGroups = {
+      before: papers.filter(p => p.currentStage === "before"),
+      mid: papers.filter(p => p.currentStage === "mid"),
+      after: papers.filter(p => p.currentStage === "after")
+    };
+
+    const stageEmoji = { before: "📝", mid: "🔄", after: "✅" };
+    const stageNames = { before: "Draft", mid: "Review", after: "Published" };
+
+    const blocks: any[] = [
+      {
+        type: "header",
+        text: { type: "plain_text", text: "📄 Papers Pipeline", emoji: true }
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Total Papers:*\n${papers.length}` },
+          { type: "mrkdwn", text: `*📝 Draft:*\n${stageGroups.before.length}` },
+          { type: "mrkdwn", text: `*🔄 Review:*\n${stageGroups.mid.length}` },
+          { type: "mrkdwn", text: `*✅ Published:*\n${stageGroups.after.length}` }
+        ]
+      },
+      { type: "divider" }
+    ];
+
+    // Show papers by stage
+    for (const [stage, stagePapers] of Object.entries(stageGroups)) {
+      if (stagePapers.length === 0) continue;
+      
+      const emoji = stageEmoji[stage as keyof typeof stageEmoji];
+      const name = stageNames[stage as keyof typeof stageNames];
+      
+      blocks.push({
+        type: "section",
+        text: { type: "mrkdwn", text: `*${emoji} ${name} Stage (${stagePapers.length}):*` }
+      });
+
+      for (const paper of stagePapers.slice(0, 5)) {
+        const stageData = paper.stages?.[stage as keyof typeof paper.stages];
+        const factors = stageData?.factors || {};
+        const completedFactors = Object.values(factors).filter((f: any) => f.current >= f.target).length;
+        const totalFactors = Object.keys(factors).length;
+        const progress = totalFactors > 0 ? `${completedFactors}/${totalFactors} factors` : "";
+
+        blocks.push({
+          type: "context",
+          elements: [
+            { type: "mrkdwn", text: `• *${paper.title}*${progress ? ` — _${progress}_` : ""}` }
+          ]
+        });
+      }
+
+      if (stagePapers.length > 5) {
+        blocks.push({
+          type: "context",
+          elements: [
+            { type: "mrkdwn", text: `_...and ${stagePapers.length - 5} more_` }
+          ]
+        });
+      }
+    }
+
+    blocks.push({
+      type: "context",
+      elements: [
+        { type: "mrkdwn", text: `Source: \`cimcai/paper-pipeline\` | Last synced: ${papers[0]?.syncedAt ? new Date(papers[0].syncedAt).toLocaleString() : "Unknown"}` }
+      ]
+    });
 
     return {
       response_type: "in_channel",

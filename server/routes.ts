@@ -697,14 +697,21 @@ export async function registerRoutes(
   // ============ Papers Pipeline ============
   app.get("/api/papers", async (req, res) => {
     try {
-      const result = await githubService.fetchPapers("cimcai", "paper-pipeline");
-      if (result.error) {
-        return res.status(500).json({ error: result.error, papers: [] });
-      }
-      res.json(result.papers);
+      const papers = await storage.getPapers();
+      res.json(papers);
     } catch (error) {
       console.error("Error fetching papers:", error);
-      res.status(500).json({ error: "Failed to fetch papers", papers: [] });
+      res.status(500).json({ error: "Failed to fetch papers" });
+    }
+  });
+
+  app.post("/api/papers/sync", async (req, res) => {
+    try {
+      const result = await githubService.syncPapers("cimcai", "paper-pipeline");
+      res.json(result);
+    } catch (error) {
+      console.error("Error syncing papers:", error);
+      res.status(500).json({ error: "Failed to sync papers" });
     }
   });
 

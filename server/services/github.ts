@@ -693,15 +693,12 @@ export class GitHubService {
   // Fetch papers from the paper-pipeline repository
   async fetchPapers(owner: string = "cimcai", repo: string = "paper-pipeline"): Promise<{
     papers: Array<{
-      id: string;
+      paperId: string;
+      latexFile?: string;
       title: string;
-      status: string;
-      arxivId?: string;
-      url?: string;
-      authors?: string[];
-      abstract?: string;
-      addedDate?: string;
-      lastUpdated?: string;
+      currentStage: string;
+      stages: any;
+      lastUpdated?: Date;
     }>;
     error?: string;
   }> {
@@ -712,9 +709,9 @@ export class GitHubService {
     }
 
     try {
-      // Try to find JSON file(s) containing paper status
-      const contentsResponse = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/contents`,
+      // Fetch papers.json specifically
+      const fileResponse = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/papers.json`,
         {
           headers: {
             Authorization: `Bearer ${this.token}`,
@@ -723,66 +720,25 @@ export class GitHubService {
         }
       );
 
-      if (!contentsResponse.ok) {
-        return { papers: [], error: `Failed to fetch repo contents: ${contentsResponse.statusText}` };
+      if (!fileResponse.ok) {
+        return { papers: [], error: `Failed to fetch papers.json: ${fileResponse.statusText}` };
       }
 
-      const contents = await contentsResponse.json();
+      const fileData = await fileResponse.json();
+      const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
+      const parsed = JSON.parse(content);
       
-      // Look for JSON files that might contain papers data
-      const jsonFiles = Array.isArray(contents) 
-        ? contents.filter((item: any) => 
-            item.type === "file" && 
-            (item.name.endsWith(".json") || item.name === "papers.json" || item.name === "status.json")
-          )
-        : [];
+      // Handle the expected structure: { papers: [...] }
+      const rawPapers = parsed.papers || (Array.isArray(parsed) ? parsed : []);
 
-      const allPapers: any[] = [];
-
-      for (const file of jsonFiles) {
-        try {
-          const fileResponse = await fetch(file.url, {
-            headers: {
-              Authorization: `Bearer ${this.token}`,
-              Accept: "application/vnd.github.v3+json",
-            },
-          });
-
-          if (fileResponse.ok) {
-            const fileData = await fileResponse.json();
-            const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
-            const parsed = JSON.parse(content);
-            
-            // Handle different JSON structures
-            if (Array.isArray(parsed)) {
-              allPapers.push(...parsed);
-            } else if (parsed.papers && Array.isArray(parsed.papers)) {
-              allPapers.push(...parsed.papers);
-            } else if (typeof parsed === 'object') {
-              // Single paper or object with papers as values
-              Object.entries(parsed).forEach(([key, value]: [string, any]) => {
-                if (typeof value === 'object' && value !== null) {
-                  allPapers.push({ id: key, ...value });
-                }
-              });
-            }
-          }
-        } catch (e) {
-          console.error(`Error parsing ${file.name}:`, e);
-        }
-      }
-
-      // Normalize paper objects
-      const papers = allPapers.map((paper, index) => ({
-        id: paper.id || paper.arxiv_id || paper.arxivId || `paper-${index}`,
-        title: paper.title || paper.name || "Untitled",
-        status: paper.status || paper.state || "unknown",
-        arxivId: paper.arxiv_id || paper.arxivId,
-        url: paper.url || paper.link || (paper.arxiv_id ? `https://arxiv.org/abs/${paper.arxiv_id}` : undefined),
-        authors: paper.authors,
-        abstract: paper.abstract || paper.summary,
-        addedDate: paper.added_date || paper.addedDate || paper.created_at,
-        lastUpdated: paper.last_updated || paper.lastUpdated || paper.updated_at,
+      // Map to our paper format with full stages
+      const papers = rawPapers.map((paper: any) => ({
+        paperId: paper.paper_id || paper.id || `paper-${Math.random().toString(36).substr(2, 9)}`,
+        latexFile: paper.latex_file || paper.latexFile,
+        title: paper.title || "Untitled",
+        currentStage: paper.current_stage || paper.currentStage || "before",
+        stages: paper.stages || {},
+        lastUpdated: paper.last_updated ? new Date(paper.last_updated) : undefined,
       }));
 
       console.log(`Fetched ${papers.length} papers from ${owner}/${repo}`);
@@ -791,6 +747,48 @@ export class GitHubService {
       console.error("Error fetching papers:", error);
       return { papers: [], error: String(error) };
     }
+  }
+
+  // Sync papers to the database
+  async syncPapers(owner: string = "cimcai", repo: string = "paper-pipeline"): Promise<{
+    synced: number;
+    updated: number;
+    errors: string[];
+  }> {
+    const result = { synced: 0, updated: 0, errors: [] as string[] };
+    
+    const { papers, error } = await this.fetchPapers(owner, repo);
+    
+    if (error) {
+      result.errors.push(error);
+      return result;
+    }
+
+    for (const paper of papers) {
+      try {
+        const existing = await storage.getPaperByPaperId(paper.paperId);
+        
+        await storage.upsertPaper({
+          paperId: paper.paperId,
+          latexFile: paper.latexFile,
+          title: paper.title,
+          currentStage: paper.currentStage,
+          stages: paper.stages,
+          lastUpdated: paper.lastUpdated,
+        });
+
+        if (existing) {
+          result.updated++;
+        } else {
+          result.synced++;
+        }
+      } catch (e) {
+        result.errors.push(`Error syncing paper ${paper.paperId}: ${e}`);
+      }
+    }
+
+    console.log(`Papers sync complete: ${result.synced} new, ${result.updated} updated`);
+    return result;
   }
 }
 

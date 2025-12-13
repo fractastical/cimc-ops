@@ -180,3 +180,44 @@ export const insertProjectHypothesisSchema = createInsertSchema(projectHypothese
 
 export type InsertProjectHypothesis = z.infer<typeof insertProjectHypothesisSchema>;
 export type ProjectHypothesis = typeof projectHypotheses.$inferSelect;
+
+// Papers pipeline from GitHub repository
+export const papers = pgTable("papers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  paperId: text("paper_id").notNull().unique(), // e.g., "paper-001"
+  latexFile: text("latex_file"), // e.g., "paper-001.tex"
+  title: text("title").notNull(),
+  currentStage: text("current_stage").notNull(), // before, mid, after
+  stages: jsonb("stages").notNull(), // Full stage/factor JSON data
+  lastUpdated: timestamp("last_updated"), // From the paper JSON
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+});
+
+export const insertPaperSchema = createInsertSchema(papers).omit({
+  id: true,
+  syncedAt: true,
+});
+
+export type InsertPaper = z.infer<typeof insertPaperSchema>;
+export type Paper = typeof papers.$inferSelect;
+
+// TypeScript interfaces for the stages/factors structure
+export interface PaperFactor {
+  current: number;
+  target: number | null;
+  description?: string;
+  partner_list?: string[];
+  venue_name?: string | null;
+}
+
+export interface PaperStage {
+  stage_name: string;
+  completed: boolean;
+  factors: Record<string, PaperFactor>;
+}
+
+export interface PaperStages {
+  before: PaperStage;
+  mid: PaperStage;
+  after: PaperStage;
+}

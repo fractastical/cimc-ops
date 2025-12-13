@@ -372,20 +372,44 @@ export async function unlinkProjectFromHypothesis(projectId: string, hypothesisI
 }
 
 // Papers
+export interface PaperFactor {
+  current: number;
+  target: number;
+  partner_list?: string[];
+  venue_name?: string | null;
+}
+
+export interface PaperStage {
+  stage_name: string;
+  completed: boolean;
+  factors: Record<string, PaperFactor>;
+}
+
+export interface PaperStages {
+  before?: PaperStage;
+  mid?: PaperStage;
+  after?: PaperStage;
+}
+
 export interface Paper {
   id: string;
+  paperId: string;
+  latexFile?: string;
   title: string;
-  status: string;
-  arxivId?: string;
-  url?: string;
-  authors?: string[];
-  abstract?: string;
-  addedDate?: string;
+  currentStage: string;
+  stages: PaperStages;
   lastUpdated?: string;
+  syncedAt?: string;
 }
 
 export async function getPapers(): Promise<Paper[]> {
   const res = await fetch("/api/papers");
   if (!res.ok) throw new Error("Failed to fetch papers");
+  return res.json();
+}
+
+export async function syncPapers(): Promise<{ synced: number; updated: number; errors: string[] }> {
+  const res = await fetch("/api/papers/sync", { method: "POST" });
+  if (!res.ok) throw new Error("Failed to sync papers");
   return res.json();
 }
