@@ -178,7 +178,103 @@ export class SchedulerService {
   }
 
   async sendWeeklySummary() {
-    await this.sendRepoSummary("weekly");
+    const now = new Date();
+    const periodStart = startOfWeek(subDays(now, 7));
+    const periodEnd = endOfWeek(subDays(now, 7));
+    const periodLabel = `${format(periodStart, "MMM d")} - ${format(periodEnd, "MMM d, yyyy")}`;
+
+    // Gather repo activity - filter to exact period range
+    const allActivities = await storage.getRecentActivity(14); // Get more to filter properly
+    const activities = allActivities.filter(a => {
+      const activityDate = a.activityDate ? new Date(a.activityDate) : new Date(a.createdAt);
+      return activityDate >= periodStart && activityDate <= periodEnd;
+    });
+    const commits = activities.filter(a => a.eventType === "push");
+    const prs = activities.filter(a => a.eventType === "pull_request" || a.eventType === "pull_request_merged");
+
+    // Get repo activity for the specific period
+    const repos = await storage.getActiveRepositories();
+    const allRepoStats = await Promise.all(
+      repos.map(async (repo) => {
+        const stats = await storage.getActivityByRepository(repo.id, 14);
+        // Filter to period range
+        const periodStats = stats.filter(s => {
+          const date = s.activityDate ? new Date(s.activityDate) : new Date(s.createdAt);
+          return date >= periodStart && date <= periodEnd;
+        });
+        return {
+          repo: repo.name,
+          commits: periodStats.filter(s => s.eventType === "push").length,
+          prs: periodStats.filter(s => s.eventType === "pull_request" || s.eventType === "pull_request_merged").length,
+        };
+      })
+    );
+    const activeRepos = allRepoStats.filter(r => r.commits > 0 || r.prs > 0);
+
+    // Gather research activity - filter to exact period range
+    const timeline = await storage.getResearchTimeline();
+    const projectUpdates = timeline.map(t => ({
+      project: t.project,
+      updates: t.updates.filter(u => {
+        const updateDate = new Date(u.date);
+        return updateDate >= periodStart && updateDate <= periodEnd;
+      })
+    })).filter(t => t.updates.length > 0);
+
+    const totalResearchUpdates = projectUpdates.reduce((sum, p) => sum + p.updates.length, 0);
+
+    // Gather papers data
+    const papers = await storage.getPapers();
+    const papersByStage = {
+      before: papers.filter(p => p.currentStage === "before").length,
+      mid: papers.filter(p => p.currentStage === "mid").length,
+      after: papers.filter(p => p.currentStage === "after").length,
+    };
+
+    // Get unique contributors (from commits and research)
+    const authorCounts = new Map<string, number>();
+    activities.forEach(a => {
+      authorCounts.set(a.author, (authorCounts.get(a.author) || 0) + 1);
+    });
+    const grantees = new Set<string>();
+    projectUpdates.forEach(p => p.updates.forEach(u => {
+      if (u.grantee) grantees.add(u.grantee);
+    }));
+
+    const summary = {
+      periodLabel,
+      // Repo stats
+      totalCommits: commits.length,
+      totalPRs: prs.length,
+      activeRepos: activeRepos.length,
+      repoActivity: activeRepos.sort((a, b) => b.commits - a.commits).slice(0, 8),
+      // Research stats
+      totalResearchUpdates,
+      projectsWithUpdates: projectUpdates.length,
+      projectUpdates: projectUpdates.slice(0, 5).map(p => ({
+        name: p.project.name,
+        updateCount: p.updates.length,
+      })),
+      // Papers stats
+      totalPapers: papers.length,
+      papersByStage,
+      // Contributors
+      contributors: Array.from(authorCounts.keys()).slice(0, 5),
+      researchContributors: Array.from(grantees).slice(0, 5),
+    };
+
+    await slackService.sendCombinedWeeklySummary(summary);
+
+    // Log to database with more detail
+    const repoNames = activeRepos.slice(0, 3).map(r => r.repo).join(", ");
+    const logMessage = `Weekly summary: ${summary.totalCommits} commits across ${summary.activeRepos} repos (${repoNames}${activeRepos.length > 3 ? "..." : ""}), ${summary.totalResearchUpdates} research updates, ${summary.totalPapers} papers`;
+    
+    await storage.createSlackMessage({
+      user: "Ops Bot",
+      message: logMessage,
+      isBot: true,
+      channel: "#ops",
+    });
   }
 
   // Flexible summary methods

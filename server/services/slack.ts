@@ -940,6 +940,75 @@ export class SlackService {
     return await this.sendMessage(text);
   }
 
+  async sendCombinedWeeklySummary(summary: {
+    periodLabel: string;
+    totalCommits: number;
+    totalPRs: number;
+    activeRepos: number;
+    repoActivity: Array<{ repo: string; commits: number; prs: number }>;
+    totalResearchUpdates: number;
+    projectsWithUpdates: number;
+    projectUpdates: Array<{ name: string; updateCount: number }>;
+    totalPapers: number;
+    papersByStage: { before: number; mid: number; after: number };
+    contributors: string[];
+    researchContributors: string[];
+  }) {
+    let text = `:calendar: *Weekly Research Ops Summary*\n_${summary.periodLabel}_\n\n`;
+
+    // Code Activity Section
+    text += `:computer: *Code Activity*\n`;
+    text += `• ${summary.totalCommits} commits across ${summary.activeRepos} repos\n`;
+    if (summary.totalPRs > 0) {
+      text += `• ${summary.totalPRs} pull requests\n`;
+    }
+    
+    if (summary.repoActivity.length > 0) {
+      text += `\n*Active Repositories:*\n`;
+      for (const repo of summary.repoActivity.slice(0, 6)) {
+        text += `  • *${repo.repo}*: ${repo.commits} commit${repo.commits !== 1 ? "s" : ""}`;
+        if (repo.prs > 0) text += `, ${repo.prs} PR${repo.prs !== 1 ? "s" : ""}`;
+        text += `\n`;
+      }
+      if (summary.repoActivity.length > 6) {
+        text += `  _...and ${summary.repoActivity.length - 6} more_\n`;
+      }
+    }
+
+    // Research Activity Section
+    text += `\n:microscope: *Research Activity*\n`;
+    text += `• ${summary.totalResearchUpdates} updates across ${summary.projectsWithUpdates} projects\n`;
+    
+    if (summary.projectUpdates.length > 0) {
+      text += `\n*Active Projects:*\n`;
+      for (const project of summary.projectUpdates) {
+        text += `  • *${project.name}*: ${project.updateCount} update${project.updateCount !== 1 ? "s" : ""}\n`;
+      }
+    }
+
+    // Papers Pipeline Section
+    if (summary.totalPapers > 0) {
+      text += `\n:page_facing_up: *Papers Pipeline*\n`;
+      text += `• ${summary.totalPapers} total papers\n`;
+      text += `  :pencil: Draft: ${summary.papersByStage.before}`;
+      text += ` | :arrows_counterclockwise: Review: ${summary.papersByStage.mid}`;
+      text += ` | :white_check_mark: Published: ${summary.papersByStage.after}\n`;
+    }
+
+    // Contributors Section
+    if (summary.contributors.length > 0 || summary.researchContributors.length > 0) {
+      text += `\n:busts_in_silhouette: *Contributors*\n`;
+      if (summary.contributors.length > 0) {
+        text += `  Code: ${summary.contributors.join(", ")}\n`;
+      }
+      if (summary.researchContributors.length > 0) {
+        text += `  Research: ${summary.researchContributors.join(", ")}\n`;
+      }
+    }
+
+    return await this.sendMessage(text);
+  }
+
   async sendRepoSummary(summary: {
     timeframe: string;
     periodLabel: string;
