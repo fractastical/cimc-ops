@@ -297,16 +297,22 @@ export async function registerRoutes(
       const allRepos = await storage.getRepositories();
       const repoMap = new Map(allRepos.map(r => [r.id, r.name]));
       
-      // 1. CODE: Get GitHub activity (commits, pushes)
+      // 1. Get GitHub activity (commits, pushes) - paper-pipeline goes to research, others to code
       const activities = await storage.getActivitySince(startDate);
       for (const event of activities) {
         if (event.eventType === 'commit' || event.eventType === 'push') {
           const eventDate = event.activityDate || event.createdAt;
           const weekKey = getWeekKey(new Date(eventDate));
           if (weeklyData[weekKey]) {
-            weeklyData[weekKey].code++;
             const repoName = repoMap.get(event.repositoryId);
-            if (repoName) weeklyData[weekKey].repos.add(repoName);
+            // paper-pipeline commits count as research
+            if (repoName && repoName.toLowerCase().includes('paper-pipeline')) {
+              weeklyData[weekKey].research++;
+              weeklyData[weekKey].papers++; // Count as paper activity
+            } else {
+              weeklyData[weekKey].code++;
+              if (repoName) weeklyData[weekKey].repos.add(repoName);
+            }
           }
         }
       }
