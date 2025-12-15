@@ -262,6 +262,93 @@ export async function registerRoutes(
     }
   });
 
+  // Summary endpoint: Research vs Code activity by week
+  app.get("/api/activity/summary", async (req, res) => {
+    try {
+      const days = req.query.days ? parseInt(req.query.days as string) : 90;
+      
+      // Helper to get week key (start of week - Sunday)
+      const getWeekKey = (date: Date): string => {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day;
+        const weekStart = new Date(d.setDate(diff));
+        return weekStart.toISOString().split('T')[0];
+      };
+      
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - days);
+      
+      // Initialize weekly buckets
+      const weeklyData: Record<string, { research: number; code: number }> = {};
+      for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 7)) {
+        const key = getWeekKey(d);
+        weeklyData[key] = { research: 0, code: 0 };
+      }
+      
+      // 1. CODE: Get GitHub activity (commits, pushes)
+      const activities = await storage.getActivitySince(startDate);
+      for (const event of activities) {
+        if (event.eventType === 'commit' || event.eventType === 'push') {
+          const eventDate = event.activityDate || event.createdAt;
+          const weekKey = getWeekKey(new Date(eventDate));
+          if (weeklyData[weekKey]) {
+            weeklyData[weekKey].code++;
+          }
+        }
+      }
+      
+      // 2. RESEARCH: Get research updates
+      const allUpdates = await storage.getResearchUpdates();
+      for (const update of allUpdates) {
+        if (update.date >= startDate) {
+          const weekKey = getWeekKey(new Date(update.date));
+          if (weeklyData[weekKey]) {
+            weeklyData[weekKey].research++;
+          }
+        }
+      }
+      
+      // 3. RESEARCH: Get papers (count by lastUpdated or syncedAt)
+      const allPapers = await storage.getPapers();
+      for (const paper of allPapers) {
+        const paperDate = paper.lastUpdated || paper.syncedAt;
+        if (paperDate && new Date(paperDate) >= startDate) {
+          const weekKey = getWeekKey(new Date(paperDate));
+          if (weeklyData[weekKey]) {
+            weeklyData[weekKey].research++;
+          }
+        }
+      }
+      
+      // 4. RESEARCH: Count hypothesis activity via linked projects
+      const hypothesisActivity = await storage.getHypothesisActivity();
+      // Hypotheses are already counted through their linked research updates
+      // So we don't double-count here
+      
+      // Convert to array format for the chart
+      const sortedWeeks = Object.keys(weeklyData).sort();
+      const result = sortedWeeks.map(week => ({
+        week,
+        label: 'Week of ' + new Date(week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        research: weeklyData[week].research,
+        code: weeklyData[week].code
+      }));
+      
+      // Calculate totals
+      const totals = result.reduce((acc, w) => ({
+        research: acc.research + w.research,
+        code: acc.code + w.code
+      }), { research: 0, code: 0 });
+      
+      res.json({ weeks: result, totals });
+    } catch (error) {
+      console.error("Error fetching activity summary:", error);
+      res.status(500).json({ error: "Failed to fetch activity summary" });
+    }
+  });
+
   app.get("/api/activity/repository/:id", async (req, res) => {
     try {
       const days = req.query.days ? parseInt(req.query.days as string) : 30;
@@ -1448,86 +1535,25 @@ export async function registerRoutes(
       try {
         const apiUrl = window.location.origin;
         
-        // Fetch both activity and research timeline (include credentials for auth)
-        const [activityRes, timelineRes] = await Promise.all([
-          fetch(apiUrl + '/api/activity?days=90', { credentials: 'include' }),
-          fetch(apiUrl + '/api/research/timeline', { credentials: 'include' })
-        ]);
+        // Fetch summary data (research vs code by week)
+        const response = await fetch(apiUrl + '/api/activity/summary?days=90');
+        const data = await response.json();
         
-        const activity = await activityRes.json();
-        const timeline = await timelineRes.json();
-        
-        // Handle error responses
-        if (!Array.isArray(activity)) {
+        if (!data || !data.weeks) {
           throw new Error('Unable to load activity data');
         }
-        if (!Array.isArray(timeline)) {
-          throw new Error('Unable to load research timeline');
-        }
         
-        // Build weekly counts for last 13 weeks (about 3 months)
-        const today = new Date();
-        const startDate = new Date(today);
-        startDate.setDate(startDate.getDate() - 91);
+        const { weeks, totals } = data;
         
-        // Helper to get week key (start of week)
-        function getWeekKey(date) {
-          const d = new Date(date);
-          const day = d.getDay();
-          const diff = d.getDate() - day; // Start of week (Sunday)
-          const weekStart = new Date(d.setDate(diff));
-          return weekStart.toISOString().split('T')[0];
-        }
-        
-        const weeklyData = {};
-        
-        // Initialize all weeks
-        for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 7)) {
-          const key = getWeekKey(d);
-          weeklyData[key] = { commits: 0, research: 0 };
-        }
-        
-        // Count GitHub activity (commits, pushes)
-        let totalCommits = 0;
-        for (const event of activity) {
-          if (event.eventType === 'commit' || event.eventType === 'push') {
-            // Use activityDate if available, otherwise fall back to createdAt
-            const eventDate = event.activityDate || event.createdAt;
-            if (!eventDate) continue;
-            const weekKey = getWeekKey(new Date(eventDate));
-            if (weeklyData[weekKey]) {
-              weeklyData[weekKey].commits++;
-              totalCommits++;
-            }
-          }
-        }
-        
-        // Count research updates
-        let totalResearch = 0;
-        for (const project of timeline) {
-          for (const update of project.updates) {
-            const weekKey = getWeekKey(new Date(update.date));
-            if (weeklyData[weekKey]) {
-              weeklyData[weekKey].research++;
-              totalResearch++;
-            }
-          }
-        }
-        
-        // Convert to arrays for Chart.js
-        const sortedWeeks = Object.keys(weeklyData).sort();
-        const labels = sortedWeeks.map(d => {
-          const date = new Date(d);
-          return 'Week of ' + date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        });
-        const commits = sortedWeeks.map(d => weeklyData[d].commits);
-        const research = sortedWeeks.map(d => weeklyData[d].research);
+        const labels = weeks.map(w => w.label);
+        const research = weeks.map(w => w.research);
+        const code = weeks.map(w => w.code);
         
         // Show stats
         document.getElementById('stats').innerHTML = 
-          '<div>GitHub Commits: <span class="stat-value">' + totalCommits + '</span></div>' +
-          '<div>Research Updates: <span class="stat-value">' + totalResearch + '</span></div>' +
-          '<div>Total Activity: <span class="stat-value">' + (totalCommits + totalResearch) + '</span></div>';
+          '<div>Research Activity: <span class="stat-value">' + totals.research + '</span> (papers, updates, hypotheses)</div>' +
+          '<div>Code Activity: <span class="stat-value">' + totals.code + '</span> (commits)</div>' +
+          '<div>Total: <span class="stat-value">' + (totals.research + totals.code) + '</span></div>';
         
         document.getElementById('loading').style.display = 'none';
         document.getElementById('content').style.display = 'block';
@@ -1539,20 +1565,16 @@ export async function registerRoutes(
             labels,
             datasets: [
               {
-                label: 'GitHub Commits',
-                data: commits,
-                backgroundColor: '#10b981',
-                borderRadius: 2,
-                barPercentage: 0.9,
-                categoryPercentage: 1.0
-              },
-              {
-                label: 'Research Updates',
+                label: 'Research (Papers, Updates, Hypotheses)',
                 data: research,
                 backgroundColor: '#3b82f6',
-                borderRadius: 2,
-                barPercentage: 0.9,
-                categoryPercentage: 1.0
+                borderRadius: 4
+              },
+              {
+                label: 'Code (GitHub Commits)',
+                data: code,
+                backgroundColor: '#10b981',
+                borderRadius: 4
               }
             ]
           },
@@ -1570,7 +1592,7 @@ export async function registerRoutes(
               },
               title: {
                 display: true,
-                text: 'Weekly Activity - Last 3 Months',
+                text: 'Research vs Code Activity - Last 3 Months',
                 color: '#e2e8f0',
                 font: { size: 14, weight: 'bold' }
               },
@@ -1584,18 +1606,14 @@ export async function registerRoutes(
             },
             scales: {
               x: { 
-                stacked: true,
                 ticks: { 
                   color: '#94a3b8', 
-                  font: { size: 9 },
-                  maxRotation: 45,
-                  autoSkip: true,
-                  maxTicksLimit: 15
+                  font: { size: 10 },
+                  maxRotation: 45
                 },
                 grid: { display: false }
               },
               y: { 
-                stacked: true,
                 beginAtZero: true,
                 ticks: { 
                   color: '#94a3b8', 

@@ -38,6 +38,7 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/embed/') || 
       req.path === '/api/hypotheses/activity/timeline' ||
       req.path === '/api/activity/monthly' ||
+      req.path === '/api/activity/summary' ||
       req.path === '/api/research/timeline') {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -118,6 +119,7 @@ app.use((req, res, next) => {
       req.path === "/api/hypotheses/activity/timeline" ||
       req.path === "/api/activity/monthly" ||
       req.path === "/api/activity" ||
+      req.path === "/api/activity/summary" ||
       req.path === "/api/research/timeline") {
     return next();
   }
