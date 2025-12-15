@@ -922,12 +922,9 @@ function PapersPipelineSection() {
                         
                         {/* Progress bar */}
                         <div className="flex items-center gap-3">
-                          <div className="flex-1 h-2 bg-muted/50 rounded-full overflow-hidden">
+                          <div className="flex-1 h-1.5 bg-muted/30 rounded-full overflow-hidden">
                             <div 
-                              className={`h-full rounded-full transition-all ${
-                                progress.percent === 100 ? 'bg-green-500' : 
-                                progress.percent >= 50 ? 'bg-blue-500' : 'bg-yellow-500'
-                              }`}
+                              className="h-full rounded-full transition-all bg-primary/80"
                               style={{ width: `${progress.percent}%` }}
                             />
                           </div>
@@ -967,9 +964,9 @@ function PapersPipelineSection() {
                               <span className="text-xs flex-1 truncate" title={displayName}>
                                 {displayName}
                               </span>
-                              <div className="w-20 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                              <div className="w-20 h-1 bg-muted/30 rounded-full overflow-hidden">
                                 <div 
-                                  className={`h-full rounded-full ${isComplete ? 'bg-green-500' : 'bg-blue-500'}`}
+                                  className={`h-full rounded-full ${isComplete ? 'bg-primary' : 'bg-primary/60'}`}
                                   style={{ width: `${Math.min(factorPercent, 100)}%` }}
                                 />
                               </div>
