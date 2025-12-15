@@ -16,17 +16,24 @@ import {
   unlinkProjectFromHypothesis,
   getHypothesisActivity,
   getHypothesisActivityTimeline,
-  getPapers,
+  getPapersWithCollaborators,
   syncPapers,
+  getCollaborators,
+  searchOpenAlexAuthors,
+  createCollaborator,
+  linkPaperCollaborator,
+  unlinkPaperCollaborator,
   type ResearchTimeline,
   type Hypothesis,
   type HypothesisActivity,
-  type Paper,
   type PaperStage,
+  type PaperWithCollaborators,
+  type Collaborator,
+  type OpenAlexAuthor,
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, FileText, ExternalLink } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, FileText, ExternalLink, Users, Search, Award, ArrowUpDown } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";
 
@@ -754,6 +761,230 @@ const STATUS_COLORS: Record<string, string> = {
   "unknown": "bg-gray-500/20 text-gray-400 border-gray-500/30",
 };
 
+function CollaboratorSearchModal({
+  paperId,
+  paperTitle,
+  existingCollaborators,
+  onClose,
+}: {
+  paperId: string;
+  paperTitle: string;
+  existingCollaborators: Collaborator[];
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<OpenAlexAuthor[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const { data: allCollaborators = [] } = useQuery({
+    queryKey: ["collaborators"],
+    queryFn: getCollaborators,
+  });
+
+  const existingIds = new Set(existingCollaborators.map(c => c.id));
+
+  const searchMutation = useMutation({
+    mutationFn: (name: string) => searchOpenAlexAuthors(name),
+    onSuccess: (results) => {
+      setSearchResults(results);
+      setIsSearching(false);
+    },
+    onError: () => {
+      toast.error("Search failed");
+      setIsSearching(false);
+    },
+  });
+
+  const addFromOpenAlexMutation = useMutation({
+    mutationFn: async (author: OpenAlexAuthor) => {
+      const collaborator = await createCollaborator({
+        name: author.display_name,
+        openalexId: author.id,
+        hIndex: author.summary_stats?.h_index,
+        citationCount: author.cited_by_count,
+        worksCount: author.works_count,
+        institution: author.last_known_institutions?.[0]?.display_name,
+        orcid: author.orcid,
+      });
+      await linkPaperCollaborator(paperId, collaborator.id);
+      return collaborator;
+    },
+    onSuccess: () => {
+      toast.success("Collaborator added");
+      queryClient.invalidateQueries({ queryKey: ["papersWithCollaborators"] });
+      queryClient.invalidateQueries({ queryKey: ["collaborators"] });
+    },
+    onError: () => {
+      toast.error("Failed to add collaborator");
+    },
+  });
+
+  const linkMutation = useMutation({
+    mutationFn: (collaboratorId: string) => linkPaperCollaborator(paperId, collaboratorId),
+    onSuccess: () => {
+      toast.success("Collaborator linked");
+      queryClient.invalidateQueries({ queryKey: ["papersWithCollaborators"] });
+    },
+    onError: () => {
+      toast.error("Failed to link collaborator");
+    },
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: (collaboratorId: string) => unlinkPaperCollaborator(paperId, collaboratorId),
+    onSuccess: () => {
+      toast.success("Collaborator removed");
+      queryClient.invalidateQueries({ queryKey: ["papersWithCollaborators"] });
+    },
+    onError: () => {
+      toast.error("Failed to remove collaborator");
+    },
+  });
+
+  const handleSearch = () => {
+    if (searchTerm.trim()) {
+      setIsSearching(true);
+      searchMutation.mutate(searchTerm.trim());
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        className="bg-background border border-border rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            <h3 className="font-mono font-semibold text-sm">Collaborators for {paperTitle}</h3>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="p-4 border-b border-border">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Search OpenAlex by author name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="font-mono text-sm"
+              data-testid="input-search-collaborators"
+            />
+            <Button onClick={handleSearch} disabled={isSearching || !searchTerm.trim()} size="sm">
+              <Search className={`h-4 w-4 ${isSearching ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4 max-h-[50vh] overflow-y-auto">
+          {existingCollaborators.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2">Current Collaborators</h4>
+              <div className="space-y-2">
+                {existingCollaborators.map((collab) => (
+                  <div
+                    key={collab.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/30"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{collab.name}</span>
+                      {collab.hIndex && (
+                        <Badge variant="outline" className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30">
+                          <Award className="h-3 w-3 mr-1" />
+                          h-index: {collab.hIndex}
+                        </Badge>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => unlinkMutation.mutate(collab.id)}
+                      disabled={unlinkMutation.isPending}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {allCollaborators.filter(c => !existingIds.has(c.id)).length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2">Saved Collaborators</h4>
+              <div className="space-y-1">
+                {allCollaborators.filter(c => !existingIds.has(c.id)).map((collab) => (
+                  <div
+                    key={collab.id}
+                    className="flex items-center justify-between p-2 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-muted/10 cursor-pointer"
+                    onClick={() => linkMutation.mutate(collab.id)}
+                    data-testid={`collaborator-link-${collab.id}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{collab.name}</span>
+                      {collab.hIndex && (
+                        <Badge variant="outline" className="text-xs">
+                          h: {collab.hIndex}
+                        </Badge>
+                      )}
+                    </div>
+                    <Plus className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {searchResults.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2">OpenAlex Results</h4>
+              <div className="space-y-1">
+                {searchResults.map((author) => (
+                  <div
+                    key={author.id}
+                    className="flex items-center justify-between p-2 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-muted/10 cursor-pointer"
+                    onClick={() => addFromOpenAlexMutation.mutate(author)}
+                    data-testid={`openalex-author-${author.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate">{author.display_name}</span>
+                        {author.summary_stats?.h_index && (
+                          <Badge variant="outline" className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30">
+                            h: {author.summary_stats.h_index}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {author.last_known_institutions?.[0]?.display_name || "No institution"}
+                        {" · "}{author.works_count} works · {author.cited_by_count} citations
+                      </div>
+                    </div>
+                    <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {searchResults.length === 0 && !isSearching && searchTerm && searchMutation.isSuccess && (
+            <p className="text-sm text-muted-foreground text-center py-4">No authors found</p>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-border flex justify-end">
+          <Button onClick={onClose} data-testid="button-close-collaborator-modal">Done</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getStageProgress(stage: PaperStage | undefined): { completed: number; total: number; percent: number } {
   if (!stage) return { completed: 0, total: 0, percent: 0 };
   const factors = stage.factors ? Object.values(stage.factors) : [];
@@ -769,23 +1000,29 @@ function getStageProgress(stage: PaperStage | undefined): { completed: number; t
 function PapersPipelineSection() {
   const queryClient = useQueryClient();
   const [expandedPaper, setExpandedPaper] = useState<string | null>(null);
+  const [sortByHIndex, setSortByHIndex] = useState(false);
+  const [collaboratorModalPaper, setCollaboratorModalPaper] = useState<PaperWithCollaborators | null>(null);
   
   const { data: papers = [], isLoading, error } = useQuery({
-    queryKey: ["papers"],
-    queryFn: getPapers,
+    queryKey: ["papersWithCollaborators"],
+    queryFn: getPapersWithCollaborators,
     retry: 1,
   });
 
   const syncMutation = useMutation({
     mutationFn: syncPapers,
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["papers"] });
+      queryClient.invalidateQueries({ queryKey: ["papersWithCollaborators"] });
       toast.success(`Synced ${result.synced} new, updated ${result.updated} papers`);
     },
     onError: () => {
       toast.error("Failed to sync papers");
     },
   });
+
+  const sortedPapers = sortByHIndex 
+    ? [...papers].sort((a, b) => (b.maxHIndex || 0) - (a.maxHIndex || 0))
+    : papers;
 
   const stageEmoji = { before: "📝", mid: "🔄", after: "✅" };
   const stageNames = { before: "Draft", mid: "Review", after: "Published" };
@@ -850,16 +1087,28 @@ function PapersPipelineSection() {
             {papers.length} papers
           </Badge>
         </CardTitle>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending}
-          data-testid="button-sync-papers"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-          Sync
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant={sortByHIndex ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSortByHIndex(!sortByHIndex)}
+            data-testid="button-sort-hindex"
+            title="Sort by highest h-index"
+          >
+            <ArrowUpDown className="h-4 w-4 mr-1" />
+            <Award className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            data-testid="button-sync-papers"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+            Sync
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {papers.length === 0 ? (
@@ -896,7 +1145,7 @@ function PapersPipelineSection() {
 
             {/* Papers list */}
             <div className="space-y-2 divide-y divide-border/20">
-              {papers.map((paper) => {
+              {sortedPapers.map((paper) => {
                 const currentStage = paper.currentStage as "before" | "mid" | "after";
                 const stageData = paper.stages?.[currentStage];
                 const progress = getStageProgress(stageData);
@@ -918,7 +1167,35 @@ function PapersPipelineSection() {
                           <h4 className="text-sm font-medium text-foreground truncate">
                             {paper.title}
                           </h4>
+                          {paper.maxHIndex && (
+                            <Badge variant="outline" className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30 shrink-0">
+                              <Award className="h-3 w-3 mr-1" />
+                              h: {paper.maxHIndex}
+                            </Badge>
+                          )}
                         </div>
+                        
+                        {/* Collaborator badges */}
+                        {paper.collaborators && paper.collaborators.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {paper.collaborators.slice(0, 3).map((collab) => (
+                              <Badge 
+                                key={collab.id} 
+                                variant="outline" 
+                                className="text-xs bg-muted/30"
+                                title={`h-index: ${collab.hIndex || 'N/A'}`}
+                              >
+                                <User className="h-3 w-3 mr-1" />
+                                {collab.name.split(' ').pop()}
+                              </Badge>
+                            ))}
+                            {paper.collaborators.length > 3 && (
+                              <Badge variant="outline" className="text-xs bg-muted/30">
+                                +{paper.collaborators.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                         
                         {/* Progress bar */}
                         <div className="flex items-center gap-3">
@@ -982,6 +1259,21 @@ function PapersPipelineSection() {
                             File: <code className="bg-muted/50 px-1 rounded">{paper.latexFile}</code>
                           </div>
                         )}
+
+                        <div className="pt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCollaboratorModalPaper(paper);
+                            }}
+                            data-testid={`button-manage-collaborators-${paper.paperId}`}
+                          >
+                            <Users className="h-3 w-3 mr-1" />
+                            Manage Collaborators
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -989,6 +1281,15 @@ function PapersPipelineSection() {
               })}
             </div>
           </div>
+        )}
+
+        {collaboratorModalPaper && (
+          <CollaboratorSearchModal
+            paperId={collaboratorModalPaper.id}
+            paperTitle={collaboratorModalPaper.title}
+            existingCollaborators={collaboratorModalPaper.collaborators || []}
+            onClose={() => setCollaboratorModalPaper(null)}
+          />
         )}
       </CardContent>
     </Card>

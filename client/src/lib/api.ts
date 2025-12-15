@@ -414,3 +414,107 @@ export async function syncPapers(): Promise<{ synced: number; updated: number; e
   if (!res.ok) throw new Error("Failed to sync papers");
   return res.json();
 }
+
+// Collaborators
+export interface Collaborator {
+  id: string;
+  name: string;
+  openalexId: string | null;
+  hIndex: number | null;
+  citationCount: number | null;
+  worksCount: number | null;
+  institution: string | null;
+  orcid: string | null;
+  lastSyncedAt: string | null;
+  createdAt: string;
+}
+
+export interface OpenAlexAuthor {
+  id: string;
+  display_name: string;
+  works_count: number;
+  cited_by_count: number;
+  summary_stats?: {
+    h_index?: number;
+  };
+  last_known_institutions?: Array<{
+    display_name: string;
+  }>;
+  orcid?: string;
+}
+
+export interface PaperWithCollaborators extends Paper {
+  collaborators: Collaborator[];
+  maxHIndex: number | null;
+}
+
+export async function getCollaborators(): Promise<Collaborator[]> {
+  const res = await fetch("/api/collaborators");
+  if (!res.ok) throw new Error("Failed to fetch collaborators");
+  return res.json();
+}
+
+export async function searchOpenAlexAuthors(name: string): Promise<OpenAlexAuthor[]> {
+  const res = await fetch("/api/collaborators/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error("Failed to search authors");
+  return res.json();
+}
+
+export async function createCollaborator(data: {
+  name: string;
+  openalexId?: string;
+  hIndex?: number;
+  citationCount?: number;
+  worksCount?: number;
+  institution?: string;
+  orcid?: string;
+}): Promise<Collaborator> {
+  const res = await fetch("/api/collaborators", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to create collaborator");
+  return res.json();
+}
+
+export async function deleteCollaborator(id: string): Promise<void> {
+  const res = await fetch(`/api/collaborators/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete collaborator");
+}
+
+export async function refreshCollaborator(id: string): Promise<Collaborator> {
+  const res = await fetch(`/api/collaborators/${id}/refresh`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to refresh collaborator");
+  return res.json();
+}
+
+export async function getPapersWithCollaborators(): Promise<PaperWithCollaborators[]> {
+  const res = await fetch("/api/papers/with-collaborators");
+  if (!res.ok) throw new Error("Failed to fetch papers with collaborators");
+  return res.json();
+}
+
+export async function getPaperCollaborators(paperId: string): Promise<Collaborator[]> {
+  const res = await fetch(`/api/papers/${paperId}/collaborators`);
+  if (!res.ok) throw new Error("Failed to fetch paper collaborators");
+  return res.json();
+}
+
+export async function linkPaperCollaborator(paperId: string, collaboratorId: string): Promise<void> {
+  const res = await fetch(`/api/papers/${paperId}/collaborators`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ collaboratorId }),
+  });
+  if (!res.ok) throw new Error("Failed to link collaborator");
+}
+
+export async function unlinkPaperCollaborator(paperId: string, collaboratorId: string): Promise<void> {
+  const res = await fetch(`/api/papers/${paperId}/collaborators/${collaboratorId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to unlink collaborator");
+}
