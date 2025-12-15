@@ -1482,7 +1482,10 @@ export async function registerRoutes(
         let totalCommits = 0;
         for (const event of activity) {
           if (event.eventType === 'commit' || event.eventType === 'push') {
-            const date = new Date(event.timestamp).toISOString().split('T')[0];
+            // Use activityDate if available, otherwise fall back to createdAt
+            const eventDate = event.activityDate || event.createdAt;
+            if (!eventDate) continue;
+            const date = new Date(eventDate).toISOString().split('T')[0];
             if (dailyData[date]) {
               dailyData[date].commits++;
               totalCommits++;
