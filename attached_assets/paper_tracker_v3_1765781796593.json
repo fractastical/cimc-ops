@@ -1,0 +1,1340 @@
+{
+  "venues": {
+    "analysis_oxford": {
+      "name": "Analysis",
+      "display_name": "Analysis (Oxford Academic)",
+      "type": "journal",
+      "publisher": "Oxford University Press",
+      "author_guidelines_url": "https://academic.oup.com/analysis/pages/general_instructions",
+      "submission_portal": "ScholarOne",
+      "submission_portal_url": "https://mc.manuscriptcentral.com/analysis",
+      "deadline_policy": "rolling",
+      "key_requirements": {
+        "word_limit": {
+          "max_words": 4000,
+          "includes_footnotes": true,
+          "excludes_bibliography": true
+        },
+        "abstract": {
+          "required": true,
+          "max_words": 150
+        },
+        "keywords": {
+          "required": true,
+          "min": 4,
+          "max": 6
+        },
+        "anonymity": "triple-anonymous (editors/associate editors/referees see anonymous submission)"
+      }
+    },
+    "development_cob": {
+      "name": "Development",
+      "display_name": "Development (The Company of Biologists)",
+      "type": "journal",
+      "publisher": "The Company of Biologists",
+      "author_guidelines_url": "https://journals.biologists.com/dev/pages/manuscript-prep",
+      "submission_info_url": "https://journals.biologists.com/dev/pages/submit-manuscript",
+      "submission_portal": "Editorial Manager",
+      "submission_portal_url": "https://www.editorialmanager.com/develop/default.aspx",
+      "deadline_policy": "rolling",
+      "key_requirements": {
+        "research_article_total_length_max_words": 7000,
+        "notes": "Stated for Research Articles; includes main text and figure legends (details per journal guidance)."
+      }
+    },
+    "biological_cybernetics_springer": {
+      "name": "Biological Cybernetics",
+      "display_name": "Biological Cybernetics (Springer Nature)",
+      "type": "journal",
+      "publisher": "Springer Nature",
+      "author_guidelines_url": "https://link.springer.com/journal/422/submission-guidelines",
+      "submission_portal": "Springer Nature submission system",
+      "submission_portal_url": "https://submission.nature.com/",
+      "deadline_policy": "rolling",
+      "key_requirements": {
+        "article_types": {
+          "research": "No fixed word limit stated; submit via online system.",
+          "brief_reports": {
+            "max_print_pages": 8,
+            "max_text_pages": 6,
+            "approx_words_per_printed_page": 600
+          },
+          "reviews": "No length limitation stated."
+        }
+      }
+    },
+    "entropy_mdpi": {
+      "name": "Entropy",
+      "display_name": "Entropy (MDPI)",
+      "type": "journal",
+      "publisher": "MDPI",
+      "author_guidelines_url": "https://www.mdpi.com/journal/entropy/instructions",
+      "submission_portal": "MDPI SuSy",
+      "submission_portal_url": "https://susy.mdpi.com/",
+      "deadline_policy": "rolling",
+      "key_requirements": {
+        "abstract_max_words": 200,
+        "cover_letter_required": true,
+        "free_format_submission": true,
+        "data_availability_statement_required": "when applicable",
+        "genai_disclosure_required": "when GenAI used"
+      }
+    },
+    "natural_computing_springer": {
+      "name": "Natural Computing",
+      "display_name": "Natural Computing (Springer Nature)",
+      "type": "journal",
+      "publisher": "Springer Nature",
+      "author_guidelines_url": "https://link.springer.com/journal/11047/submission-guidelines",
+      "submission_portal": "Springer Nature submission system",
+      "submission_portal_url": "https://submission.nature.com/",
+      "deadline_policy": "rolling",
+      "key_requirements": {
+        "abstract_range_words": [
+          150,
+          250
+        ]
+      }
+    },
+    "neurips_db_track": {
+      "name": "NeurIPS Datasets & Benchmarks Track",
+      "display_name": "NeurIPS Datasets & Benchmarks Track",
+      "type": "conference_track",
+      "publisher": "NeurIPS Foundation",
+      "call_for_papers_url": "https://neurips.cc/Conferences/2025/CallForDatasetsBenchmarks",
+      "main_track_cfp_url": "https://neurips.cc/Conferences/2025/CallForPapers",
+      "submission_portal": "OpenReview",
+      "submission_portal_url": "https://openreview.net/group?id=NeurIPS.cc/2025/Datasets_and_Benchmarks_Track",
+      "deadline_policy": "annual",
+      "deadline_timezone": "AoE",
+      "key_requirements": {
+        "review_model": "single-blind submissions (double-blind optional if feasible)",
+        "required_dataset_and_benchmark_code_at_submission": true,
+        "paper_length": {
+          "content_pages_max": 9,
+          "camera_ready_extra_content_page_allowed": 1
+        }
+      },
+      "deadlines": {
+        "last_known_cycle_year": 2025,
+        "abstract_deadline": "2025-05-11",
+        "full_paper_deadline": "2025-05-15",
+        "supplementary_deadline": "2025-05-22",
+        "notification": "2025-09-18",
+        "camera_ready": "2025-10-23",
+        "next_cycle_status": "2026 dates not posted yet (as of 2025-12-15)"
+      }
+    }
+  },
+  "papers": [
+    {
+      "paper_id": "philosophyseminar1",
+      "latex_file": "philosophyseminar1.tex",
+      "title": "Philosophy Seminar 1: Computationalism and Determinism",
+      "target_venues": {
+        "recommended_primary": {
+          "venue_id": "analysis_oxford",
+          "name": "Analysis (Oxford Academic)"
+        },
+        "backups": [
+          {
+            "venue_id": "minds_machines_springer",
+            "name": "Minds and Machines (Springer)"
+          },
+          {
+            "venue_id": "synthese_springer",
+            "name": "Synthese (Springer)"
+          },
+          {
+            "venue_id": "jaic_worldscientific",
+            "name": "Journal of Artificial Intelligence and Consciousness (World Scientific)"
+          }
+        ]
+      },
+      "venue_plan": {
+        "primary_venue_id": "analysis_oxford",
+        "article_type": "Article (short paper)",
+        "deadline_policy": "rolling",
+        "deadline_timezone": "n/a",
+        "constraints": {
+          "max_words_including_footnotes_excluding_bibliography": 4000,
+          "abstract_max_words": 150,
+          "keywords_required": true,
+          "keywords_range": [
+            4,
+            6
+          ],
+          "review_model": "triple-anonymous"
+        }
+      },
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 2639,
+              "target": 3600,
+              "description": "Word count in LaTeX document (target set below venue max to allow revision)",
+              "constraints": {
+                "max": 4000,
+                "unit": "words"
+              }
+            },
+            "sufficient_partners": {
+              "current": 0,
+              "target": 1,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": []
+            },
+            "target_publication_venue_found": {
+              "current": 1,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": "Analysis (Oxford Academic)",
+              "venue_id": "analysis_oxford"
+            },
+            "submission_requirements_linked": {
+              "current": 1,
+              "target": 1,
+              "description": "Submission process + requirements links added for primary venue"
+            },
+            "next_deadline_recorded": {
+              "current": 1,
+              "target": 1,
+              "description": "Next submission deadline policy recorded (rolling / special issue / fixed)",
+              "policy": "rolling",
+              "next_deadline": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          },
+          "completion_percentage": 53.3
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null,
+              "venue_id": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          },
+          "completion_percentage": 0.0
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          },
+          "completion_percentage": 0.0
+        }
+      },
+      "last_updated": "2025-12-15T00:00:00"
+    },
+    {
+      "paper_id": "xenopus1",
+      "latex_file": "xenopus.tex",
+      "title": "Inter-embryo Calcium Signaling and Spatial Coordination in Xenopus laevis",
+      "target_venues": {
+        "recommended_primary": {
+          "venue_id": "development_cob",
+          "name": "Development (The Company of Biologists)"
+        },
+        "backups": [
+          {
+            "venue_id": "developmental_biology_elsevier",
+            "name": "Developmental Biology (Elsevier)"
+          },
+          {
+            "venue_id": "nature_communications",
+            "name": "Nature Communications"
+          },
+          {
+            "venue_id": "cell_reports",
+            "name": "Cell Reports (Cell Press)"
+          },
+          {
+            "venue_id": "iscience",
+            "name": "iScience (Cell Press)"
+          }
+        ]
+      },
+      "venue_plan": {
+        "primary_venue_id": "development_cob",
+        "article_type": "Research Article (assumed)",
+        "deadline_policy": "rolling",
+        "deadline_timezone": "n/a",
+        "constraints": {
+          "research_article_max_words_including_figure_legends": 7000,
+          "notes": "Word limit excludes title page, abstract, references, tables and methods in supplementary info (per journal guidance)."
+        }
+      },
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 87,
+              "target": 107,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 788,
+              "target": 6500,
+              "description": "Word count in LaTeX document (target set below venue max to allow revision)",
+              "constraints": {
+                "max": 7000,
+                "unit": "words"
+              }
+            },
+            "sufficient_partners": {
+              "current": 5,
+              "target": 1,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": [
+                "Patrick T. McMillen",
+                "Parande Tayyebi",
+                "Hananel Hazan",
+                "Douglas Hazel",
+                "Michael Levin"
+              ]
+            },
+            "target_publication_venue_found": {
+              "current": 1,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": "Development (The Company of Biologists)",
+              "venue_id": "development_cob"
+            },
+            "submission_requirements_linked": {
+              "current": 1,
+              "target": 1,
+              "description": "Submission process + requirements links added for primary venue"
+            },
+            "next_deadline_recorded": {
+              "current": 1,
+              "target": 1,
+              "description": "Next submission deadline policy recorded (rolling / special issue / fixed)",
+              "policy": "rolling",
+              "next_deadline": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          },
+          "completion_percentage": 70.5
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null,
+              "venue_id": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          },
+          "completion_percentage": 0.0
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          },
+          "completion_percentage": 0.0
+        }
+      },
+      "last_updated": "2025-12-15T00:00:00"
+    },
+    {
+      "paper_id": "activeinference",
+      "latex_file": "activeinference.tex",
+      "title": "Active Inference: A Unified Framework for Perception, Action, and Learning",
+      "target_venues": {
+        "recommended_primary": {
+          "venue_id": "biological_cybernetics_springer",
+          "name": "Biological Cybernetics (Springer)"
+        },
+        "backups": [
+          {
+            "venue_id": "plos_comp_bio",
+            "name": "PLOS Computational Biology"
+          },
+          {
+            "venue_id": "cognitive_science_wiley",
+            "name": "Cognitive Science (Wiley / CogSci Society)"
+          },
+          {
+            "venue_id": "journal_math_psych_elsevier",
+            "name": "Journal of Mathematical Psychology (Elsevier)"
+          },
+          {
+            "venue_id": "entropy_mdpi",
+            "name": "Entropy (MDPI)"
+          }
+        ]
+      },
+      "venue_plan": {
+        "primary_venue_id": "biological_cybernetics_springer",
+        "article_type": "Review (assumed)",
+        "deadline_policy": "rolling",
+        "deadline_timezone": "n/a",
+        "constraints": {
+          "review_length_limit": "none stated",
+          "brief_report_max_print_pages": 8,
+          "brief_report_max_text_pages": 6,
+          "brief_report_words_per_printed_page": 600,
+          "submission_portal": "submission.nature.com"
+        }
+      },
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 1208,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 1,
+              "target": 1,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": [
+                "Daniel Friedman"
+              ]
+            },
+            "target_publication_venue_found": {
+              "current": 1,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": "Biological Cybernetics (Springer)",
+              "venue_id": "biological_cybernetics_springer"
+            },
+            "submission_requirements_linked": {
+              "current": 1,
+              "target": 1,
+              "description": "Submission process + requirements links added for primary venue"
+            },
+            "next_deadline_recorded": {
+              "current": 1,
+              "target": 1,
+              "description": "Next submission deadline policy recorded (rolling / special issue / fixed)",
+              "policy": "rolling",
+              "next_deadline": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          },
+          "completion_percentage": 59.3
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null,
+              "venue_id": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          },
+          "completion_percentage": 0.0
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          },
+          "completion_percentage": 0.0
+        }
+      },
+      "last_updated": "2025-12-15T00:00:00"
+    },
+    {
+      "paper_id": "higherorderentropy",
+      "latex_file": "higherorderentropy.tex",
+      "title": "Higher Order Entropy Across Computational Lifeforms",
+      "target_venues": {
+        "recommended_primary": {
+          "venue_id": "entropy_mdpi",
+          "name": "Entropy (MDPI)"
+        },
+        "backups": [
+          {
+            "venue_id": "artificial_life_mitpress",
+            "name": "Artificial Life (MIT Press)"
+          },
+          {
+            "venue_id": "natural_computing_springer",
+            "name": "Natural Computing (Springer)"
+          },
+          {
+            "venue_id": "npj_complexity",
+            "name": "npj Complexity (Nature Portfolio)"
+          },
+          {
+            "venue_id": "complexity_wiley",
+            "name": "Complexity (Wiley)"
+          }
+        ]
+      },
+      "venue_plan": {
+        "primary_venue_id": "entropy_mdpi",
+        "article_type": "Article (Research or Review)",
+        "deadline_policy": "rolling",
+        "deadline_timezone": "n/a",
+        "constraints": {
+          "abstract_max_words": 200,
+          "cover_letter_required": true,
+          "submission_portal": "susy.mdpi.com",
+          "free_format_submission_supported": true
+        }
+      },
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 1553,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 0,
+              "target": 1,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": []
+            },
+            "target_publication_venue_found": {
+              "current": 1,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": "Entropy (MDPI)",
+              "venue_id": "entropy_mdpi"
+            },
+            "submission_requirements_linked": {
+              "current": 1,
+              "target": 1,
+              "description": "Submission process + requirements links added for primary venue"
+            },
+            "next_deadline_recorded": {
+              "current": 1,
+              "target": 1,
+              "description": "Next submission deadline policy recorded (rolling / special issue / fixed)",
+              "policy": "rolling",
+              "next_deadline": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          },
+          "completion_percentage": 45.6
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null,
+              "venue_id": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          },
+          "completion_percentage": 0.0
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          },
+          "completion_percentage": 0.0
+        }
+      },
+      "last_updated": "2025-12-15T00:00:00"
+    },
+    {
+      "paper_id": "interactioncombinators",
+      "latex_file": "interactioncombinators.tex",
+      "title": "Interaction Combinators as a Possible Substrate for Modeling Life",
+      "target_venues": {
+        "recommended_primary": {
+          "venue_id": "natural_computing_springer",
+          "name": "Natural Computing (Springer)"
+        },
+        "backups": [
+          {
+            "venue_id": "artificial_life_mitpress",
+            "name": "Artificial Life (MIT Press)"
+          },
+          {
+            "venue_id": "alife_conference",
+            "name": "ALIFE Conference (Conference on Artificial Life)"
+          },
+          {
+            "venue_id": "ucnc_conference",
+            "name": "UCNC (Unconventional Computation and Natural Computation)"
+          },
+          {
+            "venue_id": "lmcs",
+            "name": "Logical Methods in Computer Science (LMCS)"
+          },
+          {
+            "venue_id": "theoretical_computer_science_elsevier",
+            "name": "Theoretical Computer Science (Elsevier)"
+          }
+        ]
+      },
+      "venue_plan": {
+        "primary_venue_id": "natural_computing_springer",
+        "article_type": "Article",
+        "deadline_policy": "rolling",
+        "deadline_timezone": "n/a",
+        "constraints": {
+          "abstract_range_words": [
+            150,
+            250
+          ],
+          "submission_portal": "submission.nature.com"
+        }
+      },
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 1898,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 1,
+              "target": 1,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": [
+                "Marius Buglia"
+              ]
+            },
+            "target_publication_venue_found": {
+              "current": 1,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": "Natural Computing (Springer)",
+              "venue_id": "natural_computing_springer"
+            },
+            "submission_requirements_linked": {
+              "current": 1,
+              "target": 1,
+              "description": "Submission process + requirements links added for primary venue"
+            },
+            "next_deadline_recorded": {
+              "current": 1,
+              "target": 1,
+              "description": "Next submission deadline policy recorded (rolling / special issue / fixed)",
+              "policy": "rolling",
+              "next_deadline": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          },
+          "completion_percentage": 60.5
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null,
+              "venue_id": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          },
+          "completion_percentage": 0.0
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          },
+          "completion_percentage": 0.0
+        }
+      },
+      "last_updated": "2025-12-15T00:00:00"
+    },
+    {
+      "paper_id": "aifriendbenchmark",
+      "latex_file": "aifriendbenchmark.tex",
+      "title": "AI Friend Benchmark: Evaluating Social Intelligence and Relationship Quality in AI Systems",
+      "target_venues": {
+        "recommended_primary": {
+          "venue_id": "neurips_db_track",
+          "name": "NeurIPS Datasets & Benchmarks Track"
+        },
+        "backups": [
+          {
+            "venue_id": "chi_acm",
+            "name": "CHI (ACM Conference on Human Factors in Computing Systems)"
+          },
+          {
+            "venue_id": "cscw_pacmhci",
+            "name": "CSCW / PACMHCI"
+          },
+          {
+            "venue_id": "acm_tochi",
+            "name": "ACM TOCHI"
+          },
+          {
+            "venue_id": "acm_tiis",
+            "name": "ACM TiiS"
+          },
+          {
+            "venue_id": "acl",
+            "name": "ACL (or evaluation-focused workshops such as GEM / Eval4NLP)"
+          }
+        ]
+      },
+      "venue_plan": {
+        "primary_venue_id": "neurips_db_track",
+        "article_type": "Conference paper (Datasets & Benchmarks track)",
+        "deadline_policy": "annual",
+        "deadline_timezone": "AoE",
+        "constraints": {
+          "review_model": "single-blind allowed/expected",
+          "required_dataset_and_code_at_submission": true,
+          "submission_portal": "OpenReview",
+          "paper_format": "NeurIPS main track template",
+          "content_pages_max": 9,
+          "camera_ready_extra_content_page_allowed": 1,
+          "last_known_cycle": "NeurIPS 2025 (deadlines in May 2025)"
+        },
+        "deadlines": {
+          "last_known": {
+            "abstract_deadline": "2025-05-11",
+            "full_paper_deadline": "2025-05-15",
+            "supplementary_deadline": "2025-05-22",
+            "notification": "2025-09-18",
+            "camera_ready": "2025-10-23"
+          },
+          "next_cycle": {
+            "year": 2026,
+            "status": "TBD (official dates not posted yet)",
+            "expected_window_note": "Historically mid-May (AoE) for abstract/full-paper."
+          }
+        }
+      },
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 1398,
+              "target": 8000,
+              "description": "Word count in LaTeX document (planning metric; NeurIPS uses page limits)"
+            },
+            "content_pages": {
+              "current": 0,
+              "target": 9,
+              "description": "NeurIPS content pages (submission limit; excludes references/appendix)",
+              "constraints": {
+                "max": 9,
+                "unit": "content_pages"
+              }
+            },
+            "sufficient_partners": {
+              "current": 2,
+              "target": 1,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": [
+                "Athena Aktipis",
+                "Sandy Pentland"
+              ]
+            },
+            "target_publication_venue_found": {
+              "current": 1,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": "NeurIPS Datasets & Benchmarks Track",
+              "venue_id": "neurips_db_track"
+            },
+            "submission_requirements_linked": {
+              "current": 1,
+              "target": 1,
+              "description": "Submission process + requirements links added for primary venue"
+            },
+            "next_deadline_recorded": {
+              "current": 0,
+              "target": 1,
+              "description": "Next submission deadline recorded (needs update when NeurIPS 2026 CFP posts)",
+              "policy": "annual",
+              "next_deadline": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          },
+          "completion_percentage": 39.7
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null,
+              "venue_id": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          },
+          "completion_percentage": 0.0
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          },
+          "completion_percentage": 0.0
+        }
+      },
+      "last_updated": "2025-12-15T00:00:00"
+    },
+    {
+      "paper_id": "cyberneticsseminar1",
+      "latex_file": "cyberneticsseminar1.tex",
+      "title": "Symposium Notes: Cybernetics, the Golem, and Human Agency",
+      "target_venues": {
+        "recommended_primary": {
+          "venue_id": null,
+          "name": "TBD"
+        },
+        "backups": []
+      },
+      "venue_plan": {
+        "primary_venue_id": null,
+        "article_type": null,
+        "deadline_policy": null,
+        "deadline_timezone": null,
+        "constraints": {}
+      },
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 3228,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 0,
+              "target": 1,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": []
+            },
+            "target_publication_venue_found": {
+              "current": 0,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": null,
+              "venue_id": null
+            },
+            "submission_requirements_linked": {
+              "current": 0,
+              "target": 1,
+              "description": "Submission process + requirements links added for primary venue"
+            },
+            "next_deadline_recorded": {
+              "current": 0,
+              "target": 1,
+              "description": "Next submission deadline policy recorded (rolling / special issue / fixed)",
+              "policy": null,
+              "next_deadline": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          },
+          "completion_percentage": 5.8
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null,
+              "venue_id": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          },
+          "completion_percentage": 0.0
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          },
+          "completion_percentage": 0.0
+        }
+      },
+      "last_updated": "2025-12-15T00:00:00"
+    },
+    {
+      "paper_id": "probabilistickg",
+      "latex_file": "probabilistickg.tex",
+      "title": "Accelerating Scientific Research with Probabilistic Knowledge Graphs and Nanopublication",
+      "target_venues": {
+        "recommended_primary": {
+          "venue_id": null,
+          "name": "TBD"
+        },
+        "backups": []
+      },
+      "venue_plan": {
+        "primary_venue_id": null,
+        "article_type": null,
+        "deadline_policy": null,
+        "deadline_timezone": null,
+        "constraints": {}
+      },
+      "current_stage": "before",
+      "stages": {
+        "before": {
+          "stage_name": "Draft Finished",
+          "completed": false,
+          "factors": {
+            "research_data_gathered": {
+              "current": 0,
+              "target": 1000,
+              "description": "Research data points gathered"
+            },
+            "word_length": {
+              "current": 0,
+              "target": 8000,
+              "description": "Word count in LaTeX document"
+            },
+            "sufficient_partners": {
+              "current": 2,
+              "target": 3,
+              "description": "Number of secured partners/collaborators",
+              "partner_list": [
+                "Tobias Kuhn",
+                "Sandy Pentland"
+              ]
+            },
+            "target_publication_venue_found": {
+              "current": 0,
+              "target": 1,
+              "description": "Target publication venue identified and confirmed",
+              "venue_name": null,
+              "venue_id": null
+            },
+            "submission_requirements_linked": {
+              "current": 0,
+              "target": 1,
+              "description": "Submission process + requirements links added for primary venue"
+            },
+            "next_deadline_recorded": {
+              "current": 0,
+              "target": 1,
+              "description": "Next submission deadline policy recorded (rolling / special issue / fixed)",
+              "policy": null,
+              "next_deadline": null
+            },
+            "data_sanitization_pass_complete": {
+              "current": 0,
+              "target": 1,
+              "description": "Data sanitization pass completed",
+              "completion_date": null,
+              "notes": null
+            }
+          },
+          "completion_percentage": 9.5
+        },
+        "mid": {
+          "stage_name": "Editorial Process",
+          "completed": false,
+          "factors": {
+            "submitted_to_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Submitted to publication or conference",
+              "submission_date": null,
+              "venue_name": null,
+              "venue_id": null
+            },
+            "approved_by_publication": {
+              "current": 0,
+              "target": 1,
+              "description": "Approved by publication",
+              "approval_date": null
+            },
+            "edits_finished": {
+              "current": 0,
+              "target": 1,
+              "description": "Editorial edits completed",
+              "edit_stages": [],
+              "final_edit_date": null
+            }
+          },
+          "completion_percentage": 0.0
+        },
+        "after": {
+          "stage_name": "Published",
+          "completed": false,
+          "factors": {
+            "intellectually_credible_response": {
+              "current": 0,
+              "target": 1,
+              "description": "Received intellectually credible response/recognition",
+              "notes": null
+            },
+            "citations": {
+              "current": 0,
+              "target": null,
+              "description": "Number of citations received",
+              "citation_tracking": []
+            },
+            "press_mentions": {
+              "current": 0,
+              "target": null,
+              "description": "Number of press mentions",
+              "mentions": []
+            }
+          },
+          "completion_percentage": 0.0
+        }
+      },
+      "last_updated": "2025-12-15T00:00:00"
+    }
+  ],
+  "metadata": {
+    "schema_version": "3.0",
+    "description": "Tracking progress and success factors for papers across three stages: before (draft), mid (editorial), and after (published). Includes a venues registry with submission links, key requirements, and deadline policy.",
+    "stages": {
+      "before": "Draft Finished - Research and writing phase",
+      "mid": "Editorial Process - Submission and review phase",
+      "after": "Published - Post-publication impact tracking"
+    },
+    "factor_types": {
+      "percentage_based": "Factors with current/target values where percentage = (current / target) * 100 (capped at 100%)",
+      "binary": "Factors that are either 0 or 1 (not done / done)",
+      "cumulative": "Factors that accumulate over time (citations, press mentions) without a fixed target",
+      "date_policy": "A factor that tracks whether submission deadline policy (rolling vs fixed) and next deadline are recorded"
+    },
+    "computation": {
+      "completion_percentage_method": "Unweighted mean of per-factor completion fractions for factors with numeric targets (binary treated as 0/1; fractions capped at 1)."
+    },
+    "last_generated": "2025-12-15T00:00:00"
+  }
+}
