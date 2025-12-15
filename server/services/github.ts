@@ -760,7 +760,7 @@ export class GitHubService {
     }
   }
 
-  // Sync papers to the database
+  // Sync papers to the database with automatic collaborator extraction
   async syncPapers(owner: string = "cimcai", repo: string = "paper-pipeline"): Promise<{
     synced: number;
     updated: number;
@@ -775,11 +775,14 @@ export class GitHubService {
       return result;
     }
 
+    // Import OpenAlex service for h-index lookup
+    const { openAlexService } = await import("./openalex");
+
     for (const paper of papers) {
       try {
         const existing = await storage.getPaperByPaperId(paper.paperId);
         
-        await storage.upsertPaper({
+        const savedPaper = await storage.upsertPaper({
           paperId: paper.paperId,
           latexFile: paper.latexFile,
           title: paper.title,
@@ -787,6 +790,41 @@ export class GitHubService {
           stages: paper.stages,
           lastUpdated: paper.lastUpdated,
         });
+
+        // Extract partner_list from stages.before.factors.sufficient_partners
+        const partnerList = paper.stages?.before?.factors?.sufficient_partners?.partner_list as string[] | undefined;
+        
+        if (partnerList && partnerList.length > 0 && savedPaper) {
+          // Get existing linked collaborators for this paper
+          const existingCollabs = await storage.getPaperCollaborators(savedPaper.id);
+          const existingNames = new Set(existingCollabs.map(c => c.collaborator.name.toLowerCase()));
+
+          for (const partnerName of partnerList) {
+            try {
+              // Skip if already linked
+              if (existingNames.has(partnerName.toLowerCase())) continue;
+
+              // Check if collaborator already exists by name
+              let collaborator = await storage.getCollaboratorByName(partnerName);
+              
+              if (!collaborator) {
+                // Look up in OpenAlex and create
+                const lookupResult = await openAlexService.lookupAndCreateCollaborator(partnerName);
+                if (lookupResult) {
+                  collaborator = await storage.createCollaborator(lookupResult.collaborator);
+                  console.log(`Created collaborator: ${collaborator.name} (h-index: ${collaborator.hIndex})`);
+                }
+              }
+
+              // Link collaborator to paper
+              if (collaborator) {
+                await storage.linkPaperCollaborator({ paperId: savedPaper.id, collaboratorId: collaborator.id });
+              }
+            } catch (collabError) {
+              console.error(`Error processing collaborator ${partnerName}:`, collabError);
+            }
+          }
+        }
 
         if (existing) {
           result.updated++;
