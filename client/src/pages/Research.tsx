@@ -33,7 +33,7 @@ import {
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, FileText, ExternalLink, Users, Search, Award, ArrowUpDown } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, FileText, ExternalLink, Users, Search, Award, ArrowUpDown, Download } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";
 
@@ -1549,14 +1549,24 @@ export default function Research() {
             Track progress across research projects, hypotheses, and grantees
           </p>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowImport(!showImport)}
-          data-testid="button-toggle-import"
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          Import Notes
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => window.open("/api/reports/monthly-pdf", "_blank")}
+            data-testid="button-export-pdf"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowImport(!showImport)}
+            data-testid="button-toggle-import"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import Notes
+          </Button>
+        </div>
       </div>
 
       {showImport && (

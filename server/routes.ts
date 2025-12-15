@@ -1382,6 +1382,20 @@ export async function registerRoutes(
     res.type('html').send(html);
   });
 
+  // ============ Monthly PDF Report ============
+  app.get("/api/reports/monthly-pdf", async (req, res) => {
+    try {
+      const { reportService } = await import("./services/report");
+      const pdf = await reportService.generateMonthlyPDF();
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", "attachment; filename=monthly-report.pdf");
+      res.send(pdf);
+    } catch (error) {
+      console.error("Error generating PDF report:", error);
+      res.status(500).json({ error: "Failed to generate PDF report" });
+    }
+  });
+
   return httpServer;
 }
 
