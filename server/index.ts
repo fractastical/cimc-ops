@@ -117,6 +117,7 @@ app.use((req, res, next) => {
   if (req.path.startsWith("/embed/") ||
       req.path === "/api/hypotheses/activity/timeline" ||
       req.path === "/api/activity/monthly" ||
+      req.path === "/api/activity" ||
       req.path === "/api/research/timeline") {
     return next();
   }
