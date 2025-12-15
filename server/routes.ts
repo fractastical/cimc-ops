@@ -1448,14 +1448,22 @@ export async function registerRoutes(
       try {
         const apiUrl = window.location.origin;
         
-        // Fetch both activity and research timeline
+        // Fetch both activity and research timeline (include credentials for auth)
         const [activityRes, timelineRes] = await Promise.all([
-          fetch(apiUrl + '/api/activity?days=90'),
-          fetch(apiUrl + '/api/research/timeline')
+          fetch(apiUrl + '/api/activity?days=90', { credentials: 'include' }),
+          fetch(apiUrl + '/api/research/timeline', { credentials: 'include' })
         ]);
         
         const activity = await activityRes.json();
         const timeline = await timelineRes.json();
+        
+        // Handle error responses
+        if (!Array.isArray(activity)) {
+          throw new Error('Unable to load activity data');
+        }
+        if (!Array.isArray(timeline)) {
+          throw new Error('Unable to load research timeline');
+        }
         
         // Build daily counts for last 90 days
         const today = new Date();
