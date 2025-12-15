@@ -873,22 +873,29 @@ function PapersPipelineSection() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Stage summary */}
             <div className="grid grid-cols-3 gap-3">
-              {(["before", "mid", "after"] as const).map(stage => (
-                <div key={stage} className="p-3 rounded-lg bg-muted/30 border border-border/50">
+              {(["before", "mid", "after"] as const).map((stage, index) => (
+                <div key={stage} className="p-3 rounded-lg bg-muted/30 border border-border/50 relative">
                   <div className="flex items-center gap-2 mb-1">
                     <span>{stageEmoji[stage]}</span>
                     <span className={`text-sm font-medium ${stageColors[stage]}`}>{stageNames[stage]}</span>
                   </div>
                   <div className="text-2xl font-bold">{stageGroups[stage].length}</div>
+                  {/* Thin connector line */}
+                  {index < 2 && (
+                    <div className="absolute right-0 top-1/2 w-3 h-px bg-border/50 translate-x-full" />
+                  )}
                 </div>
               ))}
             </div>
 
+            {/* Divider line */}
+            <div className="h-px bg-border/30" />
+
             {/* Papers list */}
-            <div className="space-y-3">
+            <div className="space-y-2 divide-y divide-border/20">
               {papers.map((paper) => {
                 const currentStage = paper.currentStage as "before" | "mid" | "after";
                 const stageData = paper.stages?.[currentStage];
@@ -899,7 +906,7 @@ function PapersPipelineSection() {
                   <div
                     key={paper.paperId}
                     data-testid={`card-paper-${paper.paperId}`}
-                    className="p-4 rounded-lg bg-muted/20 border border-border/50 hover:border-primary/30 transition-colors"
+                    className="py-3 first:pt-0 last:pb-0 hover:bg-muted/10 transition-colors -mx-1 px-1 rounded"
                   >
                     <div 
                       className="flex items-start justify-between cursor-pointer"
