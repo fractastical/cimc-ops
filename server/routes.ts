@@ -1011,6 +1011,16 @@ export async function registerRoutes(
         &lt;iframe src="${baseUrl}/embed/charts/projects" width="100%" height="400" frameborder="0"&gt;&lt;/iframe&gt;
       </div>
     </div>
+    
+    <div class="card">
+      <h2>All Activity Timeline (3 months)</h2>
+      <p>Combined view of GitHub commits and research updates over the last 3 months, shown as a unified daily timeline</p>
+      <div class="endpoint">${baseUrl}/embed/charts/all-activity</div>
+      <a href="/embed/charts/all-activity" target="_blank" class="preview-link">→ Preview chart</a>
+      <div class="embed-code">
+        &lt;iframe src="${baseUrl}/embed/charts/all-activity" width="100%" height="500" frameborder="0"&gt;&lt;/iframe&gt;
+      </div>
+    </div>
   </div>
 </body>
 </html>`;
@@ -1365,6 +1375,214 @@ export async function registerRoutes(
               y: { 
                 ticks: { color: '#94a3b8', font: { size: 10 } },
                 grid: { display: false }
+              }
+            }
+          }
+        });
+      } catch (err) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'Failed to load chart: ' + err.message;
+      }
+    }
+    loadChart();
+  </script>
+</body>
+</html>`;
+    res.type('html').send(html);
+  });
+
+  // Combined All Activity Timeline Embed (3 months)
+  app.get("/embed/charts/all-activity", async (req, res) => {
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Activity Timeline - CIMC.AI</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@3.6.0/cdn.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: transparent;
+      padding: 1rem;
+    }
+    .chart-container { 
+      position: relative; 
+      width: 100%; 
+      height: calc(100vh - 2rem);
+      min-height: 400px;
+    }
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #94a3b8;
+    }
+    .error { color: #ef4444; text-align: center; padding: 2rem; }
+    .stats {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .stat-value { font-weight: bold; color: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="chart-container">
+    <div class="loading" id="loading">Loading activity data...</div>
+    <div id="content" style="display: none;">
+      <div class="stats" id="stats"></div>
+      <canvas id="chart"></canvas>
+    </div>
+    <div class="error" id="error" style="display: none;"></div>
+  </div>
+  <script>
+    async function loadChart() {
+      try {
+        const apiUrl = window.location.origin;
+        
+        // Fetch both activity and research timeline
+        const [activityRes, timelineRes] = await Promise.all([
+          fetch(apiUrl + '/api/activity?days=90'),
+          fetch(apiUrl + '/api/research/timeline')
+        ]);
+        
+        const activity = await activityRes.json();
+        const timeline = await timelineRes.json();
+        
+        // Build daily counts for last 90 days
+        const today = new Date();
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - 90);
+        
+        const dailyData = {};
+        
+        // Initialize all days
+        for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+          const key = d.toISOString().split('T')[0];
+          dailyData[key] = { commits: 0, research: 0 };
+        }
+        
+        // Count GitHub activity (commits, pushes)
+        let totalCommits = 0;
+        for (const event of activity) {
+          if (event.eventType === 'commit' || event.eventType === 'push') {
+            const date = new Date(event.timestamp).toISOString().split('T')[0];
+            if (dailyData[date]) {
+              dailyData[date].commits++;
+              totalCommits++;
+            }
+          }
+        }
+        
+        // Count research updates
+        let totalResearch = 0;
+        for (const project of timeline) {
+          for (const update of project.updates) {
+            const date = new Date(update.date).toISOString().split('T')[0];
+            if (dailyData[date]) {
+              dailyData[date].research++;
+              totalResearch++;
+            }
+          }
+        }
+        
+        // Convert to arrays for Chart.js
+        const sortedDates = Object.keys(dailyData).sort();
+        const labels = sortedDates.map(d => {
+          const date = new Date(d);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+        const commits = sortedDates.map(d => dailyData[d].commits);
+        const research = sortedDates.map(d => dailyData[d].research);
+        
+        // Show stats
+        document.getElementById('stats').innerHTML = 
+          '<div>GitHub Commits: <span class="stat-value">' + totalCommits + '</span></div>' +
+          '<div>Research Updates: <span class="stat-value">' + totalResearch + '</span></div>' +
+          '<div>Total Activity: <span class="stat-value">' + (totalCommits + totalResearch) + '</span></div>';
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+        
+        const ctx = document.getElementById('chart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'GitHub Commits',
+                data: commits,
+                backgroundColor: '#10b981',
+                borderRadius: 2,
+                barPercentage: 0.9,
+                categoryPercentage: 1.0
+              },
+              {
+                label: 'Research Updates',
+                data: research,
+                backgroundColor: '#3b82f6',
+                borderRadius: 2,
+                barPercentage: 0.9,
+                categoryPercentage: 1.0
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              intersect: false,
+              mode: 'index'
+            },
+            plugins: {
+              legend: { 
+                position: 'bottom',
+                labels: { color: '#94a3b8', font: { size: 11 } }
+              },
+              title: {
+                display: true,
+                text: 'All Activity - Last 3 Months',
+                color: '#e2e8f0',
+                font: { size: 14, weight: 'bold' }
+              },
+              tooltip: {
+                callbacks: {
+                  title: function(context) {
+                    return context[0].label;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: { 
+                stacked: true,
+                ticks: { 
+                  color: '#94a3b8', 
+                  font: { size: 9 },
+                  maxRotation: 45,
+                  autoSkip: true,
+                  maxTicksLimit: 15
+                },
+                grid: { display: false }
+              },
+              y: { 
+                stacked: true,
+                beginAtZero: true,
+                ticks: { 
+                  color: '#94a3b8', 
+                  font: { size: 10 },
+                  stepSize: 1
+                },
+                grid: { color: 'rgba(148, 163, 184, 0.1)' }
               }
             }
           }
