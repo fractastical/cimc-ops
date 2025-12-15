@@ -19,6 +19,10 @@ import {
   type InsertProjectHypothesis,
   type Paper,
   type InsertPaper,
+  type Collaborator,
+  type InsertCollaborator,
+  type PaperCollaborator,
+  type InsertPaperCollaborator,
   users,
   integrationSettings,
   repositories,
@@ -29,6 +33,8 @@ import {
   hypotheses,
   projectHypotheses,
   papers,
+  collaborators,
+  paperCollaborators,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -118,6 +124,21 @@ export interface IStorage {
   getPapers(): Promise<Paper[]>;
   getPaperByPaperId(paperId: string): Promise<Paper | undefined>;
   upsertPaper(paper: InsertPaper): Promise<Paper>;
+
+  // Collaborators
+  getCollaborators(): Promise<Collaborator[]>;
+  getCollaborator(id: string): Promise<Collaborator | undefined>;
+  getCollaboratorByName(name: string): Promise<Collaborator | undefined>;
+  createCollaborator(collaborator: InsertCollaborator): Promise<Collaborator>;
+  updateCollaborator(id: string, updates: Partial<InsertCollaborator>): Promise<Collaborator | undefined>;
+  deleteCollaborator(id: string): Promise<void>;
+
+  // Paper-Collaborator Links
+  getPaperCollaborators(paperId: string): Promise<Array<PaperCollaborator & { collaborator: Collaborator }>>;
+  getCollaboratorPapers(collaboratorId: string): Promise<Array<PaperCollaborator & { paper: Paper }>>;
+  linkPaperCollaborator(link: InsertPaperCollaborator): Promise<PaperCollaborator>;
+  unlinkPaperCollaborator(paperId: string, collaboratorId: string): Promise<void>;
+  getPapersWithCollaborators(): Promise<Array<Paper & { collaborators: Collaborator[]; maxHIndex: number | null }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -639,6 +660,114 @@ export class DatabaseStorage implements IStorage {
       const [created] = await db.insert(papers).values(paper).returning();
       return created;
     }
+  }
+
+  // Collaborators
+  async getCollaborators(): Promise<Collaborator[]> {
+    return await db.select().from(collaborators).orderBy(desc(collaborators.hIndex));
+  }
+
+  async getCollaborator(id: string): Promise<Collaborator | undefined> {
+    const [collaborator] = await db.select().from(collaborators).where(eq(collaborators.id, id));
+    return collaborator || undefined;
+  }
+
+  async getCollaboratorByName(name: string): Promise<Collaborator | undefined> {
+    const [collaborator] = await db.select().from(collaborators).where(eq(collaborators.name, name));
+    return collaborator || undefined;
+  }
+
+  async createCollaborator(collaborator: InsertCollaborator): Promise<Collaborator> {
+    const [created] = await db.insert(collaborators).values(collaborator).returning();
+    return created;
+  }
+
+  async updateCollaborator(id: string, updates: Partial<InsertCollaborator>): Promise<Collaborator | undefined> {
+    const [updated] = await db
+      .update(collaborators)
+      .set(updates)
+      .where(eq(collaborators.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCollaborator(id: string): Promise<void> {
+    await db.delete(collaborators).where(eq(collaborators.id, id));
+  }
+
+  // Paper-Collaborator Links
+  async getPaperCollaborators(paperId: string): Promise<Array<PaperCollaborator & { collaborator: Collaborator }>> {
+    const links = await db
+      .select()
+      .from(paperCollaborators)
+      .innerJoin(collaborators, eq(paperCollaborators.collaboratorId, collaborators.id))
+      .where(eq(paperCollaborators.paperId, paperId));
+    
+    return links.map(l => ({
+      ...l.paper_collaborators,
+      collaborator: l.collaborators,
+    }));
+  }
+
+  async getCollaboratorPapers(collaboratorId: string): Promise<Array<PaperCollaborator & { paper: Paper }>> {
+    const links = await db
+      .select()
+      .from(paperCollaborators)
+      .innerJoin(papers, eq(paperCollaborators.paperId, papers.id))
+      .where(eq(paperCollaborators.collaboratorId, collaboratorId));
+    
+    return links.map(l => ({
+      ...l.paper_collaborators,
+      paper: l.papers,
+    }));
+  }
+
+  async linkPaperCollaborator(link: InsertPaperCollaborator): Promise<PaperCollaborator> {
+    const existing = await db
+      .select()
+      .from(paperCollaborators)
+      .where(and(
+        eq(paperCollaborators.paperId, link.paperId),
+        eq(paperCollaborators.collaboratorId, link.collaboratorId)
+      ));
+    
+    if (existing.length > 0) {
+      return existing[0];
+    }
+    
+    const [created] = await db.insert(paperCollaborators).values(link).returning();
+    return created;
+  }
+
+  async unlinkPaperCollaborator(paperId: string, collaboratorId: string): Promise<void> {
+    await db
+      .delete(paperCollaborators)
+      .where(and(
+        eq(paperCollaborators.paperId, paperId),
+        eq(paperCollaborators.collaboratorId, collaboratorId)
+      ));
+  }
+
+  async getPapersWithCollaborators(): Promise<Array<Paper & { collaborators: Collaborator[]; maxHIndex: number | null }>> {
+    const allPapers = await db.select().from(papers).orderBy(papers.title);
+    
+    const result = await Promise.all(
+      allPapers.map(async (paper) => {
+        const links = await this.getPaperCollaborators(paper.id);
+        const paperCollabs = links.map(l => l.collaborator);
+        const maxHIndex = paperCollabs.length > 0 
+          ? Math.max(...paperCollabs.map(c => c.hIndex || 0))
+          : null;
+        
+        return {
+          ...paper,
+          collaborators: paperCollabs,
+          maxHIndex,
+        };
+      })
+    );
+    
+    return result;
   }
 }
 

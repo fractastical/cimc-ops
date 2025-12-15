@@ -221,3 +221,42 @@ export interface PaperStages {
   mid: PaperStage;
   after: PaperStage;
 }
+
+// Collaborators (authors with h-index from OpenAlex)
+export const collaborators = pgTable("collaborators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  openalexId: text("openalex_id"),
+  hIndex: integer("h_index"),
+  citationCount: integer("citation_count"),
+  worksCount: integer("works_count"),
+  institution: text("institution"),
+  orcid: text("orcid"),
+  lastSyncedAt: timestamp("last_synced_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCollaborator = z.infer<typeof insertCollaboratorSchema>;
+export type Collaborator = typeof collaborators.$inferSelect;
+
+// Link between papers and collaborators (many-to-many)
+export const paperCollaborators = pgTable("paper_collaborators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  paperId: varchar("paper_id").notNull().references(() => papers.id, { onDelete: 'cascade' }),
+  collaboratorId: varchar("collaborator_id").notNull().references(() => collaborators.id, { onDelete: 'cascade' }),
+  role: text("role").default("author"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPaperCollaboratorSchema = createInsertSchema(paperCollaborators).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPaperCollaborator = z.infer<typeof insertPaperCollaboratorSchema>;
+export type PaperCollaborator = typeof paperCollaborators.$inferSelect;
