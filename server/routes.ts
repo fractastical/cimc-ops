@@ -9,6 +9,7 @@ import {
 import { githubService } from "./services/github";
 import { slackService } from "./services/slack";
 import { schedulerService } from "./services/scheduler";
+import { openAlexService } from "./services/openalex";
 
 async function autoSyncOnStartup() {
   console.log("Running auto-sync on startup...");
@@ -720,6 +721,141 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error syncing papers:", error);
       res.status(500).json({ error: "Failed to sync papers" });
+    }
+  });
+
+  // Get papers with collaborators for ranking
+  app.get("/api/papers/with-collaborators", async (req, res) => {
+    try {
+      const papers = await storage.getPapersWithCollaborators();
+      const sortBy = req.query.sortBy as string;
+      
+      if (sortBy === "h-index") {
+        papers.sort((a, b) => (b.maxHIndex || 0) - (a.maxHIndex || 0));
+      }
+      
+      res.json(papers);
+    } catch (error) {
+      console.error("Error fetching papers with collaborators:", error);
+      res.status(500).json({ error: "Failed to fetch papers" });
+    }
+  });
+
+  // ============ Collaborators ============
+  app.get("/api/collaborators", async (req, res) => {
+    try {
+      const collaborators = await storage.getCollaborators();
+      res.json(collaborators);
+    } catch (error) {
+      console.error("Error fetching collaborators:", error);
+      res.status(500).json({ error: "Failed to fetch collaborators" });
+    }
+  });
+
+  app.post("/api/collaborators/search", async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      
+      const result = await openAlexService.lookupAndCreateCollaborator(name);
+      res.json(result);
+    } catch (error) {
+      console.error("Error searching collaborator:", error);
+      res.status(500).json({ error: "Failed to search collaborator" });
+    }
+  });
+
+  app.post("/api/collaborators", async (req, res) => {
+    try {
+      const { name, openalexId, hIndex, citationCount, worksCount, institution, orcid } = req.body;
+      
+      const existing = await storage.getCollaboratorByName(name);
+      if (existing) {
+        return res.json(existing);
+      }
+      
+      const collaborator = await storage.createCollaborator({
+        name,
+        openalexId: openalexId || null,
+        hIndex: hIndex || null,
+        citationCount: citationCount || null,
+        worksCount: worksCount || null,
+        institution: institution || null,
+        orcid: orcid || null,
+        lastSyncedAt: openalexId ? new Date() : null,
+      });
+      res.json(collaborator);
+    } catch (error) {
+      console.error("Error creating collaborator:", error);
+      res.status(500).json({ error: "Failed to create collaborator" });
+    }
+  });
+
+  app.post("/api/collaborators/:id/refresh", async (req, res) => {
+    try {
+      const collaborator = await storage.getCollaborator(req.params.id);
+      if (!collaborator || !collaborator.openalexId) {
+        return res.status(404).json({ error: "Collaborator not found or no OpenAlex ID" });
+      }
+      
+      const updates = await openAlexService.refreshCollaboratorMetrics(collaborator.openalexId);
+      if (!updates) {
+        return res.status(500).json({ error: "Failed to refresh metrics" });
+      }
+      
+      const updated = await storage.updateCollaborator(req.params.id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error refreshing collaborator:", error);
+      res.status(500).json({ error: "Failed to refresh collaborator" });
+    }
+  });
+
+  app.delete("/api/collaborators/:id", async (req, res) => {
+    try {
+      await storage.deleteCollaborator(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting collaborator:", error);
+      res.status(500).json({ error: "Failed to delete collaborator" });
+    }
+  });
+
+  // Paper-Collaborator Links
+  app.get("/api/papers/:paperId/collaborators", async (req, res) => {
+    try {
+      const links = await storage.getPaperCollaborators(req.params.paperId);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching paper collaborators:", error);
+      res.status(500).json({ error: "Failed to fetch paper collaborators" });
+    }
+  });
+
+  app.post("/api/papers/:paperId/collaborators", async (req, res) => {
+    try {
+      const { collaboratorId, role } = req.body;
+      const link = await storage.linkPaperCollaborator({
+        paperId: req.params.paperId,
+        collaboratorId,
+        role: role || "author",
+      });
+      res.json(link);
+    } catch (error) {
+      console.error("Error linking paper to collaborator:", error);
+      res.status(500).json({ error: "Failed to link paper to collaborator" });
+    }
+  });
+
+  app.delete("/api/papers/:paperId/collaborators/:collaboratorId", async (req, res) => {
+    try {
+      await storage.unlinkPaperCollaborator(req.params.paperId, req.params.collaboratorId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unlinking paper from collaborator:", error);
+      res.status(500).json({ error: "Failed to unlink paper from collaborator" });
     }
   });
 
