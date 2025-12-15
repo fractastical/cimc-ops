@@ -280,12 +280,22 @@ export async function registerRoutes(
       const startDate = new Date(today);
       startDate.setDate(startDate.getDate() - days);
       
-      // Initialize weekly buckets
-      const weeklyData: Record<string, { research: number; code: number }> = {};
+      // Initialize weekly buckets with detailed tracking
+      const weeklyData: Record<string, { 
+        research: number; 
+        code: number;
+        repos: Set<string>;
+        papers: number;
+        updates: number;
+      }> = {};
       for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 7)) {
         const key = getWeekKey(d);
-        weeklyData[key] = { research: 0, code: 0 };
+        weeklyData[key] = { research: 0, code: 0, repos: new Set(), papers: 0, updates: 0 };
       }
+      
+      // Get all repos for name lookup
+      const allRepos = await storage.getRepositories();
+      const repoMap = new Map(allRepos.map(r => [r.id, r.name]));
       
       // 1. CODE: Get GitHub activity (commits, pushes)
       const activities = await storage.getActivitySince(startDate);
@@ -295,6 +305,8 @@ export async function registerRoutes(
           const weekKey = getWeekKey(new Date(eventDate));
           if (weeklyData[weekKey]) {
             weeklyData[weekKey].code++;
+            const repoName = repoMap.get(event.repositoryId);
+            if (repoName) weeklyData[weekKey].repos.add(repoName);
           }
         }
       }
@@ -306,6 +318,7 @@ export async function registerRoutes(
           const weekKey = getWeekKey(new Date(update.date));
           if (weeklyData[weekKey]) {
             weeklyData[weekKey].research++;
+            weeklyData[weekKey].updates++;
           }
         }
       }
@@ -318,14 +331,10 @@ export async function registerRoutes(
           const weekKey = getWeekKey(new Date(paperDate));
           if (weeklyData[weekKey]) {
             weeklyData[weekKey].research++;
+            weeklyData[weekKey].papers++;
           }
         }
       }
-      
-      // 4. RESEARCH: Count hypothesis activity via linked projects
-      const hypothesisActivity = await storage.getHypothesisActivity();
-      // Hypotheses are already counted through their linked research updates
-      // So we don't double-count here
       
       // Convert to array format for the chart
       const sortedWeeks = Object.keys(weeklyData).sort();
@@ -333,7 +342,10 @@ export async function registerRoutes(
         week,
         label: 'Week of ' + new Date(week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         research: weeklyData[week].research,
-        code: weeklyData[week].code
+        code: weeklyData[week].code,
+        repos: Array.from(weeklyData[week].repos),
+        papers: weeklyData[week].papers,
+        updates: weeklyData[week].updates
       }));
       
       // Calculate totals
@@ -1547,6 +1559,9 @@ export async function registerRoutes(
         
         const { weeks, totals } = data;
         
+        // Store weekly details for tooltip access
+        window.weeklyDetails = weeks;
+        
         const labels = weeks.map(w => w.label);
         const research = weeks.map(w => w.research);
         const code = weeks.map(w => w.code);
@@ -1603,6 +1618,19 @@ export async function registerRoutes(
                 callbacks: {
                   title: function(context) {
                     return context[0].label;
+                  },
+                  afterBody: function(context) {
+                    const idx = context[0].dataIndex;
+                    const weekData = window.weeklyDetails[idx];
+                    if (!weekData) return '';
+                    const lines = [];
+                    if (weekData.repos && weekData.repos.length > 0) {
+                      lines.push('Repos: ' + weekData.repos.join(', '));
+                    }
+                    if (weekData.papers > 0 || weekData.updates > 0) {
+                      lines.push('Papers: ' + weekData.papers + ', Updates: ' + weekData.updates);
+                    }
+                    return lines.join('\\n');
                   }
                 }
               }
