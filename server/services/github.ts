@@ -808,11 +808,22 @@ export class GitHubService {
               let collaborator = await storage.getCollaboratorByName(partnerName);
               
               if (!collaborator) {
-                // Look up in OpenAlex and create
+                // Look up in OpenAlex
                 const lookupResult = await openAlexService.lookupAndCreateCollaborator(partnerName);
                 if (lookupResult) {
-                  collaborator = await storage.createCollaborator(lookupResult.collaborator);
-                  console.log(`Created collaborator: ${collaborator.name} (h-index: ${collaborator.hIndex})`);
+                  // Check if collaborator exists by OpenAlex ID (name might differ)
+                  if (lookupResult.collaborator.openalexId) {
+                    collaborator = await storage.getCollaboratorByOpenAlexId(lookupResult.collaborator.openalexId);
+                  }
+                  // Also check by the returned name (might be different from search name)
+                  if (!collaborator && lookupResult.collaborator.name) {
+                    collaborator = await storage.getCollaboratorByName(lookupResult.collaborator.name);
+                  }
+                  // Only create if not found
+                  if (!collaborator) {
+                    collaborator = await storage.createCollaborator(lookupResult.collaborator);
+                    console.log(`Created collaborator: ${collaborator.name} (h-index: ${collaborator.hIndex})`);
+                  }
                 }
               }
 

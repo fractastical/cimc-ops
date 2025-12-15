@@ -129,6 +129,7 @@ export interface IStorage {
   getCollaborators(): Promise<Collaborator[]>;
   getCollaborator(id: string): Promise<Collaborator | undefined>;
   getCollaboratorByName(name: string): Promise<Collaborator | undefined>;
+  getCollaboratorByOpenAlexId(openalexId: string): Promise<Collaborator | undefined>;
   createCollaborator(collaborator: InsertCollaborator): Promise<Collaborator>;
   updateCollaborator(id: string, updates: Partial<InsertCollaborator>): Promise<Collaborator | undefined>;
   deleteCollaborator(id: string): Promise<void>;
@@ -674,6 +675,11 @@ export class DatabaseStorage implements IStorage {
 
   async getCollaboratorByName(name: string): Promise<Collaborator | undefined> {
     const [collaborator] = await db.select().from(collaborators).where(eq(collaborators.name, name));
+    return collaborator || undefined;
+  }
+
+  async getCollaboratorByOpenAlexId(openalexId: string): Promise<Collaborator | undefined> {
+    const [collaborator] = await db.select().from(collaborators).where(eq(collaborators.openalexId, openalexId));
     return collaborator || undefined;
   }
 
