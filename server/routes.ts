@@ -1465,17 +1465,26 @@ export async function registerRoutes(
           throw new Error('Unable to load research timeline');
         }
         
-        // Build daily counts for last 90 days
+        // Build weekly counts for last 13 weeks (about 3 months)
         const today = new Date();
         const startDate = new Date(today);
-        startDate.setDate(startDate.getDate() - 90);
+        startDate.setDate(startDate.getDate() - 91);
         
-        const dailyData = {};
+        // Helper to get week key (start of week)
+        function getWeekKey(date) {
+          const d = new Date(date);
+          const day = d.getDay();
+          const diff = d.getDate() - day; // Start of week (Sunday)
+          const weekStart = new Date(d.setDate(diff));
+          return weekStart.toISOString().split('T')[0];
+        }
         
-        // Initialize all days
-        for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
-          const key = d.toISOString().split('T')[0];
-          dailyData[key] = { commits: 0, research: 0 };
+        const weeklyData = {};
+        
+        // Initialize all weeks
+        for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 7)) {
+          const key = getWeekKey(d);
+          weeklyData[key] = { commits: 0, research: 0 };
         }
         
         // Count GitHub activity (commits, pushes)
@@ -1485,9 +1494,9 @@ export async function registerRoutes(
             // Use activityDate if available, otherwise fall back to createdAt
             const eventDate = event.activityDate || event.createdAt;
             if (!eventDate) continue;
-            const date = new Date(eventDate).toISOString().split('T')[0];
-            if (dailyData[date]) {
-              dailyData[date].commits++;
+            const weekKey = getWeekKey(new Date(eventDate));
+            if (weeklyData[weekKey]) {
+              weeklyData[weekKey].commits++;
               totalCommits++;
             }
           }
@@ -1497,22 +1506,22 @@ export async function registerRoutes(
         let totalResearch = 0;
         for (const project of timeline) {
           for (const update of project.updates) {
-            const date = new Date(update.date).toISOString().split('T')[0];
-            if (dailyData[date]) {
-              dailyData[date].research++;
+            const weekKey = getWeekKey(new Date(update.date));
+            if (weeklyData[weekKey]) {
+              weeklyData[weekKey].research++;
               totalResearch++;
             }
           }
         }
         
         // Convert to arrays for Chart.js
-        const sortedDates = Object.keys(dailyData).sort();
-        const labels = sortedDates.map(d => {
+        const sortedWeeks = Object.keys(weeklyData).sort();
+        const labels = sortedWeeks.map(d => {
           const date = new Date(d);
-          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          return 'Week of ' + date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         });
-        const commits = sortedDates.map(d => dailyData[d].commits);
-        const research = sortedDates.map(d => dailyData[d].research);
+        const commits = sortedWeeks.map(d => weeklyData[d].commits);
+        const research = sortedWeeks.map(d => weeklyData[d].research);
         
         // Show stats
         document.getElementById('stats').innerHTML = 
@@ -1561,7 +1570,7 @@ export async function registerRoutes(
               },
               title: {
                 display: true,
-                text: 'All Activity - Last 3 Months',
+                text: 'Weekly Activity - Last 3 Months',
                 color: '#e2e8f0',
                 font: { size: 14, weight: 'bold' }
               },
