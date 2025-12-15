@@ -1500,14 +1500,14 @@ export async function registerRoutes(
     .chart-container { 
       position: relative; 
       width: 100%; 
-      height: calc(100vh - 2rem);
-      min-height: 400px;
+      max-width: 900px;
+      margin: 0 auto;
     }
     .loading {
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 100%;
+      height: 300px;
       color: #94a3b8;
     }
     .error { color: #ef4444; text-align: center; padding: 2rem; }
@@ -1517,8 +1517,10 @@ export async function registerRoutes(
       margin-bottom: 1rem;
       font-size: 0.85rem;
       color: #94a3b8;
+      flex-wrap: wrap;
     }
     .stat-value { font-weight: bold; color: #e2e8f0; }
+    canvas { max-height: 400px; }
   </style>
 </head>
 <body>
@@ -1580,7 +1582,8 @@ export async function registerRoutes(
           },
           options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             interaction: {
               intersect: false,
               mode: 'index'
