@@ -60,6 +60,35 @@ export class SchedulerService {
     }
   }
 
+  // Ensure fresh data before sending summaries - syncs repos, hypotheses, and papers
+  private async ensureFreshData() {
+    console.log("Ensuring fresh data before sending summary...");
+    try {
+      // Sync GitHub repos and activity
+      await this.syncGitHub();
+      
+      // Sync hypotheses from default repo
+      try {
+        const result = await githubService.syncHypotheses("cimcai", "hypotheses", "");
+        console.log(`Pre-summary hypotheses sync: ${result.synced} synced, ${result.updated} updated`);
+      } catch (error) {
+        console.error("Failed to sync hypotheses before summary:", error);
+      }
+      
+      // Sync papers
+      try {
+        const papersResult = await githubService.syncPapers();
+        console.log(`Pre-summary papers sync: ${papersResult.synced} new, ${papersResult.updated} updated`);
+      } catch (error) {
+        console.error("Failed to sync papers before summary:", error);
+      }
+      
+      console.log("Fresh data sync completed");
+    } catch (error) {
+      console.error("Failed to ensure fresh data:", error);
+    }
+  }
+
   stop() {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
@@ -89,6 +118,8 @@ export class SchedulerService {
         
         if (lastSentDay !== today) {
           console.log("Sending daily summary...");
+          // Sync fresh data before sending
+          await this.ensureFreshData();
           await this.sendDailySummary();
           // Persist the timestamp to database to prevent duplicates across restarts
           await storage.updateSchedulerTimestamp("daily", now);
@@ -107,6 +138,8 @@ export class SchedulerService {
         
         if (lastSentWeek !== thisWeek) {
           console.log("Sending weekly summary...");
+          // Sync fresh data before sending
+          await this.ensureFreshData();
           await this.sendWeeklySummary();
           // Persist the timestamp to database to prevent duplicates across restarts
           await storage.updateSchedulerTimestamp("weekly", now);

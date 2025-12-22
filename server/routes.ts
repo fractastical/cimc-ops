@@ -32,10 +32,10 @@ async function autoSyncOnStartup() {
         }
       }
       
-      // Also sync hypotheses if configured
+      // Also sync hypotheses from default repo
       try {
-        const result = await githubService.syncHypotheses();
-        console.log(`Auto-synced hypotheses: ${result.synced} synced, ${result.skipped} skipped`);
+        const result = await githubService.syncHypotheses("cimcai", "hypotheses", "");
+        console.log(`Auto-synced hypotheses: ${result.synced} synced, ${result.updated} updated`);
       } catch (error) {
         console.error("Failed to auto-sync hypotheses:", error);
       }
