@@ -15,9 +15,15 @@ async function autoSyncOnStartup() {
   console.log("Running auto-sync on startup...");
   try {
     const settings = await storage.getIntegrationSettings();
-    if (settings?.githubOrgs && settings.githubOrgs.length > 0) {
-      console.log(`Auto-syncing ${settings.githubOrgs.length} GitHub organization(s)...`);
-      for (const org of settings.githubOrgs) {
+    
+    // Use githubOrganization (singular) from database, support comma-separated orgs
+    const githubOrgs = settings?.githubOrganization 
+      ? settings.githubOrganization.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    
+    if (githubOrgs.length > 0) {
+      console.log(`Auto-syncing ${githubOrgs.length} GitHub organization(s)...`);
+      for (const org of githubOrgs) {
         try {
           await githubService.syncOrganization(org);
           console.log(`Auto-synced org: ${org}`);
@@ -41,6 +47,8 @@ async function autoSyncOnStartup() {
       } catch (error) {
         console.error("Failed to auto-sync papers:", error);
       }
+    } else {
+      console.log("No GitHub organizations configured for auto-sync");
     }
   } catch (error) {
     console.error("Auto-sync failed:", error);

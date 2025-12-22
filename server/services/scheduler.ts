@@ -37,8 +37,14 @@ export class SchedulerService {
     try {
       console.log("Running scheduled GitHub sync...");
       const settings = await storage.getIntegrationSettings();
-      if (settings?.githubOrgs && settings.githubOrgs.length > 0) {
-        for (const org of settings.githubOrgs) {
+      
+      // Use githubOrganization (singular) from database, support comma-separated orgs
+      const githubOrgs = settings?.githubOrganization 
+        ? settings.githubOrganization.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      
+      if (githubOrgs.length > 0) {
+        for (const org of githubOrgs) {
           try {
             await githubService.syncOrganization(org);
             console.log(`Synced org: ${org}`);
