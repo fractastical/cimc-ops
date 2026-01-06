@@ -93,6 +93,8 @@ export const researchProjects = pgTable("research_projects", {
   name: text("name").notNull().unique(),
   description: text("description"),
   color: text("color").default("#10b981"), // For visualization
+  status: text("status").default("active"), // active, completed, on-hold, archived
+  hIndex: integer("h_index").default(0), // Aggregate h-index from collaborators
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

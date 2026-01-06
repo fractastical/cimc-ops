@@ -21,6 +21,15 @@ export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
     )[0];
   };
 
+  // Sort by status (active first) then by h-index (highest first)
+  const statusOrder: Record<string, number> = { active: 0, "on-hold": 1, completed: 2, archived: 3 };
+  const sortedProjects = [...projects].sort((a, b) => {
+    const statusA = statusOrder[a.status || "active"] ?? 4;
+    const statusB = statusOrder[b.status || "active"] ?? 4;
+    if (statusA !== statusB) return statusA - statusB;
+    return (b.hIndex || 0) - (a.hIndex || 0);
+  });
+
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -48,7 +57,7 @@ export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
             </p>
           </div>
         ) : (
-          projects.map((project) => {
+          sortedProjects.map((project) => {
             const updateCount = getUpdateCount(project.id);
             const latestUpdate = getLatestUpdate(project.id);
             

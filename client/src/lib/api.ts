@@ -196,6 +196,8 @@ export interface ResearchProject {
   name: string;
   description: string | null;
   color: string;
+  status: string | null;
+  hIndex: number | null;
   createdAt: string;
 }
 
