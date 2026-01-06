@@ -1,14 +1,40 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FlaskConical, Clock, FileText, User } from "lucide-react";
 import type { ResearchProject, ResearchUpdate } from "@/lib/api";
+import { updateResearchProject } from "@/lib/api";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 interface ResearchBoardProps {
   projects: ResearchProject[];
   updates: ResearchUpdate[];
 }
 
+const STATUS_OPTIONS = [
+  { value: "active", label: "Active", color: "bg-green-500" },
+  { value: "on-hold", label: "On Hold", color: "bg-yellow-500" },
+  { value: "completed", label: "Completed", color: "bg-blue-500" },
+  { value: "archived", label: "Archived", color: "bg-gray-500" },
+];
+
 export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
+  const queryClient = useQueryClient();
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: { status?: string; hIndex?: number } }) =>
+      updateResearchProject(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["researchTimeline"] });
+      queryClient.invalidateQueries({ queryKey: ["researchProjects"] });
+      toast.success("Project updated");
+    },
+    onError: () => {
+      toast.error("Failed to update project");
+    },
+  });
+
   const getUpdateCount = (projectId: string) => {
     return updates.filter(u => u.projectId === projectId).length;
   };
@@ -21,7 +47,6 @@ export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
     )[0];
   };
 
-  // Sort by status (active first) then by h-index (highest first)
   const statusOrder: Record<string, number> = { active: 0, "on-hold": 1, completed: 2, archived: 3 };
   const sortedProjects = [...projects].sort((a, b) => {
     const statusA = statusOrder[a.status || "active"] ?? 4;
@@ -33,6 +58,11 @@ export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const getStatusColor = (status: string | null) => {
+    const opt = STATUS_OPTIONS.find(s => s.value === status);
+    return opt?.color || "bg-green-500";
   };
 
   return (
@@ -71,12 +101,16 @@ export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <div 
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: project.color || "#10b981" }}
+                        className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusColor(project.status)}`}
                       />
                       <h4 className="font-medium text-sm text-foreground group-hover:text-primary transition-colors truncate">
                         {project.name}
                       </h4>
+                      {project.hIndex !== null && project.hIndex > 0 && (
+                        <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+                          h:{project.hIndex}
+                        </Badge>
+                      )}
                     </div>
                     {project.description && (
                       <p className="text-xs text-muted-foreground pl-5 line-clamp-2">
@@ -84,10 +118,33 @@ export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
                       </p>
                     )}
                   </div>
-                  <Badge variant="secondary" className="font-mono text-[10px] flex-shrink-0 ml-2">
-                    <FileText className="h-3 w-3 mr-1" />
-                    {updateCount} update{updateCount !== 1 ? "s" : ""}
-                  </Badge>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    <Select
+                      value={project.status || "active"}
+                      onValueChange={(value) => updateMutation.mutate({ id: project.id, updates: { status: value } })}
+                    >
+                      <SelectTrigger 
+                        className="h-7 w-24 text-xs font-mono"
+                        data-testid={`select-status-${project.id}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs font-mono">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${opt.color}`} />
+                              {opt.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Badge variant="secondary" className="font-mono text-[10px]">
+                      <FileText className="h-3 w-3 mr-1" />
+                      {updateCount}
+                    </Badge>
+                  </div>
                 </div>
                 
                 {latestUpdate && (

@@ -78,6 +78,7 @@ export interface IStorage {
   getResearchProject(id: string): Promise<ResearchProject | undefined>;
   getResearchProjectByName(name: string): Promise<ResearchProject | undefined>;
   createResearchProject(project: InsertResearchProject): Promise<ResearchProject>;
+  updateResearchProject(id: string, updates: Partial<InsertResearchProject>): Promise<ResearchProject | undefined>;
   deleteResearchProject(id: string): Promise<void>;
 
   // Research Updates
@@ -400,6 +401,15 @@ export class DatabaseStorage implements IStorage {
   async createResearchProject(project: InsertResearchProject): Promise<ResearchProject> {
     const [created] = await db.insert(researchProjects).values(project).returning();
     return created;
+  }
+
+  async updateResearchProject(id: string, updates: Partial<InsertResearchProject>): Promise<ResearchProject | undefined> {
+    const [updated] = await db
+      .update(researchProjects)
+      .set(updates)
+      .where(eq(researchProjects.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async deleteResearchProject(id: string): Promise<void> {

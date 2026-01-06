@@ -680,6 +680,24 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/research/projects/:id", async (req, res) => {
+    try {
+      const { status, hIndex } = req.body;
+      const updates: { status?: string; hIndex?: number } = {};
+      if (status !== undefined) updates.status = status;
+      if (hIndex !== undefined) updates.hIndex = hIndex;
+      
+      const updated = await storage.updateResearchProject(req.params.id, updates);
+      if (!updated) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating research project:", error);
+      res.status(500).json({ error: "Failed to update project" });
+    }
+  });
+
   // ============ Hypotheses ============
   app.get("/api/hypotheses", async (req, res) => {
     try {

@@ -221,6 +221,16 @@ export async function getResearchProjects(): Promise<ResearchProject[]> {
   return res.json();
 }
 
+export async function updateResearchProject(id: string, updates: { status?: string; hIndex?: number }): Promise<ResearchProject> {
+  const res = await fetch(`/api/research/projects/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error("Failed to update research project");
+  return res.json();
+}
+
 export async function getResearchUpdates(): Promise<ResearchUpdate[]> {
   const res = await fetch("/api/research/updates");
   if (!res.ok) throw new Error("Failed to fetch research updates");
