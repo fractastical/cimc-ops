@@ -1032,11 +1032,12 @@ function PapersPipelineSection() {
     },
   });
 
-  // Helper to get overall completion for a paper
+  // Helper to get overall completion for a paper (uses same logic as getStageProgress)
   const getPaperCompletion = (paper: PaperWithCollaborators) => {
     const currentStage = paper.currentStage as "before" | "mid" | "after";
     const stageData = paper.stages?.[currentStage];
-    return stageData?.completion_percentage ?? 0;
+    const progress = getStageProgress(stageData);
+    return progress.percent;
   };
 
   // Always sort by completion (highest first), with h-index as secondary sort
