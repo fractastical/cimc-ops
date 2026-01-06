@@ -992,10 +992,19 @@ function getStageProgress(stage: PaperStage | undefined): { completed: number; t
   // Exclude "next_deadline_recorded" from calculation (treat as always done)
   const relevantFactors = factorEntries.filter(([key]) => key !== "next_deadline_recorded");
   const total = relevantFactors.length;
-  const completedCount = relevantFactors.filter(([, f]) => f.current >= (f.target || 0)).length;
   
-  // Recalculate percent without the deadline factor
-  const percent = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+  // Calculate proportional progress for each factor
+  let totalProgress = 0;
+  for (const [, factor] of relevantFactors) {
+    const target = factor.target || 1;
+    const current = factor.current || 0;
+    // For numeric targets > 1, calculate proportional progress (capped at 100%)
+    const factorProgress = Math.min(current / target, 1);
+    totalProgress += factorProgress;
+  }
+  
+  const completedCount = relevantFactors.filter(([, f]) => f.current >= (f.target || 0)).length;
+  const percent = total > 0 ? Math.round((totalProgress / total) * 100) : 0;
   
   return { completed: completedCount, total, percent };
 }
