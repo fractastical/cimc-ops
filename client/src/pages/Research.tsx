@@ -987,12 +987,15 @@ function CollaboratorSearchModal({
 
 function getStageProgress(stage: PaperStage | undefined): { completed: number; total: number; percent: number } {
   if (!stage) return { completed: 0, total: 0, percent: 0 };
-  const factors = stage.factors ? Object.values(stage.factors) : [];
-  const total = factors.length;
-  const completedCount = factors.filter(f => f.current >= f.target).length;
+  const factorEntries = stage.factors ? Object.entries(stage.factors) : [];
   
-  // Use pre-calculated completion_percentage from JSON
-  const percent = Math.round(stage.completion_percentage ?? 0);
+  // Exclude "next_deadline_recorded" from calculation (treat as always done)
+  const relevantFactors = factorEntries.filter(([key]) => key !== "next_deadline_recorded");
+  const total = relevantFactors.length;
+  const completedCount = relevantFactors.filter(([, f]) => f.current >= (f.target || 0)).length;
+  
+  // Recalculate percent without the deadline factor
+  const percent = total > 0 ? Math.round((completedCount / total) * 100) : 0;
   
   return { completed: completedCount, total, percent };
 }
@@ -1020,9 +1023,21 @@ function PapersPipelineSection() {
     },
   });
 
-  const sortedPapers = sortByHIndex 
-    ? [...papers].sort((a, b) => (b.maxHIndex || 0) - (a.maxHIndex || 0))
-    : papers;
+  // Helper to get overall completion for a paper
+  const getPaperCompletion = (paper: PaperWithCollaborators) => {
+    const currentStage = paper.currentStage as "before" | "mid" | "after";
+    const stageData = paper.stages?.[currentStage];
+    return stageData?.completion_percentage ?? 0;
+  };
+
+  // Always sort by completion (highest first), with h-index as secondary sort
+  const sortedPapers = [...papers].sort((a, b) => {
+    if (sortByHIndex) {
+      return (b.maxHIndex || 0) - (a.maxHIndex || 0);
+    }
+    // Sort by completion percentage (highest first)
+    return getPaperCompletion(b) - getPaperCompletion(a);
+  });
 
   const stageEmoji = { before: "📝", mid: "🔄", after: "✅" };
   const stageNames = { before: "Draft", mid: "Review", after: "Published" };
