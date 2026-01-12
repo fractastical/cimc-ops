@@ -888,6 +888,27 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(milestoneSubmissions).orderBy(desc(milestoneSubmissions.submittedAt));
   }
 
+  async getRecentMilestoneSubmissions(startDate: Date, endDate: Date): Promise<Array<MilestoneSubmission & { milestone: Milestone; project: ResearchProject }>> {
+    const submissions = await db
+      .select()
+      .from(milestoneSubmissions)
+      .innerJoin(milestones, eq(milestoneSubmissions.milestoneId, milestones.id))
+      .innerJoin(researchProjects, eq(milestones.projectId, researchProjects.id))
+      .where(
+        and(
+          gte(milestoneSubmissions.submittedAt, startDate),
+          sql`${milestoneSubmissions.submittedAt} <= ${endDate}`
+        )
+      )
+      .orderBy(desc(milestoneSubmissions.submittedAt));
+    
+    return submissions.map(s => ({
+      ...s.milestone_submissions,
+      milestone: s.milestones,
+      project: s.research_projects,
+    }));
+  }
+
   async getMilestoneSubmission(id: string): Promise<MilestoneSubmission | undefined> {
     const [submission] = await db.select().from(milestoneSubmissions).where(eq(milestoneSubmissions.id, id));
     return submission || undefined;
