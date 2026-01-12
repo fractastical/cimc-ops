@@ -714,6 +714,7 @@ export interface AuthUser {
   firstName: string | null;
   lastName: string | null;
   profileImageUrl: string | null;
+  isAdmin: boolean;
 }
 
 export async function getAdminActions(limit = 50): Promise<AdminActionLog[]> {

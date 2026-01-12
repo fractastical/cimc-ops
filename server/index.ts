@@ -1,14 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
-import session from "express-session";
-import MemoryStore from "memorystore";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
 const httpServer = createServer(app);
-
-const MemoryStoreSession = MemoryStore(session);
 
 declare module "express-session" {
   interface SessionData {
@@ -50,67 +46,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// Session middleware
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "ops-mission-control-secret-key",
-    resave: false,
-    saveUninitialized: false,
-    store: new MemoryStoreSession({
-      checkPeriod: 86400000, // 24 hours
-    }),
-    cookie: {
-      secure: false, // Set to false for development
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    },
-  })
-);
-
-// Auth routes (before protection middleware)
-app.post("/api/auth/login", (req, res) => {
-  const { password } = req.body;
-  const sitePassword = process.env.SITE_PASSWORD;
-  
-  if (!sitePassword) {
-    req.session.authenticated = true;
-    return res.json({ success: true });
-  }
-  
-  if (password === sitePassword) {
-    req.session.authenticated = true;
-    res.json({ success: true });
-  } else {
-    res.status(401).json({ error: "Invalid password" });
-  }
-});
-
-app.post("/api/auth/logout", (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: "Failed to logout" });
-    }
-    res.json({ success: true });
-  });
-});
-
-app.get("/api/auth/status", (req, res) => {
-  const sitePassword = process.env.SITE_PASSWORD;
-  res.json({ 
-    authenticated: req.session.authenticated === true,
-    passwordRequired: !!sitePassword
-  });
-});
-
-// Password protection middleware
+// Password protection middleware (legacy - session is now set up via Replit Auth in routes.ts)
 app.use((req, res, next) => {
   // Skip auth for Slack endpoints (they use their own signature verification)
   if (req.path.startsWith("/api/slack/")) {
     return next();
   }
   
-  // Skip auth for auth endpoints
-  if (req.path.startsWith("/api/auth/")) {
+  // Skip auth for auth endpoints (both legacy /api/auth/* and Replit Auth /api/login, /api/callback, /api/logout)
+  if (req.path.startsWith("/api/auth/") || 
+      req.path === "/api/login" || 
+      req.path === "/api/callback" || 
+      req.path === "/api/logout") {
     return next();
   }
   

@@ -104,6 +104,12 @@ export default function Admin() {
                     <span className="text-muted-foreground">User ID:</span>
                     <span className="font-mono text-xs">{user.id.substring(0, 12)}...</span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Role:</span>
+                    <Badge variant="outline" className={user.isAdmin ? "bg-primary/20 text-primary border-primary/30" : "bg-muted text-muted-foreground"}>
+                      {user.isAdmin ? "Admin" : "User"}
+                    </Badge>
+                  </div>
                 </div>
                 <Button 
                   variant="outline" 

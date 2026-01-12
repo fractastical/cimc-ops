@@ -16,13 +16,17 @@ class AuthStorage implements IAuthStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    // Automatically grant admin access to @cimc.ai emails
+    const isAdmin = userData.email?.endsWith("@cimc.ai") ?? false;
+    
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values({ ...userData, isAdmin })
       .onConflictDoUpdate({
         target: users.id,
         set: {
           ...userData,
+          isAdmin,
           updatedAt: new Date(),
         },
       })
