@@ -23,6 +23,14 @@ import {
   type InsertCollaborator,
   type PaperCollaborator,
   type InsertPaperCollaborator,
+  type Milestone,
+  type InsertMilestone,
+  type MilestoneSubmission,
+  type InsertMilestoneSubmission,
+  type TeamLead,
+  type InsertTeamLead,
+  type AdminEmail,
+  type InsertAdminEmail,
   users,
   integrationSettings,
   repositories,
@@ -35,6 +43,10 @@ import {
   papers,
   collaborators,
   paperCollaborators,
+  milestones,
+  milestoneSubmissions,
+  teamLeads,
+  adminEmails,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -141,6 +153,32 @@ export interface IStorage {
   linkPaperCollaborator(link: InsertPaperCollaborator): Promise<PaperCollaborator>;
   unlinkPaperCollaborator(paperId: string, collaboratorId: string): Promise<void>;
   getPapersWithCollaborators(): Promise<Array<Paper & { collaborators: Collaborator[]; maxHIndex: number | null }>>;
+
+  // Milestones
+  getMilestones(projectId?: string): Promise<Milestone[]>;
+  getMilestone(id: string): Promise<Milestone | undefined>;
+  getMilestoneByProjectAndMonth(projectId: string, month: string): Promise<Milestone | undefined>;
+  createMilestone(milestone: InsertMilestone): Promise<Milestone>;
+  updateMilestone(id: string, updates: Partial<InsertMilestone>): Promise<Milestone | undefined>;
+  deleteMilestone(id: string): Promise<void>;
+
+  // Milestone Submissions
+  getMilestoneSubmissions(milestoneId?: string): Promise<MilestoneSubmission[]>;
+  getMilestoneSubmission(id: string): Promise<MilestoneSubmission | undefined>;
+  createMilestoneSubmission(submission: InsertMilestoneSubmission): Promise<MilestoneSubmission>;
+
+  // Team Leads
+  getTeamLeads(projectId?: string): Promise<TeamLead[]>;
+  getTeamLead(id: string): Promise<TeamLead | undefined>;
+  createTeamLead(teamLead: InsertTeamLead): Promise<TeamLead>;
+  updateTeamLead(id: string, updates: Partial<InsertTeamLead>): Promise<TeamLead | undefined>;
+  deleteTeamLead(id: string): Promise<void>;
+
+  // Admin Emails
+  getAdminEmails(): Promise<AdminEmail[]>;
+  getActiveAdminEmails(): Promise<string[]>;
+  createAdminEmail(adminEmail: InsertAdminEmail): Promise<AdminEmail>;
+  deleteAdminEmail(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -784,6 +822,116 @@ export class DatabaseStorage implements IStorage {
     );
     
     return result;
+  }
+
+  // Milestones
+  async getMilestones(projectId?: string): Promise<Milestone[]> {
+    if (projectId) {
+      return db.select().from(milestones).where(eq(milestones.projectId, projectId)).orderBy(desc(milestones.month));
+    }
+    return db.select().from(milestones).orderBy(desc(milestones.month));
+  }
+
+  async getMilestone(id: string): Promise<Milestone | undefined> {
+    const [milestone] = await db.select().from(milestones).where(eq(milestones.id, id));
+    return milestone || undefined;
+  }
+
+  async getMilestoneByProjectAndMonth(projectId: string, month: string): Promise<Milestone | undefined> {
+    const [milestone] = await db
+      .select()
+      .from(milestones)
+      .where(and(eq(milestones.projectId, projectId), eq(milestones.month, month)));
+    return milestone || undefined;
+  }
+
+  async createMilestone(milestone: InsertMilestone): Promise<Milestone> {
+    const [created] = await db.insert(milestones).values(milestone).returning();
+    return created;
+  }
+
+  async updateMilestone(id: string, updates: Partial<InsertMilestone>): Promise<Milestone | undefined> {
+    const [updated] = await db
+      .update(milestones)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(milestones.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteMilestone(id: string): Promise<void> {
+    await db.delete(milestones).where(eq(milestones.id, id));
+  }
+
+  // Milestone Submissions
+  async getMilestoneSubmissions(milestoneId?: string): Promise<MilestoneSubmission[]> {
+    if (milestoneId) {
+      return db.select().from(milestoneSubmissions).where(eq(milestoneSubmissions.milestoneId, milestoneId)).orderBy(desc(milestoneSubmissions.submittedAt));
+    }
+    return db.select().from(milestoneSubmissions).orderBy(desc(milestoneSubmissions.submittedAt));
+  }
+
+  async getMilestoneSubmission(id: string): Promise<MilestoneSubmission | undefined> {
+    const [submission] = await db.select().from(milestoneSubmissions).where(eq(milestoneSubmissions.id, id));
+    return submission || undefined;
+  }
+
+  async createMilestoneSubmission(submission: InsertMilestoneSubmission): Promise<MilestoneSubmission> {
+    const [created] = await db.insert(milestoneSubmissions).values(submission).returning();
+    return created;
+  }
+
+  // Team Leads
+  async getTeamLeads(projectId?: string): Promise<TeamLead[]> {
+    if (projectId) {
+      return db.select().from(teamLeads).where(eq(teamLeads.projectId, projectId));
+    }
+    return db.select().from(teamLeads);
+  }
+
+  async getTeamLead(id: string): Promise<TeamLead | undefined> {
+    const [lead] = await db.select().from(teamLeads).where(eq(teamLeads.id, id));
+    return lead || undefined;
+  }
+
+  async createTeamLead(teamLead: InsertTeamLead): Promise<TeamLead> {
+    const [created] = await db.insert(teamLeads).values(teamLead).returning();
+    return created;
+  }
+
+  async updateTeamLead(id: string, updates: Partial<InsertTeamLead>): Promise<TeamLead | undefined> {
+    const [updated] = await db
+      .update(teamLeads)
+      .set(updates)
+      .where(eq(teamLeads.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteTeamLead(id: string): Promise<void> {
+    await db.delete(teamLeads).where(eq(teamLeads.id, id));
+  }
+
+  // Admin Emails
+  async getAdminEmails(): Promise<AdminEmail[]> {
+    return db.select().from(adminEmails);
+  }
+
+  async getActiveAdminEmails(): Promise<string[]> {
+    const emails = await db
+      .select({ email: adminEmails.email })
+      .from(adminEmails)
+      .where(eq(adminEmails.isActive, true));
+    return emails.map(e => e.email);
+  }
+
+  async createAdminEmail(adminEmail: InsertAdminEmail): Promise<AdminEmail> {
+    const [created] = await db.insert(adminEmails).values(adminEmail).returning();
+    return created;
+  }
+
+  async deleteAdminEmail(id: string): Promise<void> {
+    await db.delete(adminEmails).where(eq(adminEmails.id, id));
   }
 }
 

@@ -262,3 +262,79 @@ export const insertPaperCollaboratorSchema = createInsertSchema(paperCollaborato
 
 export type InsertPaperCollaborator = z.infer<typeof insertPaperCollaboratorSchema>;
 export type PaperCollaborator = typeof paperCollaborators.$inferSelect;
+
+// Milestones - monthly goals set by admins for each project
+export const milestones = pgTable("milestones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => researchProjects.id, { onDelete: 'cascade' }),
+  month: varchar("month", { length: 7 }).notNull(), // Format: "2026-01"
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertMilestoneSchema = createInsertSchema(milestones).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMilestone = z.infer<typeof insertMilestoneSchema>;
+export type Milestone = typeof milestones.$inferSelect;
+
+// Milestone submissions - progress updates from team leads
+export const milestoneSubmissions = pgTable("milestone_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  milestoneId: varchar("milestone_id").notNull().references(() => milestones.id, { onDelete: 'cascade' }),
+  projectId: varchar("project_id").notNull().references(() => researchProjects.id, { onDelete: 'cascade' }),
+  teamLeadName: text("team_lead_name").notNull(),
+  teamLeadEmail: text("team_lead_email").notNull(),
+  progressSummary: text("progress_summary").notNull(),
+  completionPercentage: integer("completion_percentage").default(0),
+  challenges: text("challenges"),
+  nextSteps: text("next_steps"),
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+});
+
+export const insertMilestoneSubmissionSchema = createInsertSchema(milestoneSubmissions).omit({
+  id: true,
+  submittedAt: true,
+});
+
+export type InsertMilestoneSubmission = z.infer<typeof insertMilestoneSubmissionSchema>;
+export type MilestoneSubmission = typeof milestoneSubmissions.$inferSelect;
+
+// Team leads - people who receive milestone reminder emails
+export const teamLeads = pgTable("team_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => researchProjects.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTeamLeadSchema = createInsertSchema(teamLeads).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTeamLead = z.infer<typeof insertTeamLeadSchema>;
+export type TeamLead = typeof teamLeads.$inferSelect;
+
+// Admin emails - people who receive submission notifications
+export const adminEmails = pgTable("admin_emails", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAdminEmailSchema = createInsertSchema(adminEmails).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAdminEmail = z.infer<typeof insertAdminEmailSchema>;
+export type AdminEmail = typeof adminEmails.$inferSelect;
