@@ -5,7 +5,12 @@ import {
   insertIntegrationSettingsSchema, 
   insertRepositorySchema,
   insertSlackMessageSchema,
+  insertMilestoneSchema,
+  insertMilestoneSubmissionSchema,
+  insertTeamLeadSchema,
+  insertAdminEmailSchema,
 } from "@shared/schema";
+import { emailService } from "./services/email";
 import { githubService } from "./services/github";
 import { slackService } from "./services/slack";
 import { schedulerService } from "./services/scheduler";
@@ -1712,6 +1717,223 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error generating PDF report:", error);
       res.status(500).json({ error: "Failed to generate PDF report" });
+    }
+  });
+
+  // ============ Milestones ============
+  app.get("/api/milestones", async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string | undefined;
+      const milestones = await storage.getMilestones(projectId);
+      res.json(milestones);
+    } catch (error) {
+      console.error("Error fetching milestones:", error);
+      res.status(500).json({ error: "Failed to fetch milestones" });
+    }
+  });
+
+  app.get("/api/milestones/:id", async (req, res) => {
+    try {
+      const milestone = await storage.getMilestone(req.params.id);
+      if (!milestone) {
+        return res.status(404).json({ error: "Milestone not found" });
+      }
+      res.json(milestone);
+    } catch (error) {
+      console.error("Error fetching milestone:", error);
+      res.status(500).json({ error: "Failed to fetch milestone" });
+    }
+  });
+
+  app.post("/api/milestones", async (req, res) => {
+    try {
+      const parsed = insertMilestoneSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.message });
+      }
+      const existing = await storage.getMilestoneByProjectAndMonth(parsed.data.projectId, parsed.data.month);
+      if (existing) {
+        return res.status(400).json({ error: "A milestone already exists for this project and month" });
+      }
+      const milestone = await storage.createMilestone(parsed.data);
+      res.json(milestone);
+    } catch (error) {
+      console.error("Error creating milestone:", error);
+      res.status(500).json({ error: "Failed to create milestone" });
+    }
+  });
+
+  app.put("/api/milestones/:id", async (req, res) => {
+    try {
+      const parsed = insertMilestoneSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.message });
+      }
+      const milestone = await storage.updateMilestone(req.params.id, parsed.data);
+      if (!milestone) {
+        return res.status(404).json({ error: "Milestone not found" });
+      }
+      res.json(milestone);
+    } catch (error) {
+      console.error("Error updating milestone:", error);
+      res.status(500).json({ error: "Failed to update milestone" });
+    }
+  });
+
+  app.delete("/api/milestones/:id", async (req, res) => {
+    try {
+      await storage.deleteMilestone(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting milestone:", error);
+      res.status(500).json({ error: "Failed to delete milestone" });
+    }
+  });
+
+  // ============ Milestone Submissions ============
+  app.get("/api/milestone-submissions", async (req, res) => {
+    try {
+      const milestoneId = req.query.milestoneId as string | undefined;
+      const submissions = await storage.getMilestoneSubmissions(milestoneId);
+      res.json(submissions);
+    } catch (error) {
+      console.error("Error fetching submissions:", error);
+      res.status(500).json({ error: "Failed to fetch submissions" });
+    }
+  });
+
+  app.post("/api/milestone-submissions", async (req, res) => {
+    try {
+      const parsed = insertMilestoneSubmissionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.message });
+      }
+      const submission = await storage.createMilestoneSubmission(parsed.data);
+      
+      // Send notification to admins
+      const adminEmails = await storage.getActiveAdminEmails();
+      if (adminEmails.length > 0) {
+        const milestone = await storage.getMilestone(parsed.data.milestoneId);
+        const project = milestone ? await storage.getResearchProject(milestone.projectId) : null;
+        const projectName = project?.name || "Unknown Project";
+        const milestoneMonth = milestone?.month || "Unknown";
+        
+        await emailService.sendMilestoneSubmissionNotification(
+          adminEmails,
+          projectName,
+          parsed.data.teamLeadName,
+          milestoneMonth,
+          parsed.data.progressSummary
+        );
+      }
+      
+      res.json(submission);
+    } catch (error) {
+      console.error("Error creating submission:", error);
+      res.status(500).json({ error: "Failed to create submission" });
+    }
+  });
+
+  // ============ Team Leads ============
+  app.get("/api/team-leads", async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string | undefined;
+      const leads = await storage.getTeamLeads(projectId);
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching team leads:", error);
+      res.status(500).json({ error: "Failed to fetch team leads" });
+    }
+  });
+
+  app.post("/api/team-leads", async (req, res) => {
+    try {
+      const parsed = insertTeamLeadSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.message });
+      }
+      const lead = await storage.createTeamLead(parsed.data);
+      res.json(lead);
+    } catch (error) {
+      console.error("Error creating team lead:", error);
+      res.status(500).json({ error: "Failed to create team lead" });
+    }
+  });
+
+  app.put("/api/team-leads/:id", async (req, res) => {
+    try {
+      const parsed = insertTeamLeadSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.message });
+      }
+      const lead = await storage.updateTeamLead(req.params.id, parsed.data);
+      if (!lead) {
+        return res.status(404).json({ error: "Team lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      console.error("Error updating team lead:", error);
+      res.status(500).json({ error: "Failed to update team lead" });
+    }
+  });
+
+  app.delete("/api/team-leads/:id", async (req, res) => {
+    try {
+      await storage.deleteTeamLead(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting team lead:", error);
+      res.status(500).json({ error: "Failed to delete team lead" });
+    }
+  });
+
+  // ============ Admin Emails ============
+  app.get("/api/admin-emails", async (req, res) => {
+    try {
+      const emails = await storage.getAdminEmails();
+      res.json(emails);
+    } catch (error) {
+      console.error("Error fetching admin emails:", error);
+      res.status(500).json({ error: "Failed to fetch admin emails" });
+    }
+  });
+
+  app.post("/api/admin-emails", async (req, res) => {
+    try {
+      const parsed = insertAdminEmailSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.message });
+      }
+      const email = await storage.createAdminEmail(parsed.data);
+      res.json(email);
+    } catch (error) {
+      console.error("Error creating admin email:", error);
+      res.status(500).json({ error: "Failed to create admin email" });
+    }
+  });
+
+  app.delete("/api/admin-emails/:id", async (req, res) => {
+    try {
+      await storage.deleteAdminEmail(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting admin email:", error);
+      res.status(500).json({ error: "Failed to delete admin email" });
+    }
+  });
+
+  // ============ Public Milestone Submission Page ============
+  app.get("/api/submit-milestone/:milestoneId", async (req, res) => {
+    try {
+      const milestone = await storage.getMilestone(req.params.milestoneId);
+      if (!milestone) {
+        return res.status(404).json({ error: "Milestone not found" });
+      }
+      const project = await storage.getResearchProject(milestone.projectId);
+      res.json({ milestone, project });
+    } catch (error) {
+      console.error("Error fetching milestone for submission:", error);
+      res.status(500).json({ error: "Failed to fetch milestone" });
     }
   });
 
