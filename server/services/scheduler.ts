@@ -1,7 +1,8 @@
 import { storage } from "../storage";
 import { slackService } from "./slack";
 import { githubService } from "./github";
-import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay } from "date-fns";
+import { emailService } from "./email";
+import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay, getDate } from "date-fns";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -107,6 +108,12 @@ export class SchedulerService {
     const now = new Date();
     const currentHour = now.getHours();
     const currentDay = DAYS_OF_WEEK[getDay(now)];
+    const currentDayOfMonth = getDate(now);
+
+    // Check monthly milestone reminders on the 1st of each month at 9 AM
+    if (currentDayOfMonth === 1 && currentHour === 9) {
+      await this.sendMonthlyMilestoneReminders();
+    }
 
     // Check daily summary - using database-persisted timestamp
     if (settings.enableDailySummary) {
@@ -462,6 +469,91 @@ export class SchedulerService {
       isBot: true,
       channel: "#ops",
     });
+  }
+
+  async sendMonthlyMilestoneReminders() {
+    const now = new Date();
+    const currentMonth = format(now, "yyyy-MM");
+    
+    console.log(`Sending monthly milestone reminders for ${currentMonth}...`);
+    
+    try {
+      // Get all milestones for the current month
+      const allMilestones = await storage.getMilestones();
+      const currentMilestones = allMilestones.filter(m => m.month === currentMonth);
+      
+      if (currentMilestones.length === 0) {
+        console.log("No milestones for current month");
+        return;
+      }
+      
+      // Get all active team leads grouped by project
+      const teamLeads = await storage.getTeamLeads();
+      const activeTeamLeads = teamLeads.filter(l => l.isActive);
+      
+      // Get all projects for milestone lookups
+      const projects = await storage.getResearchProjects();
+      const projectMap = new Map(projects.map(p => [p.id, p]));
+      
+      // Build base URL for submission links
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.REPLIT_DOMAINS
+          ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+          : "http://localhost:5000";
+      
+      let emailsSent = 0;
+      let emailsFailed = 0;
+      
+      for (const milestone of currentMilestones) {
+        const project = projectMap.get(milestone.projectId);
+        if (!project) continue;
+        
+        // Find team leads for this project
+        const projectLeads = activeTeamLeads.filter(l => l.projectId === milestone.projectId);
+        
+        for (const lead of projectLeads) {
+          const submissionUrl = `${baseUrl}/submit-milestone/${milestone.id}`;
+          const monthLabel = format(new Date(milestone.month + "-01"), "MMMM yyyy");
+          
+          const result = await emailService.sendMilestoneReminderEmail(
+            lead.email,
+            lead.name,
+            project.name,
+            monthLabel,
+            milestone.description,
+            submissionUrl
+          );
+          
+          if (result.success) {
+            emailsSent++;
+            console.log(`Sent reminder to ${lead.email} for ${project.name}`);
+          } else {
+            emailsFailed++;
+            console.error(`Failed to send to ${lead.email}: ${result.error}`);
+          }
+        }
+      }
+      
+      console.log(`Milestone reminders sent: ${emailsSent} success, ${emailsFailed} failed`);
+      
+      // Log to Slack
+      if (emailsSent > 0) {
+        await storage.createSlackMessage({
+          user: "Ops Bot",
+          message: `Monthly milestone reminders sent: ${emailsSent} emails to team leads`,
+          isBot: true,
+          channel: "#ops",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send monthly milestone reminders:", error);
+    }
+  }
+
+  // Manual trigger for testing milestone reminders
+  async triggerMilestoneReminders() {
+    await this.sendMonthlyMilestoneReminders();
   }
 }
 

@@ -54,8 +54,12 @@ Preferred communication style: Simple, everyday language.
 - `repositories`: Tracked GitHub repositories with metadata
 - `activity_log`: GitHub events and commits timeline
 - `slack_messages`: Chat history and bot interactions
-- `research_projects`: Research initiatives tracking
+- `research_projects`: Research initiatives tracking with status (active/on-hold/completed/archived) and h-index fields
 - `research_updates`: Timeline updates for research projects
+- `milestones`: Monthly goals set by admins for each project
+- `milestone_submissions`: Progress updates submitted by team leads
+- `team_leads`: People who receive monthly milestone reminder emails
+- `admin_emails`: People who receive notifications when submissions are received
 
 **Data Access Pattern**: Storage interface abstracts database operations, providing methods for CRUD operations on each entity type. This separation allows for easy testing and potential database swapping.
 
@@ -82,7 +86,14 @@ Preferred communication style: Simple, everyday language.
 - Hourly check intervals for daily/weekly summary triggers
 - Configurable timing for daily summaries (HH:mm format)
 - Weekly summaries triggered by day of week and time
+- Monthly milestone reminders sent on the 1st of each month at 9 AM
 - In-memory state tracking to prevent duplicate sends
+
+**Email Service (Resend Integration)**:
+- Transactional emails via Resend API (`server/services/email.ts`)
+- Milestone reminder emails sent to team leads with submission form links
+- Admin notification emails when milestone submissions are received
+- Automatic credential management via Replit connectors
 
 **Development Tools**:
 - Replit-specific Vite plugins for development banner and cartographer

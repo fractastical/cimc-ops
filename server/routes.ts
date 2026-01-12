@@ -1937,6 +1937,17 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Manual Trigger for Milestone Reminders (Testing) ============
+  app.post("/api/milestones/send-reminders", async (req, res) => {
+    try {
+      await schedulerService.triggerMilestoneReminders();
+      res.json({ success: true, message: "Milestone reminders sent" });
+    } catch (error) {
+      console.error("Error sending milestone reminders:", error);
+      res.status(500).json({ error: "Failed to send milestone reminders" });
+    }
+  });
+
   return httpServer;
 }
 
