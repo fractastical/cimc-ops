@@ -530,3 +530,169 @@ export async function unlinkPaperCollaborator(paperId: string, collaboratorId: s
   const res = await fetch(`/api/papers/${paperId}/collaborators/${collaboratorId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to unlink collaborator");
 }
+
+// Milestones
+export interface Milestone {
+  id: string;
+  projectId: string;
+  month: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MilestoneSubmission {
+  id: string;
+  milestoneId: string;
+  projectId: string;
+  teamLeadName: string;
+  teamLeadEmail: string;
+  progressSummary: string;
+  completionPercentage: number | null;
+  challenges: string | null;
+  nextSteps: string | null;
+  submittedAt: string;
+}
+
+export interface TeamLead {
+  id: string;
+  projectId: string;
+  name: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface AdminEmail {
+  id: string;
+  email: string;
+  name: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export async function getMilestones(projectId?: string): Promise<Milestone[]> {
+  const url = projectId ? `/api/milestones?projectId=${projectId}` : "/api/milestones";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch milestones");
+  return res.json();
+}
+
+export async function getMilestone(id: string): Promise<Milestone> {
+  const res = await fetch(`/api/milestones/${id}`);
+  if (!res.ok) throw new Error("Failed to fetch milestone");
+  return res.json();
+}
+
+export async function createMilestone(data: { projectId: string; month: string; description: string }): Promise<Milestone> {
+  const res = await fetch("/api/milestones", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Failed to create milestone");
+  }
+  return res.json();
+}
+
+export async function updateMilestone(id: string, data: Partial<{ month: string; description: string }>): Promise<Milestone> {
+  const res = await fetch(`/api/milestones/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update milestone");
+  return res.json();
+}
+
+export async function deleteMilestone(id: string): Promise<void> {
+  const res = await fetch(`/api/milestones/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete milestone");
+}
+
+export async function getMilestoneSubmissions(milestoneId?: string): Promise<MilestoneSubmission[]> {
+  const url = milestoneId ? `/api/milestone-submissions?milestoneId=${milestoneId}` : "/api/milestone-submissions";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch submissions");
+  return res.json();
+}
+
+export async function createMilestoneSubmission(data: {
+  milestoneId: string;
+  projectId: string;
+  teamLeadName: string;
+  teamLeadEmail: string;
+  progressSummary: string;
+  completionPercentage?: number;
+  challenges?: string;
+  nextSteps?: string;
+}): Promise<MilestoneSubmission> {
+  const res = await fetch("/api/milestone-submissions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to create submission");
+  return res.json();
+}
+
+export async function getTeamLeads(projectId?: string): Promise<TeamLead[]> {
+  const url = projectId ? `/api/team-leads?projectId=${projectId}` : "/api/team-leads";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch team leads");
+  return res.json();
+}
+
+export async function createTeamLead(data: { projectId: string; name: string; email: string }): Promise<TeamLead> {
+  const res = await fetch("/api/team-leads", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to create team lead");
+  return res.json();
+}
+
+export async function updateTeamLead(id: string, data: Partial<{ name: string; email: string; isActive: boolean }>): Promise<TeamLead> {
+  const res = await fetch(`/api/team-leads/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update team lead");
+  return res.json();
+}
+
+export async function deleteTeamLead(id: string): Promise<void> {
+  const res = await fetch(`/api/team-leads/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete team lead");
+}
+
+export async function getAdminEmails(): Promise<AdminEmail[]> {
+  const res = await fetch("/api/admin-emails");
+  if (!res.ok) throw new Error("Failed to fetch admin emails");
+  return res.json();
+}
+
+export async function createAdminEmail(data: { email: string; name?: string }): Promise<AdminEmail> {
+  const res = await fetch("/api/admin-emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to create admin email");
+  return res.json();
+}
+
+export async function deleteAdminEmail(id: string): Promise<void> {
+  const res = await fetch(`/api/admin-emails/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete admin email");
+}
+
+export async function getMilestoneSubmissionData(milestoneId: string): Promise<{ milestone: Milestone; project: ResearchProject }> {
+  const res = await fetch(`/api/submit-milestone/${milestoneId}`);
+  if (!res.ok) throw new Error("Failed to fetch milestone data");
+  return res.json();
+}

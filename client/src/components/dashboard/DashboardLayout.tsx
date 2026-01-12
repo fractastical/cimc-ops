@@ -5,6 +5,7 @@ import {
   GitGraph, 
   Bot, 
   FlaskConical, 
+  Target,
   Settings, 
   Menu, 
   X,
@@ -21,6 +22,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { icon: GitGraph, label: "Repos", path: "/repos" },
     { icon: Bot, label: "Slackbot", path: "/slackbot" },
     { icon: FlaskConical, label: "Research", path: "/research" },
+    { icon: Target, label: "Milestones", path: "/milestones" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
