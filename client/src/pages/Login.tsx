@@ -1,40 +1,14 @@
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Lock, AlertCircle } from "lucide-react";
+import { Lock } from "lucide-react";
 
 interface LoginProps {
   onLogin: () => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setIsLoading(true);
-
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-
-      if (res.ok) {
-        onLogin();
-      } else {
-        setError("Invalid password");
-      }
-    } catch {
-      setError("Connection error. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleLogin = () => {
+    window.location.href = "/api/login";
   };
 
   return (
@@ -55,36 +29,17 @@ export default function Login({ onLogin }: LoginProps) {
           </p>
         </CardHeader>
         
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                type="password"
-                placeholder="Enter access code"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-muted/50 border-border focus:border-primary"
-                data-testid="input-password"
-                autoFocus
-              />
-            </div>
-            
-            {error && (
-              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-400/10 p-3 rounded-md border border-red-400/20">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-            
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={isLoading || !password}
-              data-testid="button-login"
-            >
-              {isLoading ? "Authenticating..." : "Access Mission Control"}
-            </Button>
-          </form>
+        <CardContent className="space-y-4">
+          <Button 
+            onClick={handleLogin}
+            className="w-full"
+            data-testid="button-login"
+          >
+            Sign in with Replit
+          </Button>
+          <p className="text-xs text-center text-muted-foreground">
+            Authenticate using your Replit, Google, or GitHub account
+          </p>
         </CardContent>
       </Card>
     </div>

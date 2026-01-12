@@ -3,19 +3,23 @@ import { pgTable, text, varchar, timestamp, integer, boolean, jsonb } from "driz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
+// Legacy local user auth (renamed to avoid conflict with Replit Auth users table)
+export const localUsers = pgTable("local_users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
+export const insertLocalUserSchema = createInsertSchema(localUsers).pick({
   username: true,
   password: true,
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type InsertLocalUser = z.infer<typeof insertLocalUserSchema>;
+export type LocalUser = typeof localUsers.$inferSelect;
+
+// Re-export Replit Auth users and sessions tables
+export * from "./models/auth";
 
 // Integration settings for Slack and GitHub
 export const integrationSettings = pgTable("integration_settings", {
@@ -338,3 +342,23 @@ export const insertAdminEmailSchema = createInsertSchema(adminEmails).omit({
 
 export type InsertAdminEmail = z.infer<typeof insertAdminEmailSchema>;
 export type AdminEmail = typeof adminEmails.$inferSelect;
+
+// Admin action log - audit trail for admin actions
+export const adminActionsLog = pgTable("admin_actions_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorUserId: varchar("actor_user_id").notNull(),
+  actorEmail: text("actor_email"),
+  action: varchar("action", { length: 100 }).notNull(),
+  entityType: varchar("entity_type", { length: 50 }),
+  entityId: varchar("entity_id"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAdminActionLogSchema = createInsertSchema(adminActionsLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAdminActionLog = z.infer<typeof insertAdminActionLogSchema>;
+export type AdminActionLog = typeof adminActionsLog.$inferSelect;

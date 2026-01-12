@@ -15,6 +15,7 @@ import { githubService } from "./services/github";
 import { slackService } from "./services/slack";
 import { schedulerService } from "./services/scheduler";
 import { openAlexService } from "./services/openalex";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 
 async function autoSyncOnStartup() {
   console.log("Running auto-sync on startup...");
@@ -64,6 +65,10 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // Set up Replit Auth BEFORE other routes
+  await setupAuth(app);
+  registerAuthRoutes(app);
   
   // Only start the scheduler in production to prevent duplicate sends from dev + production
   // Check multiple indicators for production environment
@@ -1947,6 +1952,39 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to send milestone reminders" });
     }
   });
+
+  // ============ Admin Action Logs ============
+  app.get("/api/admin-actions", isAuthenticated, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const actions = await storage.getAdminActions(limit);
+      res.json(actions);
+    } catch (error) {
+      console.error("Error fetching admin actions:", error);
+      res.status(500).json({ error: "Failed to fetch admin actions" });
+    }
+  });
+
+  // Helper to log admin action (used by other routes)
+  const logAction = async (req: any, action: string, entityType?: string, entityId?: string, metadata?: any) => {
+    try {
+      const userId = req.user?.claims?.sub || "anonymous";
+      const email = req.user?.claims?.email || null;
+      await storage.logAdminAction({
+        actorUserId: userId,
+        actorEmail: email,
+        action,
+        entityType,
+        entityId,
+        metadata,
+      });
+    } catch (error) {
+      console.error("Failed to log admin action:", error);
+    }
+  };
+
+  // Attach logAction helper to app for use in other routes
+  (app as any).logAction = logAction;
 
   return httpServer;
 }

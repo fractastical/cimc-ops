@@ -10,6 +10,7 @@ import Settings from "@/pages/Settings";
 import Research from "@/pages/Research";
 import Milestones from "@/pages/Milestones";
 import MilestoneSubmit from "@/pages/MilestoneSubmit";
+import Admin from "@/pages/Admin";
 import Login from "@/pages/Login";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { RefreshCw } from "lucide-react";
@@ -24,6 +25,7 @@ function Router() {
         <Route path="/research" component={Research} />
         <Route path="/milestones" component={Milestones} />
         <Route path="/submit-milestone/:milestoneId" component={MilestoneSubmit} />
+        <Route path="/admin" component={Admin} />
         <Route path="/settings" component={Settings} />
         
         <Route component={NotFound} />
@@ -37,16 +39,16 @@ function AuthenticatedApp() {
 
   const checkAuth = async () => {
     try {
-      const res = await fetch("/api/auth/status");
-      const data = await res.json();
-      
-      if (!data.passwordRequired || data.authenticated) {
+      const res = await fetch("/api/auth/user");
+      if (res.ok) {
         setAuthState("authenticated");
-      } else {
+      } else if (res.status === 401) {
         setAuthState("unauthenticated");
+      } else {
+        setAuthState("authenticated");
       }
     } catch {
-      setAuthState("authenticated"); // Allow access if auth check fails
+      setAuthState("authenticated");
     }
   };
 

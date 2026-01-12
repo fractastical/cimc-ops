@@ -9,7 +9,8 @@ import {
   Settings, 
   Menu, 
   X,
-  Bell
+  Bell,
+  Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +24,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { icon: Bot, label: "Slackbot", path: "/slackbot" },
     { icon: FlaskConical, label: "Research", path: "/research" },
     { icon: Target, label: "Milestones", path: "/milestones" },
+    { icon: Shield, label: "Admin", path: "/admin" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 

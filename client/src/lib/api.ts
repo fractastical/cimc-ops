@@ -696,3 +696,40 @@ export async function getMilestoneSubmissionData(milestoneId: string): Promise<{
   if (!res.ok) throw new Error("Failed to fetch milestone data");
   return res.json();
 }
+
+export interface AdminActionLog {
+  id: string;
+  actorUserId: string;
+  actorEmail: string | null;
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  metadata: any;
+  createdAt: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+}
+
+export async function getAdminActions(limit = 50): Promise<AdminActionLog[]> {
+  const res = await fetch(`/api/admin-actions?limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch admin actions");
+  return res.json();
+}
+
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  const res = await fetch("/api/auth/user");
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error("Failed to fetch user");
+  return res.json();
+}
+
+export async function logout(): Promise<void> {
+  const res = await fetch("/api/logout", { method: "POST" });
+  if (!res.ok) throw new Error("Failed to logout");
+}

@@ -1,6 +1,6 @@
 import { 
-  type User, 
-  type InsertUser,
+  type LocalUser,
+  type InsertLocalUser,
   type IntegrationSettings,
   type InsertIntegrationSettings,
   type Repository,
@@ -31,7 +31,9 @@ import {
   type InsertTeamLead,
   type AdminEmail,
   type InsertAdminEmail,
-  users,
+  type AdminActionLog,
+  type InsertAdminActionLog,
+  localUsers,
   integrationSettings,
   repositories,
   activityLog,
@@ -47,16 +49,21 @@ import {
   milestoneSubmissions,
   teamLeads,
   adminEmails,
+  adminActionsLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { subDays, format } from "date-fns";
 
 export interface IStorage {
-  // Users
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Local Users (legacy password auth)
+  getLocalUser(id: string): Promise<LocalUser | undefined>;
+  getLocalUserByUsername(username: string): Promise<LocalUser | undefined>;
+  createLocalUser(user: InsertLocalUser): Promise<LocalUser>;
+
+  // Admin Action Log
+  getAdminActions(limit?: number): Promise<AdminActionLog[]>;
+  logAdminAction(action: InsertAdminActionLog): Promise<AdminActionLog>;
 
   // Integration Settings
   getIntegrationSettings(): Promise<IntegrationSettings | undefined>;
@@ -182,20 +189,30 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // Users
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+  // Local Users (legacy password auth)
+  async getLocalUser(id: string): Promise<LocalUser | undefined> {
+    const [user] = await db.select().from(localUsers).where(eq(localUsers.id, id));
     return user || undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+  async getLocalUserByUsername(username: string): Promise<LocalUser | undefined> {
+    const [user] = await db.select().from(localUsers).where(eq(localUsers.username, username));
     return user || undefined;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+  async createLocalUser(insertUser: InsertLocalUser): Promise<LocalUser> {
+    const [user] = await db.insert(localUsers).values(insertUser).returning();
     return user;
+  }
+
+  // Admin Action Log
+  async getAdminActions(limit: number = 50): Promise<AdminActionLog[]> {
+    return db.select().from(adminActionsLog).orderBy(desc(adminActionsLog.createdAt)).limit(limit);
+  }
+
+  async logAdminAction(action: InsertAdminActionLog): Promise<AdminActionLog> {
+    const [log] = await db.insert(adminActionsLog).values(action).returning();
+    return log;
   }
 
   // Integration Settings
