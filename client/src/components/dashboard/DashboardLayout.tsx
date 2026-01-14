@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { 
   LayoutDashboard, 
   GitGraph, 
@@ -10,13 +11,58 @@ import {
   Menu, 
   X,
   Bell,
-  Shield
+  Shield,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+interface User {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+  isAdmin: boolean;
+}
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/user");
+      if (!res.ok) throw new Error("Not authenticated");
+      return res.json();
+    },
+    retry: false,
+  });
+
+  const handleSignOut = () => {
+    window.location.href = "/api/logout";
+  };
+
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "?";
+  };
+
+  const getDisplayName = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    if (user?.firstName) {
+      return user.firstName;
+    }
+    return user?.email || "User";
+  };
 
   const navItems = [
     { icon: LayoutDashboard, label: "Overview", path: "/" },
@@ -72,13 +118,33 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
         <div className="absolute bottom-0 w-full p-4 border-t border-sidebar-border bg-sidebar-accent/10">
             <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded bg-primary/20 flex items-center justify-center border border-primary/30">
-                    <span className="font-mono font-bold text-primary text-xs">JD</span>
+                <Avatar className="h-8 w-8 border border-primary/30">
+                    <AvatarImage src={user?.profileImageUrl || undefined} alt={getDisplayName()} />
+                    <AvatarFallback className="bg-primary/20 text-primary font-mono font-bold text-xs">
+                        {getInitials()}
+                    </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col flex-1 min-w-0">
+                    <span className="text-sm font-medium text-sidebar-foreground truncate" data-testid="user-display-name">
+                        {getDisplayName()}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono flex items-center gap-1">
+                        {user?.isAdmin && (
+                            <span className="text-primary" data-testid="admin-badge">Admin</span>
+                        )}
+                        {!user?.isAdmin && "Member"}
+                    </span>
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-sm font-medium text-sidebar-foreground">Joel Dietz</span>
-                    <span className="text-xs text-muted-foreground font-mono">Research</span>
-                </div>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={handleSignOut}
+                    data-testid="button-sign-out"
+                    title="Sign out"
+                >
+                    <LogOut className="h-4 w-4" />
+                </Button>
             </div>
         </div>
       </aside>
