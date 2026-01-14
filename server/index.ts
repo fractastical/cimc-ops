@@ -46,44 +46,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Password protection middleware (legacy - session is now set up via Replit Auth in routes.ts)
-app.use((req, res, next) => {
-  // Skip auth for Slack endpoints (they use their own signature verification)
-  if (req.path.startsWith("/api/slack/")) {
-    return next();
-  }
-  
-  // Skip auth for auth endpoints (both legacy /api/auth/* and Replit Auth /api/login, /api/callback, /api/logout)
-  if (req.path.startsWith("/api/auth/") || 
-      req.path === "/api/login" || 
-      req.path === "/api/callback" || 
-      req.path === "/api/logout") {
-    return next();
-  }
-  
-  // Skip auth for embed routes and their API dependencies (public endpoints)
-  if (req.path.startsWith("/embed/") ||
-      req.path === "/api/hypotheses/activity/timeline" ||
-      req.path === "/api/activity/monthly" ||
-      req.path === "/api/activity" ||
-      req.path === "/api/activity/summary" ||
-      req.path === "/api/research/timeline") {
-    return next();
-  }
-  
-  // Check if password protection is enabled
-  const sitePassword = process.env.SITE_PASSWORD;
-  if (!sitePassword) {
-    return next();
-  }
-  
-  // Check if authenticated for API routes
-  if (req.path.startsWith("/api/") && !req.session.authenticated) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  
-  next();
-});
+// Note: Password/auth protection is now handled via Replit Auth in routes.ts
+// The /api/auth/user endpoint and Replit Auth provide authentication
+// Public embed routes are allowed via CORS headers above
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
