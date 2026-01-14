@@ -75,7 +75,7 @@ export async function setupAuth(app: Express) {
   ) => {
     const user = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    // Don't upsert here - we do it in callback after domain validation
     verified(null, user);
   };
 
@@ -116,7 +116,7 @@ export async function setupAuth(app: Express) {
     passport.authenticate(`replitauth:${req.hostname}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
-    }, (err: any, user: any, info: any) => {
+    }, async (err: any, user: any, info: any) => {
       if (err) {
         console.error("Auth callback error:", err);
         return res.status(500).json({ error: "Authentication failed", details: err.message });
@@ -125,6 +125,21 @@ export async function setupAuth(app: Express) {
         console.error("Auth callback: No user returned", info);
         return res.redirect("/api/login");
       }
+      
+      // Restrict to @cimc.ai emails only (case-insensitive check)
+      const email = user.claims?.email?.toLowerCase();
+      if (!email || !email.endsWith("@cimc.ai")) {
+        console.log(`Access denied for non-cimc.ai email: ${email}`);
+        // Don't upsert unauthorized users - just redirect them
+        req.logout(() => {
+          res.redirect("/login-denied");
+        });
+        return;
+      }
+      
+      // Only upsert authorized users
+      await upsertUser(user.claims);
+      
       req.logIn(user, (loginErr) => {
         if (loginErr) {
           console.error("Login error:", loginErr);

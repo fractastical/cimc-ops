@@ -12,6 +12,7 @@ import Milestones from "@/pages/Milestones";
 import MilestoneSubmit from "@/pages/MilestoneSubmit";
 import Admin from "@/pages/Admin";
 import Login from "@/pages/Login";
+import LoginDenied from "@/pages/LoginDenied";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { RefreshCw } from "lucide-react";
 
@@ -76,7 +77,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <AuthenticatedApp />
+        <Switch>
+          <Route path="/login-denied" component={LoginDenied} />
+          <Route>
+            <AuthenticatedApp />
+          </Route>
+        </Switch>
       </TooltipProvider>
     </QueryClientProvider>
   );
