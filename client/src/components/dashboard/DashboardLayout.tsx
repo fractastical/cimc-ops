@@ -129,10 +129,15 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                         {getDisplayName()}
                     </span>
                     <span className="text-xs text-muted-foreground font-mono flex items-center gap-1">
-                        {user?.isAdmin && (
-                            <span className="text-primary" data-testid="admin-badge">Admin</span>
+                        {user ? (
+                            user.isAdmin ? (
+                                <span className="text-primary" data-testid="admin-badge">Admin</span>
+                            ) : (
+                                "Member"
+                            )
+                        ) : (
+                            <span className="animate-pulse">...</span>
                         )}
-                        {!user?.isAdmin && "Member"}
                     </span>
                 </div>
                 <Button 
