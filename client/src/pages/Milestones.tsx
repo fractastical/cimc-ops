@@ -56,7 +56,7 @@ function getNextSixMonths(): { value: string; label: string }[] {
 
 export default function Milestones() {
   const queryClient = useQueryClient();
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
   const [milestoneDialogOpen, setMilestoneDialogOpen] = useState(false);
   const [teamLeadDialogOpen, setTeamLeadDialogOpen] = useState(false);
   const [adminEmailDialogOpen, setAdminEmailDialogOpen] = useState(false);
@@ -73,7 +73,7 @@ export default function Milestones() {
 
   const { data: milestones } = useQuery({
     queryKey: ["milestones", selectedProjectId],
-    queryFn: () => getMilestones(selectedProjectId || undefined),
+    queryFn: () => getMilestones(selectedProjectId === "all" ? undefined : selectedProjectId),
   });
 
   const { data: submissions } = useQuery({
@@ -218,7 +218,7 @@ export default function Milestones() {
                 <SelectValue placeholder="Filter by project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Projects</SelectItem>
+                <SelectItem value="all">All Projects</SelectItem>
                 {projects?.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
