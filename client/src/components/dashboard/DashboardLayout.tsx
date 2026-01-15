@@ -65,7 +65,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   };
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Overview", path: "/" },
+    { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
     { icon: GitGraph, label: "Repos", path: "/repos" },
     { icon: Bot, label: "Slackbot", path: "/slackbot" },
     { icon: FlaskConical, label: "Research", path: "/research" },

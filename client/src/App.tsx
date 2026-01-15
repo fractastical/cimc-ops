@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,22 +13,21 @@ import MilestoneSubmit from "@/pages/MilestoneSubmit";
 import Admin from "@/pages/Admin";
 import Login from "@/pages/Login";
 import LoginDenied from "@/pages/LoginDenied";
+import Landing from "@/pages/Landing";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { RefreshCw } from "lucide-react";
 
-function Router() {
+function DashboardRouter() {
   return (
     <DashboardLayout>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/dashboard" component={Home} />
         <Route path="/repos" component={Home} />
         <Route path="/slackbot" component={Home} />
         <Route path="/research" component={Research} />
         <Route path="/milestones" component={Milestones} />
-        <Route path="/submit-milestone/:milestoneId" component={MilestoneSubmit} />
         <Route path="/admin" component={Admin} />
         <Route path="/settings" component={Settings} />
-        
         <Route component={NotFound} />
       </Switch>
     </DashboardLayout>
@@ -37,6 +36,7 @@ function Router() {
 
 function AuthenticatedApp() {
   const [authState, setAuthState] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
+  const [, setLocation] = useLocation();
 
   const checkAuth = async () => {
     try {
@@ -66,10 +66,13 @@ function AuthenticatedApp() {
   }
 
   if (authState === "unauthenticated") {
-    return <Login onLogin={() => setAuthState("authenticated")} />;
+    return <Login onLogin={() => {
+      setAuthState("authenticated");
+      setLocation("/dashboard");
+    }} />;
   }
 
-  return <Router />;
+  return <DashboardRouter />;
 }
 
 function App() {
@@ -78,10 +81,32 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <Switch>
+          <Route path="/" component={Landing} />
+          <Route path="/login" component={() => <AuthenticatedApp />} />
           <Route path="/login-denied" component={LoginDenied} />
-          <Route>
+          <Route path="/submit-milestone/:milestoneId" component={MilestoneSubmit} />
+          <Route path="/dashboard">
             <AuthenticatedApp />
           </Route>
+          <Route path="/repos">
+            <AuthenticatedApp />
+          </Route>
+          <Route path="/slackbot">
+            <AuthenticatedApp />
+          </Route>
+          <Route path="/research">
+            <AuthenticatedApp />
+          </Route>
+          <Route path="/milestones">
+            <AuthenticatedApp />
+          </Route>
+          <Route path="/admin">
+            <AuthenticatedApp />
+          </Route>
+          <Route path="/settings">
+            <AuthenticatedApp />
+          </Route>
+          <Route component={NotFound} />
         </Switch>
       </TooltipProvider>
     </QueryClientProvider>
