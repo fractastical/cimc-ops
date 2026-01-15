@@ -9,7 +9,9 @@ import {
   insertMilestoneSubmissionSchema,
   insertTeamLeadSchema,
   insertAdminEmailSchema,
+  insertMicrograntApplicationSchema,
 } from "@shared/schema";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { emailService } from "./services/email";
 import { githubService } from "./services/github";
 import { slackService } from "./services/slack";
@@ -1985,6 +1987,76 @@ export async function registerRoutes(
 
   // Attach logAction helper to app for use in other routes
   (app as any).logAction = logAction;
+
+  // ============ Object Storage Routes ============
+  registerObjectStorageRoutes(app);
+
+  // ============ Microgrant Applications (Public) ============
+  // Public endpoint - no auth required for submitting applications
+  app.post("/api/microgrants/apply", async (req, res) => {
+    try {
+      const validatedData = insertMicrograntApplicationSchema.parse(req.body);
+      const application = await storage.createMicrograntApplication(validatedData);
+      
+      // Send notification to admin emails
+      try {
+        const adminEmails = await storage.getActiveAdminEmails();
+        if (adminEmails.length > 0) {
+          await emailService.sendMicrograntNotification(application, adminEmails);
+        }
+      } catch (emailError) {
+        console.error("Failed to send microgrant notification email:", emailError);
+      }
+      
+      res.json({ success: true, id: application.id });
+    } catch (error) {
+      console.error("Error submitting microgrant application:", error);
+      res.status(400).json({ error: "Invalid application data" });
+    }
+  });
+
+  // Authenticated endpoints for viewing/managing applications
+  app.get("/api/microgrants", isAuthenticated, async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const applications = await storage.getMicrograntApplications(status);
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching microgrant applications:", error);
+      res.status(500).json({ error: "Failed to fetch applications" });
+    }
+  });
+
+  app.get("/api/microgrants/:id", isAuthenticated, async (req, res) => {
+    try {
+      const application = await storage.getMicrograntApplication(req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      res.json(application);
+    } catch (error) {
+      console.error("Error fetching microgrant application:", error);
+      res.status(500).json({ error: "Failed to fetch application" });
+    }
+  });
+
+  app.patch("/api/microgrants/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const updates = req.body;
+      if (updates.status) {
+        updates.reviewedAt = new Date();
+      }
+      const application = await storage.updateMicrograntApplication(req.params.id, updates);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      await logAction(req, "update_microgrant", "microgrant", req.params.id, updates);
+      res.json(application);
+    } catch (error) {
+      console.error("Error updating microgrant application:", error);
+      res.status(500).json({ error: "Failed to update application" });
+    }
+  });
 
   return httpServer;
 }

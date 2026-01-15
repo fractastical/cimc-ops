@@ -362,3 +362,29 @@ export const insertAdminActionLogSchema = createInsertSchema(adminActionsLog).om
 
 export type InsertAdminActionLog = z.infer<typeof insertAdminActionLogSchema>;
 export type AdminActionLog = typeof adminActionsLog.$inferSelect;
+
+// Microgrant applications - public applications from potential grantees
+export const micrograntApplications = pgTable("microgrant_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  projectDescription: text("project_description").notNull(),
+  monthlyDeliverables: text("monthly_deliverables").notNull(), // What they can accomplish in a month
+  researchRelevance: text("research_relevance").notNull(), // How it relates to CIMC research objectives
+  sfAvailability: text("sf_availability").notNull(), // Dates available in SF
+  documentPath: text("document_path"), // Path to uploaded document in object storage
+  documentName: text("document_name"), // Original filename of uploaded document
+  status: text("status").default("pending").notNull(), // pending, approved, rejected, under_review
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+});
+
+export const insertMicrograntApplicationSchema = createInsertSchema(micrograntApplications).omit({
+  id: true,
+  submittedAt: true,
+  reviewedAt: true,
+});
+
+export type InsertMicrograntApplication = z.infer<typeof insertMicrograntApplicationSchema>;
+export type MicrograntApplication = typeof micrograntApplications.$inferSelect;

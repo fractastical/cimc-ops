@@ -143,8 +143,39 @@ export async function sendMilestoneSubmissionNotification(
   });
 }
 
+export async function sendMicrograntNotification(
+  application: { name: string; email: string; projectDescription: string; id: string },
+  adminEmails: string[]
+): Promise<{ success: boolean; error?: string }> {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #10b981;">New Microgrant Application</h2>
+      <p>A new microgrant application has been submitted:</p>
+      
+      <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>Applicant:</strong> ${application.name}</p>
+        <p><strong>Email:</strong> ${application.email}</p>
+        <p><strong>Project Description:</strong></p>
+        <p style="white-space: pre-wrap;">${application.projectDescription.substring(0, 500)}${application.projectDescription.length > 500 ? '...' : ''}</p>
+      </div>
+      
+      <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+        Log in to Research Ops Mission Control to review the full application.
+      </p>
+    </div>
+  `;
+
+  return sendEmail({
+    to: adminEmails,
+    subject: `[New Microgrant Application] ${application.name}`,
+    html,
+    text: `New microgrant application from ${application.name} (${application.email}). Project: ${application.projectDescription.substring(0, 200)}...`,
+  });
+}
+
 export const emailService = {
   sendEmail,
   sendMilestoneReminderEmail,
   sendMilestoneSubmissionNotification,
+  sendMicrograntNotification,
 };

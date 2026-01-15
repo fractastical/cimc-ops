@@ -33,6 +33,8 @@ import {
   type InsertAdminEmail,
   type AdminActionLog,
   type InsertAdminActionLog,
+  type MicrograntApplication,
+  type InsertMicrograntApplication,
   localUsers,
   integrationSettings,
   repositories,
@@ -50,6 +52,7 @@ import {
   teamLeads,
   adminEmails,
   adminActionsLog,
+  micrograntApplications,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -186,6 +189,12 @@ export interface IStorage {
   getActiveAdminEmails(): Promise<string[]>;
   createAdminEmail(adminEmail: InsertAdminEmail): Promise<AdminEmail>;
   deleteAdminEmail(id: string): Promise<void>;
+
+  // Microgrant Applications
+  getMicrograntApplications(status?: string): Promise<MicrograntApplication[]>;
+  getMicrograntApplication(id: string): Promise<MicrograntApplication | undefined>;
+  createMicrograntApplication(application: InsertMicrograntApplication): Promise<MicrograntApplication>;
+  updateMicrograntApplication(id: string, updates: Partial<InsertMicrograntApplication>): Promise<MicrograntApplication | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -970,6 +979,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAdminEmail(id: string): Promise<void> {
     await db.delete(adminEmails).where(eq(adminEmails.id, id));
+  }
+
+  // Microgrant Applications
+  async getMicrograntApplications(status?: string): Promise<MicrograntApplication[]> {
+    if (status) {
+      return db.select().from(micrograntApplications)
+        .where(eq(micrograntApplications.status, status))
+        .orderBy(desc(micrograntApplications.submittedAt));
+    }
+    return db.select().from(micrograntApplications).orderBy(desc(micrograntApplications.submittedAt));
+  }
+
+  async getMicrograntApplication(id: string): Promise<MicrograntApplication | undefined> {
+    const [application] = await db.select().from(micrograntApplications).where(eq(micrograntApplications.id, id));
+    return application || undefined;
+  }
+
+  async createMicrograntApplication(application: InsertMicrograntApplication): Promise<MicrograntApplication> {
+    const [created] = await db.insert(micrograntApplications).values(application).returning();
+    return created;
+  }
+
+  async updateMicrograntApplication(id: string, updates: Partial<InsertMicrograntApplication>): Promise<MicrograntApplication | undefined> {
+    const [updated] = await db
+      .update(micrograntApplications)
+      .set(updates)
+      .where(eq(micrograntApplications.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 
