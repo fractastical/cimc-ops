@@ -734,3 +734,43 @@ export async function logout(): Promise<void> {
   const res = await fetch("/api/logout", { method: "POST" });
   if (!res.ok) throw new Error("Failed to logout");
 }
+
+// Microgrant Applications
+export interface MicrograntApplication {
+  id: string;
+  name: string;
+  email: string;
+  projectDescription: string;
+  monthlyDeliverables: string;
+  researchRelevance: string;
+  sfAvailability: string;
+  documentPath: string | null;
+  documentName: string | null;
+  status: string;
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+}
+
+export async function getMicrograntApplications(status?: string): Promise<MicrograntApplication[]> {
+  const url = status ? `/api/microgrants?status=${status}` : "/api/microgrants";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch applications");
+  return res.json();
+}
+
+export async function getMicrograntApplication(id: string): Promise<MicrograntApplication> {
+  const res = await fetch(`/api/microgrants/${id}`);
+  if (!res.ok) throw new Error("Failed to fetch application");
+  return res.json();
+}
+
+export async function updateMicrograntApplication(id: string, updates: Partial<MicrograntApplication>): Promise<MicrograntApplication> {
+  const res = await fetch(`/api/microgrants/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error("Failed to update application");
+  return res.json();
+}
