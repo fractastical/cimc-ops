@@ -1,4 +1,3 @@
-import { StatusCard } from "@/components/dashboard/StatusCard";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { BotTerminal } from "@/components/dashboard/BotTerminal";
 import { ResearchBoard } from "@/components/dashboard/ResearchBoard";
@@ -144,21 +143,12 @@ export default function Home() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        {/* Top Row: Status & Critical Metrics */}
+        {/* Top Row: Activity Heatmap */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="md:col-span-4 lg:col-span-3 h-[300px]"
-        >
-          <StatusCard />
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="md:col-span-8 lg:col-span-9"
+          className="md:col-span-12"
         >
           <div className="h-full flex flex-col gap-4">
             {repos.length > 0 ? (
