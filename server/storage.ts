@@ -35,6 +35,8 @@ import {
   type InsertAdminActionLog,
   type MicrograntApplication,
   type InsertMicrograntApplication,
+  type GrantComment,
+  type InsertGrantComment,
   localUsers,
   integrationSettings,
   repositories,
@@ -53,6 +55,7 @@ import {
   adminEmails,
   adminActionsLog,
   micrograntApplications,
+  grantComments,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -195,6 +198,10 @@ export interface IStorage {
   getMicrograntApplication(id: string): Promise<MicrograntApplication | undefined>;
   createMicrograntApplication(application: InsertMicrograntApplication): Promise<MicrograntApplication>;
   updateMicrograntApplication(id: string, updates: Partial<InsertMicrograntApplication>): Promise<MicrograntApplication | undefined>;
+
+  // Grant Comments
+  getGrantComments(applicationId: string): Promise<GrantComment[]>;
+  createGrantComment(comment: InsertGrantComment): Promise<GrantComment>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1008,6 +1015,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(micrograntApplications.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // Grant Comments
+  async getGrantComments(applicationId: string): Promise<GrantComment[]> {
+    return db.select().from(grantComments)
+      .where(eq(grantComments.applicationId, applicationId))
+      .orderBy(desc(grantComments.createdAt));
+  }
+
+  async createGrantComment(comment: InsertGrantComment): Promise<GrantComment> {
+    const [created] = await db.insert(grantComments).values(comment).returning();
+    return created;
   }
 }
 

@@ -2058,6 +2058,36 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Grant Comments ============
+  app.get("/api/microgrants/:id/comments", isAuthenticated, async (req, res) => {
+    try {
+      const comments = await storage.getGrantComments(req.params.id);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching grant comments:", error);
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  app.post("/api/microgrants/:id/comments", isAuthenticated, async (req: any, res) => {
+    try {
+      const { comment, authorName } = req.body;
+      if (!comment || !authorName) {
+        return res.status(400).json({ error: "Comment and author name are required" });
+      }
+      const newComment = await storage.createGrantComment({
+        applicationId: req.params.id,
+        authorName,
+        authorEmail: req.session?.email || null,
+        comment,
+      });
+      res.json(newComment);
+    } catch (error) {
+      console.error("Error creating grant comment:", error);
+      res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+
   return httpServer;
 }
 

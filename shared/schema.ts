@@ -388,3 +388,21 @@ export const insertMicrograntApplicationSchema = createInsertSchema(micrograntAp
 
 export type InsertMicrograntApplication = z.infer<typeof insertMicrograntApplicationSchema>;
 export type MicrograntApplication = typeof micrograntApplications.$inferSelect;
+
+// Comments/reviews on microgrant applications - allows multiple reviewers
+export const grantComments = pgTable("grant_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").notNull(),
+  authorName: text("author_name").notNull(),
+  authorEmail: text("author_email"),
+  comment: text("comment").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertGrantCommentSchema = createInsertSchema(grantComments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertGrantComment = z.infer<typeof insertGrantCommentSchema>;
+export type GrantComment = typeof grantComments.$inferSelect;
