@@ -2,7 +2,7 @@ import { storage } from "../storage";
 import { slackService } from "./slack";
 import { githubService } from "./github";
 import { emailService } from "./email";
-import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay, getDate } from "date-fns";
+import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay, getDate, lastDayOfMonth, setDay, isBefore, addDays } from "date-fns";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -101,6 +101,13 @@ export class SchedulerService {
     }
   }
 
+  private isLastThursday(date: Date): boolean {
+    if (getDay(date) !== 4) return false; // Not Thursday
+    const last = lastDayOfMonth(date);
+    const nextThursday = addDays(date, 7);
+    return nextThursday.getMonth() !== date.getMonth();
+  }
+
   private async checkSummaries() {
     const settings = await storage.getIntegrationSettings();
     if (!settings) return;
@@ -110,9 +117,15 @@ export class SchedulerService {
     const currentDay = DAYS_OF_WEEK[getDay(now)];
     const currentDayOfMonth = getDate(now);
 
-    // Check monthly milestone reminders on the 1st of each month at 9 AM
-    if (currentDayOfMonth === 1 && currentHour === 9) {
-      await this.sendMonthlyMilestoneReminders();
+    if (this.isLastThursday(now) && currentHour === 9) {
+      const thisMonth = format(now, "yyyy-MM");
+      const lastMonthlySent = settings.lastMonthlySentAt
+        ? format(new Date(settings.lastMonthlySentAt), "yyyy-MM")
+        : null;
+      if (lastMonthlySent !== thisMonth) {
+        await this.sendMonthlyMilestoneReminders();
+        await storage.updateSchedulerTimestamp("monthly", now);
+      }
     }
 
     // Check daily summary - using database-persisted timestamp

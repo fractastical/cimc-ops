@@ -62,9 +62,10 @@ export default function Milestones() {
   const [adminEmailDialogOpen, setAdminEmailDialogOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
 
-  const [newMilestone, setNewMilestone] = useState({ projectId: "", month: "", description: "" });
+  const [newMilestone, setNewMilestone] = useState({ projectId: "", month: "", description: "", customQuestions: [] as { label: string; required: boolean }[] });
   const [newTeamLead, setNewTeamLead] = useState({ projectId: "", name: "", email: "" });
   const [newAdminEmail, setNewAdminEmail] = useState({ email: "", name: "" });
+  const [editQuestions, setEditQuestions] = useState<{ label: string; required: boolean }[]>([]);
 
   const { data: projects } = useQuery({
     queryKey: ["researchProjects"],
@@ -92,12 +93,12 @@ export default function Milestones() {
   });
 
   const createMilestoneMutation = useMutation({
-    mutationFn: (data: { projectId: string; month: string; description: string }) => createMilestone(data),
+    mutationFn: (data: { projectId: string; month: string; description: string; customQuestions?: { label: string; required: boolean }[] }) => createMilestone(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["milestones"] });
       toast.success("Milestone created");
       setMilestoneDialogOpen(false);
-      setNewMilestone({ projectId: "", month: "", description: "" });
+      setNewMilestone({ projectId: "", month: "", description: "", customQuestions: [] });
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -105,12 +106,13 @@ export default function Milestones() {
   });
 
   const updateMilestoneMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<{ month: string; description: string }> }) => 
+    mutationFn: ({ id, data }: { id: string; data: Partial<{ month: string; description: string; customQuestions: { label: string; required: boolean }[] }> }) => 
       updateMilestone(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["milestones"] });
       toast.success("Milestone updated");
       setEditingMilestone(null);
+      setEditQuestions([]);
     },
     onError: () => {
       toast.error("Failed to update milestone");
@@ -284,9 +286,71 @@ export default function Milestones() {
                       data-testid="input-milestone-description"
                     />
                   </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Custom Form Questions</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setNewMilestone({
+                          ...newMilestone,
+                          customQuestions: [...newMilestone.customQuestions, { label: "", required: false }]
+                        })}
+                        data-testid="button-add-custom-question"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Question
+                      </Button>
+                    </div>
+                    {newMilestone.customQuestions.map((q, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <Input
+                          placeholder="Question text..."
+                          value={q.label}
+                          onChange={(e) => {
+                            const updated = [...newMilestone.customQuestions];
+                            updated[idx] = { ...updated[idx], label: e.target.value };
+                            setNewMilestone({ ...newMilestone, customQuestions: updated });
+                          }}
+                          data-testid={`input-new-question-${idx}`}
+                        />
+                        <label className="flex items-center gap-1 text-xs whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={q.required}
+                            onChange={(e) => {
+                              const updated = [...newMilestone.customQuestions];
+                              updated[idx] = { ...updated[idx], required: e.target.checked };
+                              setNewMilestone({ ...newMilestone, customQuestions: updated });
+                            }}
+                          />
+                          Required
+                        </label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => {
+                            const updated = newMilestone.customQuestions.filter((_, i) => i !== idx);
+                            setNewMilestone({ ...newMilestone, customQuestions: updated });
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                   <Button
                     className="w-full"
-                    onClick={() => createMilestoneMutation.mutate(newMilestone)}
+                    onClick={() => {
+                      const data = {
+                        ...newMilestone,
+                        customQuestions: newMilestone.customQuestions.filter(q => q.label.trim()),
+                      };
+                      createMilestoneMutation.mutate(data);
+                    }}
                     disabled={!newMilestone.projectId || !newMilestone.month || !newMilestone.description}
                     data-testid="button-save-milestone"
                   >
@@ -320,7 +384,10 @@ export default function Milestones() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setEditingMilestone(milestone)}
+                          onClick={() => {
+                            setEditingMilestone(milestone);
+                            setEditQuestions(milestone.customQuestions || []);
+                          }}
                           data-testid={`button-edit-milestone-${milestone.id}`}
                         >
                           <Edit2 className="h-4 w-4" />
@@ -338,32 +405,91 @@ export default function Milestones() {
                   </CardHeader>
                   <CardContent>
                     {editingMilestone?.id === milestone.id ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Textarea
                           value={editingMilestone.description}
                           onChange={(e) =>
                             setEditingMilestone({ ...editingMilestone, description: e.target.value })
                           }
                         />
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs">Custom Questions</Label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditQuestions([...editQuestions, { label: "", required: false }])}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add
+                            </Button>
+                          </div>
+                          {editQuestions.map((q, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Input
+                                placeholder="Question text..."
+                                value={q.label}
+                                onChange={(e) => {
+                                  const updated = [...editQuestions];
+                                  updated[idx] = { ...updated[idx], label: e.target.value };
+                                  setEditQuestions(updated);
+                                }}
+                                className="text-sm"
+                              />
+                              <label className="flex items-center gap-1 text-xs whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  checked={q.required}
+                                  onChange={(e) => {
+                                    const updated = [...editQuestions];
+                                    updated[idx] = { ...updated[idx], required: e.target.checked };
+                                    setEditQuestions(updated);
+                                  }}
+                                />
+                                Req
+                              </label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0"
+                                onClick={() => setEditQuestions(editQuestions.filter((_, i) => i !== idx))}
+                              >
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
                         <div className="flex gap-2">
                           <Button
                             size="sm"
                             onClick={() =>
                               updateMilestoneMutation.mutate({
                                 id: milestone.id,
-                                data: { description: editingMilestone.description },
+                                data: {
+                                  description: editingMilestone.description,
+                                  customQuestions: editQuestions.filter(q => q.label.trim()),
+                                },
                               })
                             }
                           >
                             Save
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setEditingMilestone(null)}>
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingMilestone(null); setEditQuestions([]); }}>
                             Cancel
                           </Button>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm">{milestone.description}</p>
+                      <div>
+                        <p className="text-sm">{milestone.description}</p>
+                        {(milestone.customQuestions?.length ?? 0) > 0 && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            {milestone.customQuestions!.length} custom question{milestone.customQuestions!.length !== 1 ? "s" : ""} configured
+                          </div>
+                        )}
+                      </div>
                     )}
                   </CardContent>
                 </Card>

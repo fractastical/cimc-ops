@@ -86,7 +86,7 @@ Preferred communication style: Simple, everyday language.
 - Hourly check intervals for daily/weekly summary triggers
 - Configurable timing for daily summaries (HH:mm format)
 - Weekly summaries triggered by day of week and time
-- Monthly milestone reminders sent on the 1st of each month at 9 AM
+- Monthly milestone reminders sent on the last Thursday of each month at 9 AM
 - In-memory state tracking to prevent duplicate sends
 
 **Email Service (Resend Integration)**:

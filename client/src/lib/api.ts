@@ -537,6 +537,7 @@ export interface Milestone {
   projectId: string;
   month: string;
   description: string;
+  customQuestions: { label: string; required: boolean }[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -551,6 +552,7 @@ export interface MilestoneSubmission {
   completionPercentage: number | null;
   challenges: string | null;
   nextSteps: string | null;
+  customAnswers: Record<string, string> | null;
   submittedAt: string;
 }
 
@@ -584,7 +586,7 @@ export async function getMilestone(id: string): Promise<Milestone> {
   return res.json();
 }
 
-export async function createMilestone(data: { projectId: string; month: string; description: string }): Promise<Milestone> {
+export async function createMilestone(data: { projectId: string; month: string; description: string; customQuestions?: { label: string; required: boolean }[] }): Promise<Milestone> {
   const res = await fetch("/api/milestones", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -597,7 +599,7 @@ export async function createMilestone(data: { projectId: string; month: string; 
   return res.json();
 }
 
-export async function updateMilestone(id: string, data: Partial<{ month: string; description: string }>): Promise<Milestone> {
+export async function updateMilestone(id: string, data: Partial<{ month: string; description: string; customQuestions: { label: string; required: boolean }[] }>): Promise<Milestone> {
   const res = await fetch(`/api/milestones/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -628,6 +630,7 @@ export async function createMilestoneSubmission(data: {
   completionPercentage?: number;
   challenges?: string;
   nextSteps?: string;
+  customAnswers?: Record<string, string>;
 }): Promise<MilestoneSubmission> {
   const res = await fetch("/api/milestone-submissions", {
     method: "POST",

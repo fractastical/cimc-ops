@@ -37,6 +37,7 @@ export const integrationSettings = pgTable("integration_settings", {
   weeklySummaryTime: text("weekly_summary_time").default("09:00").notNull(), // HH:mm format
   lastDailySentAt: timestamp("last_daily_sent_at"), // Prevent duplicate sends
   lastWeeklySentAt: timestamp("last_weekly_sent_at"), // Prevent duplicate sends
+  lastMonthlySentAt: timestamp("last_monthly_sent_at"), // Prevent duplicate sends
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -273,6 +274,7 @@ export const milestones = pgTable("milestones", {
   projectId: varchar("project_id").notNull().references(() => researchProjects.id, { onDelete: 'cascade' }),
   month: varchar("month", { length: 7 }).notNull(), // Format: "2026-01"
   description: text("description").notNull(),
+  customQuestions: jsonb("custom_questions").$type<{ label: string; required: boolean }[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -297,6 +299,7 @@ export const milestoneSubmissions = pgTable("milestone_submissions", {
   completionPercentage: integer("completion_percentage").default(0),
   challenges: text("challenges"),
   nextSteps: text("next_steps"),
+  customAnswers: jsonb("custom_answers").$type<Record<string, string>>().default({}),
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
 });
 

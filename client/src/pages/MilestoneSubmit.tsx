@@ -25,6 +25,7 @@ export default function MilestoneSubmit() {
     challenges: "",
     nextSteps: "",
   });
+  const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["milestoneSubmissionData", milestoneId],
@@ -43,6 +44,7 @@ export default function MilestoneSubmit() {
         completionPercentage: formData.completionPercentage,
         challenges: formData.challenges || undefined,
         nextSteps: formData.nextSteps || undefined,
+        customAnswers: Object.keys(customAnswers).length > 0 ? customAnswers : undefined,
       }),
     onSuccess: () => {
       toast.success("Progress update submitted successfully!");
@@ -90,6 +92,11 @@ export default function MilestoneSubmit() {
   }
 
   const { milestone, project } = data;
+  const questions = milestone.customQuestions || [];
+
+  const requiredCustomMissing = questions
+    .filter(q => q.required)
+    .some(q => !customAnswers[q.label]?.trim());
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -189,6 +196,29 @@ export default function MilestoneSubmit() {
               />
             </div>
 
+            {questions.length > 0 && (
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Additional Questions</h3>
+                {questions.map((q, idx) => (
+                  <div key={idx}>
+                    <Label htmlFor={`custom-q-${idx}`}>
+                      {q.label}
+                      {q.required && <span className="text-destructive ml-1">*</span>}
+                    </Label>
+                    <Textarea
+                      id={`custom-q-${idx}`}
+                      placeholder={`Enter your response...`}
+                      value={customAnswers[q.label] || ""}
+                      onChange={(e) =>
+                        setCustomAnswers({ ...customAnswers, [q.label]: e.target.value })
+                      }
+                      data-testid={`input-custom-question-${idx}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
             <Button
               className="w-full"
               size="lg"
@@ -197,6 +227,7 @@ export default function MilestoneSubmit() {
                 !formData.teamLeadName ||
                 !formData.teamLeadEmail ||
                 !formData.progressSummary ||
+                requiredCustomMissing ||
                 submitMutation.isPending
               }
               data-testid="button-submit-progress"

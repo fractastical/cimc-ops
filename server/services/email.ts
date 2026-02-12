@@ -82,7 +82,7 @@ export async function sendMilestoneReminderEmail(
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #10b981;">Monthly Milestone Check-In</h2>
       <p>Hi ${teamLeadName},</p>
-      <p>It's the start of a new month! Please submit your milestone progress update for <strong>${projectName}</strong>.</p>
+      <p>It's time for your monthly milestone check-in! Please submit your progress update for <strong>${projectName}</strong>.</p>
       
       <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 20px 0;">
         <h3 style="margin-top: 0; color: #374151;">Milestone for ${milestoneMonth}</h3>

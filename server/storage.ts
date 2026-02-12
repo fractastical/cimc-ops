@@ -74,7 +74,7 @@ export interface IStorage {
   // Integration Settings
   getIntegrationSettings(): Promise<IntegrationSettings | undefined>;
   upsertIntegrationSettings(settings: InsertIntegrationSettings): Promise<IntegrationSettings>;
-  updateSchedulerTimestamp(type: "daily" | "weekly", timestamp: Date): Promise<void>;
+  updateSchedulerTimestamp(type: "daily" | "weekly" | "monthly", timestamp: Date): Promise<void>;
 
   // Repositories
   getRepositories(): Promise<Repository[]>;
@@ -256,7 +256,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateSchedulerTimestamp(type: "daily" | "weekly", timestamp: Date): Promise<void> {
+  async updateSchedulerTimestamp(type: "daily" | "weekly" | "monthly", timestamp: Date): Promise<void> {
     const existing = await this.getIntegrationSettings();
     if (!existing) return;
 
@@ -265,10 +265,15 @@ export class DatabaseStorage implements IStorage {
         .update(integrationSettings)
         .set({ lastDailySentAt: timestamp })
         .where(eq(integrationSettings.id, existing.id));
-    } else {
+    } else if (type === "weekly") {
       await db
         .update(integrationSettings)
         .set({ lastWeeklySentAt: timestamp })
+        .where(eq(integrationSettings.id, existing.id));
+    } else {
+      await db
+        .update(integrationSettings)
+        .set({ lastMonthlySentAt: timestamp })
         .where(eq(integrationSettings.id, existing.id));
     }
   }
@@ -879,14 +884,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMilestone(milestone: InsertMilestone): Promise<Milestone> {
-    const [created] = await db.insert(milestones).values(milestone).returning();
+    const [created] = await db.insert(milestones).values({
+      ...milestone,
+      customQuestions: (milestone.customQuestions || []) as { label: string; required: boolean }[],
+    }).returning();
     return created;
   }
 
   async updateMilestone(id: string, updates: Partial<InsertMilestone>): Promise<Milestone | undefined> {
+    const setData: any = { ...updates, updatedAt: new Date() };
+    if (updates.customQuestions !== undefined) {
+      setData.customQuestions = updates.customQuestions as { label: string; required: boolean }[];
+    }
     const [updated] = await db
       .update(milestones)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(setData)
       .where(eq(milestones.id, id))
       .returning();
     return updated || undefined;
