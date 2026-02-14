@@ -18,6 +18,7 @@ import {
   Mail, 
   Calendar,
   CheckCircle,
+  Clock,
   Edit2
 } from "lucide-react";
 import {
@@ -62,7 +63,14 @@ export default function Milestones() {
   const [adminEmailDialogOpen, setAdminEmailDialogOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
 
-  const [newMilestone, setNewMilestone] = useState({ projectId: "", month: "", description: "", customQuestions: [] as { label: string; required: boolean }[] });
+  const DEFAULT_QUESTIONS: { label: string; required: boolean }[] = [
+    { label: "What milestone did you make progress on?", required: true },
+    { label: "What was completed?", required: true },
+    { label: "What is planned next?", required: true },
+    { label: "Any block or delays?", required: false },
+  ];
+
+  const [newMilestone, setNewMilestone] = useState({ projectId: "", month: "", description: "", customQuestions: DEFAULT_QUESTIONS });
   const [newTeamLead, setNewTeamLead] = useState({ projectId: "", name: "", email: "" });
   const [newAdminEmail, setNewAdminEmail] = useState({ email: "", name: "" });
   const [editQuestions, setEditQuestions] = useState<{ label: string; required: boolean }[]>([]);
@@ -98,7 +106,7 @@ export default function Milestones() {
       queryClient.invalidateQueries({ queryKey: ["milestones"] });
       toast.success("Milestone created");
       setMilestoneDialogOpen(false);
-      setNewMilestone({ projectId: "", month: "", description: "", customQuestions: [] });
+      setNewMilestone({ projectId: "", month: "", description: "", customQuestions: DEFAULT_QUESTIONS });
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -658,53 +666,87 @@ export default function Milestones() {
         </TabsContent>
 
         <TabsContent value="submissions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Recent Submissions</CardTitle>
-              <CardDescription>Milestone progress updates from team leads</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {submissions?.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No submissions yet
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {submissions?.map((submission) => (
-                    <div
-                      key={submission.id}
-                      className="p-4 rounded-lg border bg-card"
-                      data-testid={`submission-${submission.id}`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{submission.teamLeadName}</span>
-                          <span className="text-sm text-muted-foreground">({submission.teamLeadEmail})</span>
-                        </div>
-                        <Badge>{getProjectName(submission.projectId)}</Badge>
+          {milestones && milestones.length > 0 ? (
+            milestones.map((milestone) => {
+              const projectLeads = teamLeads?.filter(tl => tl.projectId === milestone.projectId) || [];
+              const milestoneSubmissions = submissions?.filter(s => s.milestoneId === milestone.id) || [];
+              const submittedEmails = new Set(milestoneSubmissions.map(s => s.teamLeadEmail.toLowerCase()));
+              const submitted = projectLeads.filter(tl => submittedEmails.has(tl.email.toLowerCase()));
+              const notSubmitted = projectLeads.filter(tl => !submittedEmails.has(tl.email.toLowerCase()));
+
+              return (
+                <Card key={milestone.id} data-testid={`submission-tracker-${milestone.id}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">{getProjectName(milestone.projectId)}</CardTitle>
+                        <Badge variant="outline">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {format(parseISO(milestone.month + "-01"), "MMMM yyyy")}
+                        </Badge>
                       </div>
-                      <p className="text-sm mb-2">{submission.progressSummary}</p>
-                      {submission.completionPercentage !== null && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>Completion:</span>
-                          <span className="font-medium">{submission.completionPercentage}%</span>
-                        </div>
-                      )}
-                      {submission.challenges && (
-                        <div className="mt-2 text-sm">
-                          <span className="text-muted-foreground">Challenges: </span>
-                          {submission.challenges}
-                        </div>
-                      )}
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        Submitted {format(new Date(submission.submittedAt), "PPp")}
+                      <div className="flex items-center gap-2">
+                        <Badge variant={notSubmitted.length === 0 && projectLeads.length > 0 ? "default" : "secondary"} data-testid={`badge-status-${milestone.id}`}>
+                          {milestoneSubmissions.length}/{projectLeads.length} submitted
+                        </Badge>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <CardDescription className="text-xs">{milestone.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {projectLeads.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No team leads assigned to this project</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {submitted.map(lead => {
+                          const sub = milestoneSubmissions.find(s => s.teamLeadEmail.toLowerCase() === lead.email.toLowerCase());
+                          return (
+                            <div key={lead.id} className="flex items-start gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/5" data-testid={`lead-submitted-${lead.id}`}>
+                              <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm">{lead.name}</span>
+                                  <span className="text-xs text-muted-foreground">{lead.email}</span>
+                                </div>
+                                {sub && (
+                                  <div className="mt-1 space-y-1">
+                                    <p className="text-xs text-muted-foreground">{sub.progressSummary}</p>
+                                    {sub.completionPercentage !== null && (
+                                      <span className="text-xs text-green-400">{sub.completionPercentage}% complete</span>
+                                    )}
+                                    {sub.challenges && (
+                                      <p className="text-xs text-yellow-400/80">Challenges: {sub.challenges}</p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground/60">Submitted {format(new Date(sub.submittedAt), "PPp")}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {notSubmitted.map(lead => (
+                          <div key={lead.id} className="flex items-center gap-3 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5" data-testid={`lead-pending-${lead.id}`}>
+                            <Clock className="h-4 w-4 text-yellow-500 shrink-0" />
+                            <div>
+                              <span className="font-medium text-sm">{lead.name}</span>
+                              <span className="text-xs text-muted-foreground ml-2">{lead.email}</span>
+                            </div>
+                            <Badge variant="outline" className="ml-auto text-yellow-500 border-yellow-500/40 text-xs">Pending</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                No milestones yet. Create milestones to track team submissions.
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

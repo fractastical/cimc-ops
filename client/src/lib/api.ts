@@ -28,6 +28,7 @@ export interface IntegrationSettings {
   enableWeeklySummary: boolean;
   weeklySummaryDay: string;
   weeklySummaryTime: string;
+  monthlyReminderTime: string;
   updatedAt: string;
 }
 

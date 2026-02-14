@@ -117,7 +117,8 @@ export class SchedulerService {
     const currentDay = DAYS_OF_WEEK[getDay(now)];
     const currentDayOfMonth = getDate(now);
 
-    if (this.isLastThursday(now) && currentHour === 9) {
+    const monthlyTargetHour = parseInt((settings.monthlyReminderTime || "09:00").split(":")[0], 10);
+    if (this.isLastThursday(now) && currentHour === monthlyTargetHour) {
       const thisMonth = format(now, "yyyy-MM");
       const lastMonthlySent = settings.lastMonthlySentAt
         ? format(new Date(settings.lastMonthlySentAt), "yyyy-MM")

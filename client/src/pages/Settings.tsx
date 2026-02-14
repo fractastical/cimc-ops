@@ -39,6 +39,7 @@ export default function Settings() {
     enableWeeklySummary: true,
     weeklySummaryDay: "monday",
     weeklySummaryTime: "09:00",
+    monthlyReminderTime: "09:00",
   });
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export default function Settings() {
         enableWeeklySummary: settings.enableWeeklySummary,
         weeklySummaryDay: settings.weeklySummaryDay,
         weeklySummaryTime: settings.weeklySummaryTime,
+        monthlyReminderTime: settings.monthlyReminderTime || "09:00",
       });
     }
   }, [settings]);
@@ -362,7 +364,7 @@ export default function Settings() {
             </div>
 
             {/* Weekly Summary */}
-            <div className="space-y-4">
+            <div className="space-y-4 pb-4 border-b border-border/50">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="font-mono text-sm">Weekly Summary</Label>
@@ -429,6 +431,33 @@ export default function Settings() {
                   </Button>
                 </div>
               )}
+            </div>
+
+            {/* Monthly Milestone Reminder */}
+            <div className="space-y-4">
+              <div className="space-y-0.5">
+                <Label className="font-mono text-sm">Monthly Milestone Reminder</Label>
+                <p className="text-xs text-muted-foreground">
+                  Sends milestone check-in emails to team leads on the last Thursday of each month
+                </p>
+              </div>
+              <div className="flex items-center gap-4 pl-4 border-l-2 border-primary/30">
+                <div className="space-y-2">
+                  <Label htmlFor="monthlyReminderTime" className="font-mono text-xs text-muted-foreground">
+                    Time (24h)
+                  </Label>
+                  <Input
+                    id="monthlyReminderTime"
+                    data-testid="input-monthly-reminder-time"
+                    type="time"
+                    value={formData.monthlyReminderTime}
+                    onChange={(e) =>
+                      setFormData({ ...formData, monthlyReminderTime: e.target.value })
+                    }
+                    className="font-mono text-sm w-32"
+                  />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
