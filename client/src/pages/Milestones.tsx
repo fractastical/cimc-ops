@@ -19,7 +19,8 @@ import {
   Calendar,
   CheckCircle,
   Clock,
-  Edit2
+  Edit2,
+  Send
 } from "lucide-react";
 import {
   getMilestones,
@@ -129,6 +130,20 @@ export default function Milestones() {
     },
   });
 
+  const sendRemindersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/milestones/send-reminders", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to send reminders");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Milestone reminder emails sent to all team leads");
+    },
+    onError: () => {
+      toast.error("Failed to send reminder emails");
+    },
+  });
+
   const createTeamLeadMutation = useMutation({
     mutationFn: createTeamLead,
     onSuccess: () => {
@@ -190,6 +205,15 @@ export default function Milestones() {
           <h1 className="text-2xl font-bold tracking-tight">Milestone Tracking</h1>
           <p className="text-muted-foreground">Manage monthly milestones, team leads, and submission notifications</p>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => sendRemindersMutation.mutate()}
+          disabled={sendRemindersMutation.isPending}
+          data-testid="button-send-test-reminders"
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {sendRemindersMutation.isPending ? "Sending..." : "Send Test Reminders"}
+        </Button>
       </div>
 
       <Tabs defaultValue="milestones" className="space-y-4">
