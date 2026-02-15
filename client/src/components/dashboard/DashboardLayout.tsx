@@ -171,7 +171,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]" />
                     <span>System Operational</span>
                     <span className="mx-2 text-border">|</span>
-                    <span>v2.5.0</span>
+                    <span>v2.6.0</span>
                 </div>
             </div>
 
