@@ -1937,7 +1937,9 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Milestone not found" });
       }
       const project = await storage.getResearchProject(milestone.projectId);
-      res.json({ milestone, project });
+      const settings = await storage.getIntegrationSettings();
+      const globalQuestions = (settings?.milestoneQuestions as { label: string; required: boolean }[] | null) || [];
+      res.json({ milestone, project, globalQuestions });
     } catch (error) {
       console.error("Error fetching milestone for submission:", error);
       res.status(500).json({ error: "Failed to fetch milestone" });

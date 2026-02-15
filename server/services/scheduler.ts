@@ -488,11 +488,11 @@ export class SchedulerService {
   async sendMonthlyMilestoneReminders() {
     const now = new Date();
     const currentMonth = format(now, "yyyy-MM");
+    const monthLabel = format(now, "MMMM yyyy");
     
     console.log(`Sending monthly milestone reminders for ${currentMonth}...`);
     
     try {
-      // Get all milestones for the current month
       const allMilestones = await storage.getMilestones();
       const currentMilestones = allMilestones.filter(m => m.month === currentMonth);
       
@@ -501,57 +501,62 @@ export class SchedulerService {
         return;
       }
       
-      // Get all active team leads grouped by project
       const teamLeads = await storage.getTeamLeads();
       const activeTeamLeads = teamLeads.filter(l => l.isActive);
       
-      // Get all projects for milestone lookups
       const projects = await storage.getResearchProjects();
       const projectMap = new Map(projects.map(p => [p.id, p]));
       
-      // Build base URL for submission links
       const baseUrl = process.env.REPLIT_DEV_DOMAIN 
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
         : process.env.REPLIT_DOMAINS
           ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
           : "http://localhost:5000";
       
-      let emailsSent = 0;
-      let emailsFailed = 0;
+      const leadMilestones = new Map<string, { lead: typeof activeTeamLeads[0]; items: { projectName: string; description: string; submissionUrl: string }[] }>();
       
       for (const milestone of currentMilestones) {
         const project = projectMap.get(milestone.projectId);
         if (!project) continue;
         
-        // Find team leads for this project
         const projectLeads = activeTeamLeads.filter(l => l.projectId === milestone.projectId);
         
         for (const lead of projectLeads) {
-          const submissionUrl = `${baseUrl}/submit-milestone/${milestone.id}`;
-          const monthLabel = format(new Date(milestone.month + "-01"), "MMMM yyyy");
-          
-          const result = await emailService.sendMilestoneReminderEmail(
-            lead.email,
-            lead.name,
-            project.name,
-            monthLabel,
-            milestone.description,
-            submissionUrl
-          );
-          
-          if (result.success) {
-            emailsSent++;
-            console.log(`Sent reminder to ${lead.email} for ${project.name}`);
-          } else {
-            emailsFailed++;
-            console.error(`Failed to send to ${lead.email}: ${result.error}`);
+          const key = lead.email.toLowerCase();
+          if (!leadMilestones.has(key)) {
+            leadMilestones.set(key, { lead, items: [] });
           }
+          leadMilestones.get(key)!.items.push({
+            projectName: project.name,
+            description: milestone.description,
+            submissionUrl: `${baseUrl}/submit-milestone/${milestone.id}`,
+          });
         }
       }
       
-      console.log(`Milestone reminders sent: ${emailsSent} success, ${emailsFailed} failed`);
+      let emailsSent = 0;
+      let emailsFailed = 0;
       
-      // Log to Slack
+      for (const entry of Array.from(leadMilestones.values())) {
+        const { lead, items } = entry;
+        const result = await emailService.sendConsolidatedMilestoneReminderEmail(
+          lead.email,
+          lead.name,
+          monthLabel,
+          items
+        );
+        
+        if (result.success) {
+          emailsSent++;
+          console.log(`Sent consolidated reminder to ${lead.email} (${items.length} milestone(s))`);
+        } else {
+          emailsFailed++;
+          console.error(`Failed to send to ${lead.email}: ${result.error}`);
+        }
+      }
+      
+      console.log(`Milestone reminders sent: ${emailsSent} emails to ${leadMilestones.size} team leads, ${emailsFailed} failed`);
+      
       if (emailsSent > 0) {
         await storage.createSlackMessage({
           user: "Ops Bot",

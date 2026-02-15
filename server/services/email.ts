@@ -109,6 +109,45 @@ export async function sendMilestoneReminderEmail(
   });
 }
 
+export async function sendConsolidatedMilestoneReminderEmail(
+  teamLeadEmail: string,
+  teamLeadName: string,
+  milestoneMonth: string,
+  milestoneItems: { projectName: string; description: string; submissionUrl: string }[]
+): Promise<{ success: boolean; error?: string }> {
+  const milestonesHtml = milestoneItems.map(item => `
+    <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
+      <h3 style="margin-top: 0; color: #374151;">${item.projectName}</h3>
+      <p>${item.description}</p>
+      <a href="${item.submissionUrl}" style="display: inline-block; background: #10b981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">
+        Submit Update
+      </a>
+    </div>
+  `).join("");
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #10b981;">Monthly Milestone Check-In</h2>
+      <p>Hi ${teamLeadName},</p>
+      <p>It's time for your monthly milestone check-in for <strong>${milestoneMonth}</strong>. Please submit your progress updates for the following:</p>
+      
+      ${milestonesHtml}
+      
+      <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+        This is an automated reminder from Research Ops Mission Control.
+      </p>
+    </div>
+  `;
+
+  const projectNames = milestoneItems.map(m => m.projectName).join(", ");
+  return sendEmail({
+    to: teamLeadEmail,
+    subject: `[Action Required] ${milestoneMonth} Milestone Check-In`,
+    html,
+    text: `Hi ${teamLeadName}, please submit your milestone progress updates for ${milestoneMonth}. Projects: ${projectNames}`,
+  });
+}
+
 export async function sendMilestoneSubmissionNotification(
   adminEmails: string[],
   projectName: string,
@@ -176,6 +215,7 @@ export async function sendMicrograntNotification(
 export const emailService = {
   sendEmail,
   sendMilestoneReminderEmail,
+  sendConsolidatedMilestoneReminderEmail,
   sendMilestoneSubmissionNotification,
   sendMicrograntNotification,
 };

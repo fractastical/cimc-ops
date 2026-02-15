@@ -91,8 +91,8 @@ export default function MilestoneSubmit() {
     );
   }
 
-  const { milestone, project } = data;
-  const questions = milestone.customQuestions || [];
+  const { milestone, project, globalQuestions } = data;
+  const questions = (globalQuestions || milestone.customQuestions || []) as { label: string; required: boolean }[];
 
   const requiredCustomMissing = questions
     .filter(q => q.required)

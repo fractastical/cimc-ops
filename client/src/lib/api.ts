@@ -29,6 +29,7 @@ export interface IntegrationSettings {
   weeklySummaryDay: string;
   weeklySummaryTime: string;
   monthlyReminderTime: string;
+  milestoneQuestions: { label: string; required: boolean }[] | null;
   updatedAt: string;
 }
 
@@ -695,7 +696,7 @@ export async function deleteAdminEmail(id: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete admin email");
 }
 
-export async function getMilestoneSubmissionData(milestoneId: string): Promise<{ milestone: Milestone; project: ResearchProject }> {
+export async function getMilestoneSubmissionData(milestoneId: string): Promise<{ milestone: Milestone; project: ResearchProject; globalQuestions?: { label: string; required: boolean }[] }> {
   const res = await fetch(`/api/submit-milestone/${milestoneId}`);
   if (!res.ok) throw new Error("Failed to fetch milestone data");
   return res.json();

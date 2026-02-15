@@ -38,6 +38,12 @@ export const integrationSettings = pgTable("integration_settings", {
   lastDailySentAt: timestamp("last_daily_sent_at"), // Prevent duplicate sends
   lastWeeklySentAt: timestamp("last_weekly_sent_at"), // Prevent duplicate sends
   monthlyReminderTime: text("monthly_reminder_time").default("09:00").notNull(), // HH:mm format
+  milestoneQuestions: jsonb("milestone_questions").$type<{ label: string; required: boolean }[]>().default([
+    { label: "What milestone did you make progress on?", required: true },
+    { label: "What was completed?", required: true },
+    { label: "What is planned next?", required: true },
+    { label: "Any block or delays?", required: false },
+  ]),
   lastMonthlySentAt: timestamp("last_monthly_sent_at"), // Prevent duplicate sends
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

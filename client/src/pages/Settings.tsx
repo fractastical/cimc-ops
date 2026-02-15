@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, syncOrganization, addRepositoryByName, sendRepoSummary, sendResearchSummary, type TimeFrame } from "@/lib/api";
 import { toast } from "sonner";
-import { Save, RefreshCw, Send, GitBranch, Plus, Rocket, Microscope } from "lucide-react";
+import { Save, RefreshCw, Send, GitBranch, Plus, Trash2, Rocket, Microscope } from "lucide-react";
 
 const DAYS_OF_WEEK = [
   { value: "monday", label: "Monday" },
@@ -42,6 +42,13 @@ export default function Settings() {
     monthlyReminderTime: "09:00",
   });
 
+  const [milestoneQuestions, setMilestoneQuestions] = useState<{ label: string; required: boolean }[]>([
+    { label: "What milestone did you make progress on?", required: true },
+    { label: "What was completed?", required: true },
+    { label: "What is planned next?", required: true },
+    { label: "Any block or delays?", required: false },
+  ]);
+
   useEffect(() => {
     if (settings) {
       setFormData({
@@ -58,6 +65,9 @@ export default function Settings() {
         weeklySummaryTime: settings.weeklySummaryTime,
         monthlyReminderTime: settings.monthlyReminderTime || "09:00",
       });
+      if (settings.milestoneQuestions && Array.isArray(settings.milestoneQuestions)) {
+        setMilestoneQuestions(settings.milestoneQuestions);
+      }
     }
   }, [settings]);
 
@@ -143,7 +153,10 @@ export default function Settings() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    saveMutation.mutate(formData);
+    saveMutation.mutate({
+      ...formData,
+      milestoneQuestions: milestoneQuestions.filter(q => q.label.trim()),
+    } as any);
   };
 
   if (isLoading) {
@@ -438,7 +451,8 @@ export default function Settings() {
               <div className="space-y-0.5">
                 <Label className="font-mono text-sm">Monthly Milestone Reminder</Label>
                 <p className="text-xs text-muted-foreground">
-                  Sends milestone check-in emails to team leads on the last Thursday of each month
+                  Sends milestone check-in emails to team leads on the last Thursday of each month.
+                  Each team lead gets one consolidated email listing all their project milestones.
                 </p>
               </div>
               <div className="flex items-center gap-4 pl-4 border-l-2 border-primary/30">
@@ -457,6 +471,60 @@ export default function Settings() {
                     className="font-mono text-sm w-32"
                   />
                 </div>
+              </div>
+              <div className="pl-4 border-l-2 border-primary/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="font-mono text-xs text-muted-foreground">Milestone Check-In Questions</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMilestoneQuestions([...milestoneQuestions, { label: "", required: false }])}
+                    data-testid="button-add-milestone-question"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Question
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  These questions appear on every milestone submission form
+                </p>
+                {milestoneQuestions.map((q, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Input
+                      placeholder="Question text..."
+                      value={q.label}
+                      onChange={(e) => {
+                        const updated = [...milestoneQuestions];
+                        updated[idx] = { ...updated[idx], label: e.target.value };
+                        setMilestoneQuestions(updated);
+                      }}
+                      className="text-sm"
+                      data-testid={`input-milestone-question-${idx}`}
+                    />
+                    <label className="flex items-center gap-1 text-xs whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={q.required}
+                        onChange={(e) => {
+                          const updated = [...milestoneQuestions];
+                          updated[idx] = { ...updated[idx], required: e.target.checked };
+                          setMilestoneQuestions(updated);
+                        }}
+                      />
+                      Required
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => setMilestoneQuestions(milestoneQuestions.filter((_, i) => i !== idx))}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
           </CardContent>
