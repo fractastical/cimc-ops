@@ -694,10 +694,11 @@ export async function registerRoutes(
 
   app.patch("/api/research/projects/:id", async (req, res) => {
     try {
-      const { status, hIndex } = req.body;
-      const updates: { status?: string; hIndex?: number } = {};
+      const { status, hIndex, name } = req.body;
+      const updates: { status?: string; hIndex?: number; name?: string } = {};
       if (status !== undefined) updates.status = status;
       if (hIndex !== undefined) updates.hIndex = hIndex;
+      if (name !== undefined) updates.name = name;
       
       const updated = await storage.updateResearchProject(req.params.id, updates);
       if (!updated) {

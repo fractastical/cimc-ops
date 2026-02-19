@@ -223,7 +223,7 @@ export async function getResearchProjects(): Promise<ResearchProject[]> {
   return res.json();
 }
 
-export async function updateResearchProject(id: string, updates: { status?: string; hIndex?: number }): Promise<ResearchProject> {
+export async function updateResearchProject(id: string, updates: { status?: string; hIndex?: number; name?: string }): Promise<ResearchProject> {
   const res = await fetch(`/api/research/projects/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

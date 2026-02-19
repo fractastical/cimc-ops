@@ -23,6 +23,7 @@ import {
   createCollaborator,
   linkPaperCollaborator,
   unlinkPaperCollaborator,
+  updateResearchProject,
   type ResearchTimeline,
   type Hypothesis,
   type HypothesisActivity,
@@ -33,7 +34,7 @@ import {
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, FileText, ExternalLink, Users, Search, Award, ArrowUpDown, Download } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, FileText, ExternalLink, Users, Search, Award, ArrowUpDown, Download, Pencil, Check } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";
 
@@ -175,8 +176,24 @@ function MapHypothesesModal({
 }
 
 function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTimeline[]; hypotheses: Hypothesis[] }) {
+  const queryClient = useQueryClient();
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [mappingProject, setMappingProject] = useState<ResearchTimeline | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      updateResearchProject(id, { name }),
+    onSuccess: () => {
+      toast.success("Project renamed");
+      queryClient.invalidateQueries({ queryKey: ["researchTimeline"] });
+      setEditingProjectId(null);
+    },
+    onError: () => {
+      toast.error("Failed to rename project");
+    },
+  });
 
   if (timeline.length === 0) {
     return (
@@ -271,9 +288,64 @@ function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTim
                         className="w-3 h-3 rounded-full shrink-0"
                         style={{ backgroundColor: project.project.color || PROJECT_COLORS[idx % PROJECT_COLORS.length] }}
                       />
-                      <span className="font-mono text-sm truncate" title={project.project.name}>
-                        {project.project.name}
-                      </span>
+                      {editingProjectId === project.project.id ? (
+                        <div className="flex items-center gap-1 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                          <Input
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && editingName.trim()) {
+                                renameMutation.mutate({ id: project.project.id, name: editingName.trim() });
+                              }
+                              if (e.key === "Escape") {
+                                setEditingProjectId(null);
+                              }
+                            }}
+                            className="h-6 text-sm font-mono px-1 py-0"
+                            autoFocus
+                            data-testid={`input-rename-project-${project.project.id}`}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (editingName.trim()) {
+                                renameMutation.mutate({ id: project.project.id, name: editingName.trim() });
+                              }
+                            }}
+                            data-testid={`button-confirm-rename-${project.project.id}`}
+                          >
+                            <Check className="h-3 w-3 text-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProjectId(null);
+                            }}
+                            data-testid={`button-cancel-rename-${project.project.id}`}
+                          >
+                            <X className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="font-mono text-sm truncate group/name flex items-center gap-1" title={project.project.name}>
+                          {project.project.name}
+                          <Pencil
+                            className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-primary shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProjectId(project.project.id);
+                              setEditingName(project.project.name);
+                            }}
+                            data-testid={`button-edit-project-name-${project.project.id}`}
+                          />
+                        </span>
+                      )}
                     </div>
                     <div className="flex gap-1 flex-1">
                       {sortedDates.map(date => {
