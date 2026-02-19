@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CheckCircle, Target, Calendar } from "lucide-react";
 import { getMilestoneSubmissionData, createMilestoneSubmission } from "@/lib/api";
@@ -21,11 +22,11 @@ export default function MilestoneSubmit() {
     teamLeadName: "",
     teamLeadEmail: "",
     progressSummary: "",
-    completionPercentage: 50,
     challenges: "",
     nextSteps: "",
   });
   const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
+  const [milestoneStatuses, setMilestoneStatuses] = useState<Record<string, string>>({});
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["milestoneSubmissionData", milestoneId],
@@ -34,18 +35,29 @@ export default function MilestoneSubmit() {
   });
 
   const submitMutation = useMutation({
-    mutationFn: () =>
-      createMilestoneSubmission({
+    mutationFn: () => {
+      const allAnswers: Record<string, string> = { ...customAnswers };
+      const projectMilestones = (data as any)?.projectMilestones || [];
+      for (const m of projectMilestones) {
+        const status = milestoneStatuses[m.id] || "to-do";
+        allAnswers[`milestone_status:${m.id}`] = JSON.stringify({
+          status,
+          description: m.description,
+          month: m.month,
+        });
+      }
+      return createMilestoneSubmission({
         milestoneId,
         projectId: data?.milestone.projectId || "",
         teamLeadName: formData.teamLeadName,
         teamLeadEmail: formData.teamLeadEmail,
         progressSummary: formData.progressSummary,
-        completionPercentage: formData.completionPercentage,
+        completionPercentage: 0,
         challenges: formData.challenges || undefined,
         nextSteps: formData.nextSteps || undefined,
-        customAnswers: Object.keys(customAnswers).length > 0 ? customAnswers : undefined,
-      }),
+        customAnswers: Object.keys(allAnswers).length > 0 ? allAnswers : undefined,
+      });
+    },
     onSuccess: () => {
       toast.success("Progress update submitted successfully!");
       setSubmitted(true);
@@ -92,11 +104,18 @@ export default function MilestoneSubmit() {
   }
 
   const { milestone, project, globalQuestions } = data;
+  const projectMilestones = (data as any).projectMilestones || [];
   const questions = (globalQuestions || milestone.customQuestions || []) as { label: string; required: boolean }[];
 
   const requiredCustomMissing = questions
     .filter(q => q.required)
     .some(q => !customAnswers[q.label]?.trim());
+
+  const statusColor = (status: string) => {
+    if (status === "finished") return "text-green-500 border-green-500/40 bg-green-500/10";
+    if (status === "in-progress") return "text-yellow-500 border-yellow-500/40 bg-yellow-500/10";
+    return "text-muted-foreground border-border";
+  };
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -115,9 +134,47 @@ export default function MilestoneSubmit() {
               <Calendar className="h-4 w-4" />
               <span>{format(parseISO(milestone.month + "-01"), "MMMM yyyy")}</span>
             </div>
-            <CardTitle>This Month's Milestone</CardTitle>
-            <CardDescription>{milestone.description}</CardDescription>
+            <CardTitle>Project Milestones</CardTitle>
+            <CardDescription>Set the current status for each milestone</CardDescription>
           </CardHeader>
+          <CardContent className="space-y-3">
+            {projectMilestones.map((m: any) => {
+              const status = milestoneStatuses[m.id] || "to-do";
+              const isCurrent = m.id === milestone.id;
+              return (
+                <div
+                  key={m.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border ${isCurrent ? "border-primary/50 bg-primary/5" : "border-border"}`}
+                  data-testid={`milestone-status-${m.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{m.description}</p>
+                      {isCurrent && (
+                        <Badge variant="outline" className="text-primary border-primary/40 text-xs shrink-0">Current</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {format(parseISO(m.month + "-01"), "MMMM yyyy")}
+                    </p>
+                  </div>
+                  <Select
+                    value={status}
+                    onValueChange={(val) => setMilestoneStatuses({ ...milestoneStatuses, [m.id]: val })}
+                  >
+                    <SelectTrigger className={`w-[140px] shrink-0 text-xs ${statusColor(status)}`} data-testid={`select-status-${m.id}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="to-do">To Do</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="finished">Finished</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
+          </CardContent>
         </Card>
 
         <Card>
@@ -159,18 +216,6 @@ export default function MilestoneSubmit() {
                 value={formData.progressSummary}
                 onChange={(e) => setFormData({ ...formData, progressSummary: e.target.value })}
                 data-testid="input-submit-summary"
-              />
-            </div>
-
-            <div>
-              <Label>Completion Percentage: {formData.completionPercentage}%</Label>
-              <Slider
-                value={[formData.completionPercentage]}
-                onValueChange={([v]) => setFormData({ ...formData, completionPercentage: v })}
-                max={100}
-                step={5}
-                className="mt-2"
-                data-testid="slider-completion"
               />
             </div>
 

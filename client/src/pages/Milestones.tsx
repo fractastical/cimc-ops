@@ -601,28 +601,58 @@ export default function Milestones() {
                                   <span className="font-medium text-sm">{lead.name}</span>
                                   <span className="text-xs text-muted-foreground">{lead.email}</span>
                                 </div>
-                                {sub && (
-                                  <div className="mt-1 space-y-1">
-                                    <p className="text-xs text-muted-foreground">{sub.progressSummary}</p>
-                                    {sub.completionPercentage !== null && (
-                                      <span className="text-xs text-green-400">{sub.completionPercentage}% complete</span>
-                                    )}
-                                    {sub.challenges && (
-                                      <p className="text-xs text-yellow-400/80">Challenges: {sub.challenges}</p>
-                                    )}
-                                    {sub.customAnswers && Object.keys(sub.customAnswers).length > 0 && (
-                                      <div className="mt-2 space-y-2 border-t border-border/40 pt-2">
-                                        {Object.entries(sub.customAnswers).map(([question, answer]) => (
-                                          <div key={question}>
-                                            <p className="text-xs font-medium text-muted-foreground">{question}</p>
-                                            <p className="text-xs text-foreground/80 whitespace-pre-wrap">{answer as string}</p>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                    <p className="text-xs text-muted-foreground/60">Submitted {format(new Date(sub.submittedAt), "PPp")}</p>
-                                  </div>
-                                )}
+                                {sub && (() => {
+                                  const answers = sub.customAnswers || {};
+                                  const statusEntries: { id: string; status: string; description: string; month: string }[] = [];
+                                  const questionEntries: [string, string][] = [];
+                                  for (const [key, val] of Object.entries(answers)) {
+                                    if (key.startsWith("milestone_status:")) {
+                                      try {
+                                        statusEntries.push(JSON.parse(val as string));
+                                      } catch { /* skip malformed */ }
+                                    } else {
+                                      questionEntries.push([key, val as string]);
+                                    }
+                                  }
+                                  const statusBadgeClass = (val: string) => {
+                                    if (val === "finished") return "bg-green-500/20 text-green-400 border-green-500/40";
+                                    if (val === "in-progress") return "bg-yellow-500/20 text-yellow-400 border-yellow-500/40";
+                                    return "bg-muted text-muted-foreground border-border";
+                                  };
+                                  return (
+                                    <div className="mt-1 space-y-1">
+                                      <p className="text-xs text-muted-foreground">{sub.progressSummary}</p>
+                                      {sub.challenges && (
+                                        <p className="text-xs text-yellow-400/80">Challenges: {sub.challenges}</p>
+                                      )}
+                                      {statusEntries.length > 0 && (
+                                        <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
+                                          <p className="text-xs font-medium text-muted-foreground">Milestone Statuses:</p>
+                                          {statusEntries.map((entry) => (
+                                            <div key={entry.description} className="flex items-center gap-2">
+                                              <Badge variant="outline" className={`text-xs capitalize ${statusBadgeClass(entry.status)}`}>{entry.status.replace("-", " ")}</Badge>
+                                              <span className="text-xs text-muted-foreground truncate">{entry.description}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {statusEntries.length === 0 && sub.completionPercentage !== null && sub.completionPercentage > 0 && (
+                                        <span className="text-xs text-green-400">{sub.completionPercentage}% complete</span>
+                                      )}
+                                      {questionEntries.length > 0 && (
+                                        <div className="mt-2 space-y-2 border-t border-border/40 pt-2">
+                                          {questionEntries.map(([question, answer]) => (
+                                            <div key={question}>
+                                              <p className="text-xs font-medium text-muted-foreground">{question}</p>
+                                              <p className="text-xs text-foreground/80 whitespace-pre-wrap">{answer}</p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      <p className="text-xs text-muted-foreground/60">Submitted {format(new Date(sub.submittedAt), "PPp")}</p>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                           );
