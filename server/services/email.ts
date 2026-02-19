@@ -27,14 +27,16 @@ async function getCredentials() {
   if (!connectionSettings || (!connectionSettings.settings.api_key)) {
     throw new Error('Resend not connected');
   }
-  return { apiKey: connectionSettings.settings.api_key, fromEmail: connectionSettings.settings.from_email };
+  const fromEmail = connectionSettings.settings.from_email || 'onboarding@resend.dev';
+  return { apiKey: connectionSettings.settings.api_key, fromEmail };
 }
 
 async function getUncachableResendClient() {
   const { apiKey, fromEmail } = await getCredentials();
+  console.log(`Email service using from address: ${fromEmail}`);
   return {
     client: new Resend(apiKey),
-    fromEmail
+    fromEmail: fromEmail || 'onboarding@resend.dev'
   };
 }
 
