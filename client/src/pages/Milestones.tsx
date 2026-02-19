@@ -610,6 +610,16 @@ export default function Milestones() {
                                     {sub.challenges && (
                                       <p className="text-xs text-yellow-400/80">Challenges: {sub.challenges}</p>
                                     )}
+                                    {sub.customAnswers && Object.keys(sub.customAnswers).length > 0 && (
+                                      <div className="mt-2 space-y-2 border-t border-border/40 pt-2">
+                                        {Object.entries(sub.customAnswers).map(([question, answer]) => (
+                                          <div key={question}>
+                                            <p className="text-xs font-medium text-muted-foreground">{question}</p>
+                                            <p className="text-xs text-foreground/80 whitespace-pre-wrap">{answer as string}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                     <p className="text-xs text-muted-foreground/60">Submitted {format(new Date(sub.submittedAt), "PPp")}</p>
                                   </div>
                                 )}
