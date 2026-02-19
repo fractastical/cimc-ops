@@ -86,7 +86,7 @@ function App() {
           <Route path="/" component={Landing} />
           <Route path="/login" component={() => <AuthenticatedApp />} />
           <Route path="/login-denied" component={LoginDenied} />
-          <Route path="/submit-milestone/:milestoneId" component={MilestoneSubmit} />
+          <Route path="/submit-milestone/:milestoneId/:leadId?" component={MilestoneSubmit} />
           <Route path="/dashboard">
             <AuthenticatedApp />
           </Route>

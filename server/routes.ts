@@ -1943,7 +1943,15 @@ export async function registerRoutes(
       const projectMilestones = allMilestones
         .filter(m => m.projectId === milestone.projectId)
         .sort((a, b) => a.month.localeCompare(b.month));
-      res.json({ milestone, project, globalQuestions, projectMilestones });
+      
+      let teamLead = null;
+      const leadId = req.query.leadId as string | undefined;
+      if (leadId) {
+        const leads = await storage.getTeamLeads(milestone.projectId);
+        teamLead = leads.find(l => l.id === leadId) || null;
+      }
+      
+      res.json({ milestone, project, globalQuestions, projectMilestones, teamLead });
     } catch (error) {
       console.error("Error fetching milestone for submission:", error);
       res.status(500).json({ error: "Failed to fetch milestone" });

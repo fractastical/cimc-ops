@@ -529,7 +529,7 @@ export class SchedulerService {
           leadMilestones.get(key)!.items.push({
             projectName: project.name,
             description: milestone.description,
-            submissionUrl: `${baseUrl}/submit-milestone/${milestone.id}`,
+            submissionUrl: `${baseUrl}/submit-milestone/${milestone.id}/${lead.id}`,
           });
         }
       }

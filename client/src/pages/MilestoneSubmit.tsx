@@ -3,34 +3,27 @@ import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CheckCircle, Target, Calendar } from "lucide-react";
+import { CheckCircle, Target, Calendar, User } from "lucide-react";
 import { getMilestoneSubmissionData, createMilestoneSubmission } from "@/lib/api";
 import { format, parseISO } from "date-fns";
 
 export default function MilestoneSubmit() {
-  const params = useParams<{ milestoneId: string }>();
+  const params = useParams<{ milestoneId: string; leadId: string }>();
   const milestoneId = params.milestoneId || "";
+  const leadId = params.leadId || "";
 
   const [submitted, setSubmitted] = useState(false);
-  const [formData, setFormData] = useState({
-    teamLeadName: "",
-    teamLeadEmail: "",
-    progressSummary: "",
-    challenges: "",
-    nextSteps: "",
-  });
   const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
   const [milestoneStatuses, setMilestoneStatuses] = useState<Record<string, string>>({});
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["milestoneSubmissionData", milestoneId],
-    queryFn: () => getMilestoneSubmissionData(milestoneId),
+    queryKey: ["milestoneSubmissionData", milestoneId, leadId],
+    queryFn: () => getMilestoneSubmissionData(milestoneId, leadId || undefined),
     enabled: !!milestoneId,
   });
 
@@ -46,15 +39,26 @@ export default function MilestoneSubmit() {
           month: m.month,
         });
       }
+
+      const teamLead = (data as any)?.teamLead;
+      const statusParts: string[] = [];
+      for (const m of projectMilestones) {
+        const status = milestoneStatuses[m.id] || "to-do";
+        statusParts.push(`${m.description}: ${status}`);
+      }
+      const questionParts: string[] = [];
+      for (const [key, val] of Object.entries(customAnswers)) {
+        if (val?.trim()) questionParts.push(`${key}: ${val}`);
+      }
+      const progressSummary = [...statusParts, ...questionParts].join("\n") || "Milestone statuses updated.";
+
       return createMilestoneSubmission({
         milestoneId,
         projectId: data?.milestone.projectId || "",
-        teamLeadName: formData.teamLeadName,
-        teamLeadEmail: formData.teamLeadEmail,
-        progressSummary: formData.progressSummary,
+        teamLeadName: teamLead?.name || "Unknown",
+        teamLeadEmail: teamLead?.email || "",
+        progressSummary,
         completionPercentage: 0,
-        challenges: formData.challenges || undefined,
-        nextSteps: formData.nextSteps || undefined,
         customAnswers: Object.keys(allAnswers).length > 0 ? allAnswers : undefined,
       });
     },
@@ -103,13 +107,13 @@ export default function MilestoneSubmit() {
     );
   }
 
-  const { milestone, project, globalQuestions } = data;
+  const { milestone, project, globalQuestions, teamLead } = data as any;
   const projectMilestones = (data as any).projectMilestones || [];
   const questions = (globalQuestions || milestone.customQuestions || []) as { label: string; required: boolean }[];
 
   const requiredCustomMissing = questions
-    .filter(q => q.required)
-    .some(q => !customAnswers[q.label]?.trim());
+    .filter((q: any) => q.required)
+    .some((q: any) => !customAnswers[q.label]?.trim());
 
   const statusColor = (status: string) => {
     if (status === "finished") return "text-green-500 border-green-500/40 bg-green-500/10";
@@ -123,6 +127,13 @@ export default function MilestoneSubmit() {
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">Milestone Progress Update</h1>
           <p className="text-muted-foreground">Submit your monthly progress for {project?.name}</p>
+          {teamLead && (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <User className="h-4 w-4" />
+              <span>{teamLead.name}</span>
+              <span className="text-muted-foreground/50">({teamLead.email})</span>
+            </div>
+          )}
         </div>
 
         <Card>
@@ -177,110 +188,43 @@ export default function MilestoneSubmit() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Progress Update</CardTitle>
-            <CardDescription>Please provide details about your progress this month</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Label htmlFor="name">Your Name</Label>
-                <Input
-                  id="name"
-                  placeholder="John Doe"
-                  value={formData.teamLeadName}
-                  onChange={(e) => setFormData({ ...formData, teamLeadName: e.target.value })}
-                  data-testid="input-submit-name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Your Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={formData.teamLeadEmail}
-                  onChange={(e) => setFormData({ ...formData, teamLeadEmail: e.target.value })}
-                  data-testid="input-submit-email"
-                />
-              </div>
-            </div>
+        {questions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Check-In Questions</CardTitle>
+              <CardDescription>Please answer the following questions about your progress</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {questions.map((q: any, idx: number) => (
+                <div key={idx}>
+                  <Label htmlFor={`custom-q-${idx}`}>
+                    {q.label}
+                    {q.required && <span className="text-destructive ml-1">*</span>}
+                  </Label>
+                  <Textarea
+                    id={`custom-q-${idx}`}
+                    placeholder="Enter your response..."
+                    value={customAnswers[q.label] || ""}
+                    onChange={(e) =>
+                      setCustomAnswers({ ...customAnswers, [q.label]: e.target.value })
+                    }
+                    data-testid={`input-custom-question-${idx}`}
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
-            <div>
-              <Label htmlFor="summary">Progress Summary</Label>
-              <Textarea
-                id="summary"
-                placeholder="Describe what you've accomplished towards this milestone..."
-                className="min-h-[120px]"
-                value={formData.progressSummary}
-                onChange={(e) => setFormData({ ...formData, progressSummary: e.target.value })}
-                data-testid="input-submit-summary"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="challenges">Challenges (Optional)</Label>
-              <Textarea
-                id="challenges"
-                placeholder="Any blockers or challenges you've encountered..."
-                value={formData.challenges}
-                onChange={(e) => setFormData({ ...formData, challenges: e.target.value })}
-                data-testid="input-submit-challenges"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="nextSteps">Next Steps (Optional)</Label>
-              <Textarea
-                id="nextSteps"
-                placeholder="What are your planned next steps..."
-                value={formData.nextSteps}
-                onChange={(e) => setFormData({ ...formData, nextSteps: e.target.value })}
-                data-testid="input-submit-next-steps"
-              />
-            </div>
-
-            {questions.length > 0 && (
-              <div className="space-y-4 border-t pt-4">
-                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Additional Questions</h3>
-                {questions.map((q, idx) => (
-                  <div key={idx}>
-                    <Label htmlFor={`custom-q-${idx}`}>
-                      {q.label}
-                      {q.required && <span className="text-destructive ml-1">*</span>}
-                    </Label>
-                    <Textarea
-                      id={`custom-q-${idx}`}
-                      placeholder={`Enter your response...`}
-                      value={customAnswers[q.label] || ""}
-                      onChange={(e) =>
-                        setCustomAnswers({ ...customAnswers, [q.label]: e.target.value })
-                      }
-                      data-testid={`input-custom-question-${idx}`}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={() => submitMutation.mutate()}
-              disabled={
-                !formData.teamLeadName ||
-                !formData.teamLeadEmail ||
-                !formData.progressSummary ||
-                requiredCustomMissing ||
-                submitMutation.isPending
-              }
-              data-testid="button-submit-progress"
-            >
-              {submitMutation.isPending ? "Submitting..." : "Submit Progress Update"}
-            </Button>
-          </CardContent>
-        </Card>
+        <Button
+          className="w-full"
+          size="lg"
+          onClick={() => submitMutation.mutate()}
+          disabled={requiredCustomMissing || submitMutation.isPending}
+          data-testid="button-submit-progress"
+        >
+          {submitMutation.isPending ? "Submitting..." : "Submit Progress Update"}
+        </Button>
       </div>
     </div>
   );

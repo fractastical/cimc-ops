@@ -696,8 +696,9 @@ export async function deleteAdminEmail(id: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete admin email");
 }
 
-export async function getMilestoneSubmissionData(milestoneId: string): Promise<{ milestone: Milestone; project: ResearchProject; globalQuestions?: { label: string; required: boolean }[] }> {
-  const res = await fetch(`/api/submit-milestone/${milestoneId}`);
+export async function getMilestoneSubmissionData(milestoneId: string, leadId?: string): Promise<{ milestone: Milestone; project: ResearchProject; globalQuestions?: { label: string; required: boolean }[]; teamLead?: TeamLead }> {
+  const url = leadId ? `/api/submit-milestone/${milestoneId}?leadId=${leadId}` : `/api/submit-milestone/${milestoneId}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to fetch milestone data");
   return res.json();
 }
