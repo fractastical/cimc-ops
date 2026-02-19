@@ -27,7 +27,7 @@ async function getCredentials() {
   if (!connectionSettings || (!connectionSettings.settings.api_key)) {
     throw new Error('Resend not connected');
   }
-  const fromEmail = connectionSettings.settings.from_email || 'onboarding@resend.dev';
+  const fromEmail = 'Research Ops <noreply@cimc.io>';
   return { apiKey: connectionSettings.settings.api_key, fromEmail };
 }
 
@@ -36,7 +36,7 @@ async function getUncachableResendClient() {
   console.log(`Email service using from address: ${fromEmail}`);
   return {
     client: new Resend(apiKey),
-    fromEmail: fromEmail || 'onboarding@resend.dev'
+    fromEmail,
   };
 }
 

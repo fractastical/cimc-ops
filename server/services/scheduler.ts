@@ -553,6 +553,7 @@ export class SchedulerService {
           emailsFailed++;
           console.error(`Failed to send to ${lead.email}: ${result.error}`);
         }
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
       
       console.log(`Milestone reminders sent: ${emailsSent} emails to ${leadMilestones.size} team leads, ${emailsFailed} failed`);
