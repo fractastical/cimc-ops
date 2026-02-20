@@ -43,7 +43,7 @@ function DashboardRouter() {
 
 function AuthenticatedApp() {
   const [authState, setAuthState] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   const checkAuth = async () => {
     try {
@@ -63,6 +63,12 @@ function AuthenticatedApp() {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (authState === "authenticated" && (location === "/login" || location === "/")) {
+      setLocation("/dashboard");
+    }
+  }, [authState, location, setLocation]);
 
   if (authState === "loading") {
     return (

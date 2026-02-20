@@ -180,7 +180,7 @@ export default function Admin() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">User ID:</span>
-                    <span className="font-mono text-xs">{user.id.substring(0, 12)}...</span>
+                    <span className="font-mono text-xs">{(user.id || "N/A").substring(0, 12)}...</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Role:</span>
@@ -257,7 +257,7 @@ export default function Admin() {
                       </div>
                       <div className="mt-2 text-sm">
                         <span className="text-muted-foreground">By: </span>
-                        <span className="font-mono text-xs">{action.actorEmail || action.actorUserId.substring(0, 12)}</span>
+                        <span className="font-mono text-xs">{action.actorEmail || (action.actorUserId || "unknown").substring(0, 12)}</span>
                         {action.entityType && (
                           <>
                             <span className="text-muted-foreground"> on </span>
