@@ -45,18 +45,6 @@ import {
 } from "@/lib/api";
 import { format, parseISO } from "date-fns";
 
-function getNextSixMonths(): { value: string; label: string }[] {
-  const months = [];
-  const now = new Date();
-  for (let i = 0; i < 6; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    months.push({
-      value: format(date, "yyyy-MM"),
-      label: format(date, "MMMM yyyy"),
-    });
-  }
-  return months;
-}
 
 export default function Milestones() {
   const queryClient = useQueryClient();
@@ -66,7 +54,10 @@ export default function Milestones() {
   const [adminEmailDialogOpen, setAdminEmailDialogOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
 
-  const [newMilestone, setNewMilestone] = useState({ projectId: "", month: "", description: "" });
+  const now = new Date();
+  const [newMilestoneMonth, setNewMilestoneMonth] = useState(String(now.getMonth() + 1).padStart(2, "0"));
+  const [newMilestoneYear, setNewMilestoneYear] = useState(String(now.getFullYear()));
+  const [newMilestone, setNewMilestone] = useState({ projectId: "", month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`, description: "" });
   const [newTeamLead, setNewTeamLead] = useState({ projectId: "", name: "", email: "" });
   const [newAdminEmail, setNewAdminEmail] = useState({ email: "", name: "" });
 
@@ -106,7 +97,10 @@ export default function Milestones() {
       queryClient.invalidateQueries({ queryKey: ["milestones"] });
       toast.success("Milestone created");
       setMilestoneDialogOpen(false);
-      setNewMilestone({ projectId: "", month: "", description: "" });
+      const resetNow = new Date();
+      setNewMilestoneMonth(String(resetNow.getMonth() + 1).padStart(2, "0"));
+      setNewMilestoneYear(String(resetNow.getFullYear()));
+      setNewMilestone({ projectId: "", month: `${resetNow.getFullYear()}-${String(resetNow.getMonth() + 1).padStart(2, "0")}`, description: "" });
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -203,8 +197,6 @@ export default function Milestones() {
     return projects?.find((p) => p.id === projectId)?.name || "Unknown";
   };
 
-  const months = getNextSixMonths();
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -294,22 +286,45 @@ export default function Milestones() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Month</Label>
-                    <Select
-                      value={newMilestone.month}
-                      onValueChange={(v) => setNewMilestone({ ...newMilestone, month: v })}
-                    >
-                      <SelectTrigger data-testid="select-milestone-month">
-                        <SelectValue placeholder="Select month" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {months.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Month & Year</Label>
+                    <div className="flex gap-2">
+                      <Select
+                        value={newMilestoneMonth}
+                        onValueChange={(v) => {
+                          setNewMilestoneMonth(v);
+                          setNewMilestone({ ...newMilestone, month: `${newMilestoneYear}-${v}` });
+                        }}
+                      >
+                        <SelectTrigger data-testid="select-milestone-month" className="flex-1">
+                          <SelectValue placeholder="Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["01","02","03","04","05","06","07","08","09","10","11","12"].map((m, i) => (
+                            <SelectItem key={m} value={m}>
+                              {format(new Date(2000, i, 1), "MMMM")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={newMilestoneYear}
+                        onValueChange={(v) => {
+                          setNewMilestoneYear(v);
+                          setNewMilestone({ ...newMilestone, month: `${v}-${newMilestoneMonth}` });
+                        }}
+                      >
+                        <SelectTrigger data-testid="select-milestone-year" className="w-28">
+                          <SelectValue placeholder="Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 7 }, (_, i) => String(new Date().getFullYear() - 2 + i)).map((y) => (
+                            <SelectItem key={y} value={y}>
+                              {y}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div>
                     <Label>Description</Label>

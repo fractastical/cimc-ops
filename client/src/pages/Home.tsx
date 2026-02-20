@@ -1,12 +1,11 @@
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
-import { BotTerminal } from "@/components/dashboard/BotTerminal";
 import { ResearchBoard } from "@/components/dashboard/ResearchBoard";
 import { MonthlyActivityChart } from "@/components/dashboard/MonthlyActivityChart";
 import { MilestoneProgressGrid } from "@/components/dashboard/MilestoneProgressGrid";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getRepositories, getSlackMessages, getResearchProjects, getResearchUpdates, sendDailySummary, sendWeeklySummary, sendRepoSummary, sendResearchSummary, getMilestones, getMilestoneSubmissions, TimeFrame } from "@/lib/api";
+import { getRepositories, getResearchProjects, getResearchUpdates, sendDailySummary, sendWeeklySummary, sendRepoSummary, sendResearchSummary, getMilestones, getMilestoneSubmissions, TimeFrame } from "@/lib/api";
 import { motion } from "framer-motion";
-import { RefreshCw, Send, Calendar, CalendarDays, Rocket, Microscope } from "lucide-react";
+import { RefreshCw, Calendar, CalendarDays, Rocket, Microscope } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -17,12 +16,6 @@ export default function Home() {
   const { data: repos = [], isLoading: reposLoading } = useQuery({
     queryKey: ["repositories"],
     queryFn: getRepositories,
-  });
-
-  const { data: slackMessages = [], isLoading: messagesLoading } = useQuery({
-    queryKey: ["slackMessages"],
-    queryFn: () => getSlackMessages(50),
-    refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   const { data: researchProjects = [], isLoading: projectsLoading } = useQuery({
@@ -81,7 +74,7 @@ export default function Home() {
     onError: () => toast.error("Failed to send research summary"),
   });
 
-  if (reposLoading || messagesLoading || projectsLoading || updatesLoading) {
+  if (reposLoading || projectsLoading || updatesLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <RefreshCw className="h-8 w-8 animate-spin text-primary" />
@@ -153,6 +146,7 @@ export default function Home() {
         </Card>
       </div>
 
+      {/* 1. Milestone Progress Chart */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -165,56 +159,40 @@ export default function Home() {
         />
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        {/* Top Row: Activity Heatmap */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="md:col-span-12"
-        >
-          <div className="h-full flex flex-col gap-4">
-            {repos.length > 0 ? (
-              <ActivityHeatmap repos={repos} />
-            ) : (
-              <div className="glass-panel p-8 text-center border-primary/20">
-                <p className="text-muted-foreground font-mono">
-                  No repositories configured. Add repositories in Settings to start monitoring.
-                </p>
-              </div>
-            )}
+      {/* 2. Research Notes for Each Project */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <ResearchBoard projects={researchProjects} updates={researchUpdates} />
+      </motion.div>
+
+      {/* 3. Repo Summary (Total Bar Chart) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <MonthlyActivityChart />
+      </motion.div>
+
+      {/* 4. Individual Repos */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
+        {repos.length > 0 ? (
+          <ActivityHeatmap repos={repos} />
+        ) : (
+          <div className="glass-panel p-8 text-center border-primary/20">
+            <p className="text-muted-foreground font-mono">
+              No repositories configured. Add repositories in Settings to start monitoring.
+            </p>
           </div>
-        </motion.div>
-
-        {/* Monthly Activity Chart */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="md:col-span-12"
-        >
-          <MonthlyActivityChart />
-        </motion.div>
-
-        {/* Middle/Bottom Row: Operations & Research */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="md:col-span-5 lg:col-span-4 h-[500px]"
-        >
-          <BotTerminal messages={slackMessages} />
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="md:col-span-7 lg:col-span-8 h-[500px]"
-        >
-          <ResearchBoard projects={researchProjects} updates={researchUpdates} />
-        </motion.div>
-      </div>
+        )}
+      </motion.div>
     </div>
   );
 }
