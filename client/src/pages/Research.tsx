@@ -1160,7 +1160,6 @@ function NotionResearcherDetail({ researcher, onClose }: { researcher: NotionRes
 }
 
 function NotionResearchersPanel() {
-  const [selectedDbId, setSelectedDbId] = useState<string | null>(null);
   const [selectedResearcher, setSelectedResearcher] = useState<NotionResearcher | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -1169,10 +1168,13 @@ function NotionResearchersPanel() {
     queryFn: getNotionDatabases,
   });
 
+  const activeDbId = databases.length > 0 ? databases[0].id : null;
+  const activeDbTitle = databases.length > 0 ? databases[0].title : "";
+
   const { data: entries = [], isLoading: loadingEntries } = useQuery({
-    queryKey: ["notionEntries", selectedDbId],
-    queryFn: () => getNotionDatabaseEntries(selectedDbId!),
-    enabled: !!selectedDbId,
+    queryKey: ["notionEntries", activeDbId],
+    queryFn: () => getNotionDatabaseEntries(activeDbId!),
+    enabled: !!activeDbId,
   });
 
   const filteredEntries = entries.filter(e =>
@@ -1182,15 +1184,17 @@ function NotionResearchersPanel() {
     )
   );
 
+  const isLoading = loadingDbs || (!!activeDbId && loadingEntries);
+
   return (
     <Card className="glass-panel border-primary/20" data-testid="card-notion-researchers">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-mono flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-primary" />
-            Researcher Profiles (Notion)
+            {activeDbTitle || "Researcher Profiles (Notion)"}
           </CardTitle>
-          {selectedDbId && (
+          {entries.length > 0 && (
             <span className="text-xs text-muted-foreground font-mono">
               {entries.length} entries
             </span>
@@ -1198,7 +1202,7 @@ function NotionResearchersPanel() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {loadingDbs ? (
+        {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <RefreshCw className="h-5 w-5 animate-spin text-primary" />
           </div>
@@ -1206,50 +1210,17 @@ function NotionResearchersPanel() {
           <p className="text-sm text-muted-foreground text-center py-4">
             No Notion databases found. Make sure to share databases with the integration.
           </p>
-        ) : !selectedDbId ? (
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Select a database to browse:</p>
-            {databases.map((db) => (
-              <button
-                key={db.id}
-                onClick={() => setSelectedDbId(db.id)}
-                className="w-full text-left p-3 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-muted/10 transition-colors"
-                data-testid={`button-notion-db-${db.id}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Database className="h-4 w-4 text-primary shrink-0" />
-                  <span className="font-mono text-sm font-medium truncate">{db.title}</span>
-                </div>
-              </button>
-            ))}
-          </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setSelectedDbId(null); setSearchTerm(""); }}
-                className="text-xs"
-                data-testid="button-back-to-databases"
-              >
-                <ChevronDown className="h-3 w-3 mr-1 rotate-90" />
-                Back
-              </Button>
-              <Input
-                placeholder="Search researchers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="font-mono text-sm h-8"
-                data-testid="input-search-researchers"
-              />
-            </div>
+            <Input
+              placeholder="Search researchers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="font-mono text-sm h-8"
+              data-testid="input-search-researchers"
+            />
             
-            {loadingEntries ? (
-              <div className="flex items-center justify-center py-4">
-                <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-              </div>
-            ) : filteredEntries.length === 0 ? (
+            {filteredEntries.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">No entries found</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
