@@ -195,11 +195,24 @@ function ResearchTimelineChart({ timeline, hypotheses, notionEntries, onResearch
   });
 
   const findNotionResearcher = (name: string): NotionResearcher | undefined => {
-    if (!notionEntries || !name) return undefined;
+    if (!notionEntries || !notionEntries.length || !name) return undefined;
     const lower = name.toLowerCase().trim();
+    const parts = lower.split(/\s+/);
+    const lastName = parts[parts.length - 1];
+    const firstName = parts[0];
+
     return notionEntries.find(e => {
       const eName = e.name.toLowerCase().trim();
-      return eName === lower || eName.includes(lower) || lower.includes(eName);
+      if (eName === lower) return true;
+      if (eName.includes(lower) || lower.includes(eName)) return true;
+      const eParts = eName.split(/\s+/);
+      const eLastName = eParts[eParts.length - 1];
+      const eFirstName = eParts[0];
+      if (lastName.length > 2 && eLastName === lastName) return true;
+      if (lastName.length > 2 && eLastName.length > 2 && (eLastName.includes(lastName) || lastName.includes(eLastName))) return true;
+      if (firstName.length > 2 && eFirstName.length > 2 && eLastName === lastName && (eFirstName.startsWith(firstName.slice(0, 3)) || firstName.startsWith(eFirstName.slice(0, 3)))) return true;
+      if (parts.length === 1 && firstName.length > 3 && eFirstName === firstName) return true;
+      return false;
     });
   };
 
@@ -341,15 +354,18 @@ function ResearchTimelineChart({ timeline, hypotheses, notionEntries, onResearch
                           </Button>
                         </div>
                       ) : (
-                        <span className="font-mono text-sm truncate group/name flex items-center gap-1" title={`Click pencil to rename "${project.project.name}"`}>
+                        <span 
+                          className="font-mono text-sm truncate group/name flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" 
+                          title={`Click to rename "${project.project.name}"`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingProjectId(project.project.id);
+                            setEditingName(project.project.name);
+                          }}
+                        >
                           {project.project.name}
                           <Pencil
-                            className="h-3 w-3 text-muted-foreground/50 hover:text-primary transition-colors cursor-pointer shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProjectId(project.project.id);
-                              setEditingName(project.project.name);
-                            }}
+                            className="h-3 w-3 text-muted-foreground opacity-0 group-hover/name:opacity-100 hover:text-primary transition-all cursor-pointer shrink-0"
                             data-testid={`button-edit-project-name-${project.project.id}`}
                           />
                         </span>
@@ -1168,8 +1184,14 @@ function NotionResearchersPanel() {
     queryFn: getNotionDatabases,
   });
 
-  const activeDbId = databases.length > 0 ? databases[0].id : null;
-  const activeDbTitle = databases.length > 0 ? databases[0].title : "";
+  const researcherDb = databases.find(db => 
+    db.title.toLowerCase().includes("grantee") || 
+    db.title.toLowerCase().includes("researcher")
+  ) || databases.find(db => 
+    db.title.toLowerCase().includes("people")
+  ) || (databases.length > 0 ? databases[0] : null);
+  const activeDbId = researcherDb?.id || null;
+  const activeDbTitle = researcherDb?.title || "";
 
   const { data: entries = [], isLoading: loadingEntries } = useQuery({
     queryKey: ["notionEntries", activeDbId],
@@ -1319,7 +1341,13 @@ export default function Research() {
     queryFn: getNotionDatabases,
   });
 
-  const researcherDbId = notionDatabases.length > 0 ? notionDatabases[0].id : null;
+  const researcherNotionDb = notionDatabases.find(db => 
+    db.title.toLowerCase().includes("grantee") || 
+    db.title.toLowerCase().includes("researcher")
+  ) || notionDatabases.find(db => 
+    db.title.toLowerCase().includes("people")
+  ) || (notionDatabases.length > 0 ? notionDatabases[0] : null);
+  const researcherDbId = researcherNotionDb?.id || null;
 
   const { data: notionEntries = [] } = useQuery({
     queryKey: ["notionEntries", researcherDbId],

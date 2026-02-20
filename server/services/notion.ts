@@ -72,7 +72,7 @@ function extractPropertyValue(prop: any): any {
     case "select":
       return prop.select?.name || null;
     case "multi_select":
-      return (prop.multi_select || []).map((s: any) => s.name);
+      return Array.isArray(prop.multi_select) ? prop.multi_select.map((s: any) => s.name) : [];
     case "date":
       return prop.date?.start || null;
     case "checkbox":
@@ -84,11 +84,11 @@ function extractPropertyValue(prop: any): any {
     case "phone_number":
       return prop.phone_number;
     case "people":
-      return (prop.people || []).map((p: any) => p.name || p.id);
+      return Array.isArray(prop.people) ? prop.people.map((p: any) => p.name || p.id) : [];
     case "files":
-      return (prop.files || []).map((f: any) => f.file?.url || f.external?.url || f.name);
+      return Array.isArray(prop.files) ? prop.files.map((f: any) => f.file?.url || f.external?.url || f.name) : [];
     case "relation":
-      return (prop.relation || []).map((r: any) => r.id);
+      return Array.isArray(prop.relation) ? prop.relation.map((r: any) => r.id) : [];
     case "formula":
       return prop.formula?.string || prop.formula?.number || prop.formula?.boolean || prop.formula?.date?.start || null;
     case "rollup":
