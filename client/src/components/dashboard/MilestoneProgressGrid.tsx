@@ -96,7 +96,9 @@ export function MilestoneProgressGrid({
   const allMonths = Array.from(new Set(filteredMilestones.map(m => m.month))).sort();
   const projectIds = Array.from(new Set(filteredMilestones.map(m => m.projectId)));
 
-  const toggleProject = (projectId: string) => {
+  const toggleProject = (projectId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    const scrollY = window.scrollY;
     setExpandedProjects(prev => {
       const next = new Set(prev);
       if (next.has(projectId)) {
@@ -105,6 +107,9 @@ export function MilestoneProgressGrid({
         next.add(projectId);
       }
       return next;
+    });
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior });
     });
   };
 
@@ -158,7 +163,7 @@ export function MilestoneProgressGrid({
                   <div key={projectId} data-testid={`progress-row-${projectId}`}>
                     <div 
                       className="flex items-center gap-1 mb-1 cursor-pointer group hover:bg-muted/10 rounded-md -mx-1 px-1"
-                      onClick={() => toggleProject(projectId)}
+                      onClick={(e) => toggleProject(projectId, e)}
                     >
                       <div className="w-56 shrink-0 flex items-center gap-1.5 pr-2">
                         {isExpanded 
