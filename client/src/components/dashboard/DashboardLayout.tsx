@@ -73,7 +73,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { icon: Target, label: "Milestones", path: "/milestones" },
     { icon: Banknote, label: "Grants", path: "/grants" },
     { icon: Bot, label: "Slackbot", path: "/slackbot" },
-    { icon: Settings, label: "Settings", path: "/settings" },
+    { icon: Settings, label: "Admin", path: "/admin" },
   ];
 
   return (
