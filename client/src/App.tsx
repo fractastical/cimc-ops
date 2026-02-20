@@ -16,6 +16,7 @@ import Grants from "@/pages/Grants";
 import Login from "@/pages/Login";
 import LoginDenied from "@/pages/LoginDenied";
 import Landing from "@/pages/Landing";
+import TagCloudViz from "@/pages/TagCloudViz";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { RefreshCw } from "lucide-react";
 
@@ -89,6 +90,7 @@ function App() {
           <Route path="/login" component={() => <AuthenticatedApp />} />
           <Route path="/login-denied" component={LoginDenied} />
           <Route path="/submit-milestone/:milestoneId/:leadId?" component={MilestoneSubmit} />
+          <Route path="/viz/tagcloud" component={TagCloudViz} />
           <Route path="/dashboard">
             <AuthenticatedApp />
           </Route>

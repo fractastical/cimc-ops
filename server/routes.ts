@@ -2103,6 +2103,82 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Tag Cloud Data (Public) ============
+  app.get("/api/viz/tagcloud", async (req, res) => {
+    try {
+      const stopWords = new Set([
+        "the","a","an","and","or","but","in","on","at","to","for","of","with","by",
+        "from","is","was","are","were","be","been","being","have","has","had","do",
+        "does","did","will","would","could","should","may","might","shall","can",
+        "this","that","these","those","it","its","i","we","you","he","she","they",
+        "me","us","him","her","them","my","our","your","his","their","mine","ours",
+        "yours","hers","theirs","what","which","who","whom","how","when","where",
+        "why","if","then","than","so","no","not","only","very","just","also","more",
+        "most","some","any","all","each","every","both","few","many","much","such",
+        "own","other","another","about","into","through","during","before","after",
+        "above","below","between","under","over","again","further","once","as","up",
+        "down","out","off","here","there","too","s","t","re","ve","d","ll","m","o",
+        "don","didn","doesn","won","wouldn","couldn","shouldn","isn","wasn","aren",
+        "weren","hasn","haven","hadn","amp","new","using","used","use","based","one",
+        "two","three","first","second","like","including","across","total","per",
+        "sent","daily","weekly","monthly","summary","update","updates","commits",
+        "commit","pull","requests","active","repositories","repository","activity",
+        "top","contributor","bar_chart","calendar","microscope","page_facing_up",
+        "pencil","arrows_counterclockwise","white_check_mark","dna","computer",
+        "status","system","systems","sent"
+      ]);
+
+      const wordCounts: Record<string, number> = {};
+
+      const addWords = (text: string, weight: number = 1) => {
+        const words = text.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/);
+        for (const word of words) {
+          const clean = word.trim();
+          if (clean.length > 2 && !stopWords.has(clean) && !/^\d+$/.test(clean)) {
+            wordCounts[clean] = (wordCounts[clean] || 0) + weight;
+          }
+        }
+      };
+
+      const updates = await storage.getResearchUpdates();
+      for (const u of updates) {
+        if (u.description) addWords(u.description, 3);
+      }
+
+      const projects = await storage.getResearchProjects();
+      for (const p of projects) {
+        if (p.name && !p.name.startsWith("[TEST]")) addWords(p.name, 5);
+        if (p.description && !p.description.startsWith("[TEST")) addWords(p.description, 2);
+      }
+
+      const messages = await storage.getRecentSlackMessages(500);
+      for (const m of messages) {
+        if (m.message) addWords(m.message, 1);
+      }
+
+      const repos = await storage.getActiveRepositories();
+      for (const r of repos) {
+        if (r.name) addWords(r.name.replace(/[-_]/g, " "), 4);
+        if (r.description) addWords(r.description, 2);
+      }
+
+      const milestones = await storage.getMilestones();
+      for (const ml of milestones) {
+        if (ml.description && !ml.description.startsWith("[TEST]")) addWords(ml.description, 2);
+      }
+
+      const sorted = Object.entries(wordCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 200)
+        .map(([word, count]) => ({ word, count }));
+
+      res.json(sorted);
+    } catch (error) {
+      console.error("Error generating tag cloud data:", error);
+      res.status(500).json({ error: "Failed to generate tag cloud" });
+    }
+  });
+
   return httpServer;
 }
 

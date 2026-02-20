@@ -11,7 +11,9 @@ import {
   Clock, 
   FileText, 
   Database,
-  RefreshCw 
+  RefreshCw,
+  ExternalLink,
+  Sparkles
 } from "lucide-react";
 import { getAdminActions, getCurrentUser, logout, type AdminActionLog, type AuthUser } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
@@ -63,6 +65,42 @@ export default function Admin() {
           <p className="text-sm text-muted-foreground">User info and activity log</p>
         </div>
       </div>
+
+      <Card className="glass-panel border-primary/20" data-testid="card-visualizations">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-mono text-lg">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Embeddable Visualizations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a
+              href="/viz/tagcloud"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-3 p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all"
+              data-testid="link-viz-tagcloud"
+            >
+              <div className="w-10 h-10 rounded bg-black border border-white/20 flex items-center justify-center text-white text-xs font-mono shrink-0">
+                W
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                  Research Tag Cloud
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  Animated wave visualization from meeting transcripts
+                </p>
+              </div>
+              <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary shrink-0" />
+            </a>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            These pages are publicly accessible and can be embedded via iframe.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="glass-panel border-primary/20" data-testid="card-user-info">
