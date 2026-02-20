@@ -1,7 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -13,11 +16,425 @@ import {
   Database,
   RefreshCw,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  Cloud,
+  Upload,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
+  X,
+  Plus,
+  CheckCircle2
 } from "lucide-react";
 import { getAdminActions, getCurrentUser, logout, type AdminActionLog, type AuthUser } from "@/lib/api";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { useLocation } from "wouter";
+import { toast } from "sonner";
+
+interface DriveFolder {
+  id: string;
+  name: string;
+}
+
+interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string;
+  imported: boolean;
+}
+
+interface GdriveSettings {
+  folders: DriveFolder[];
+  autoSync: boolean;
+  lastSyncAt: string | null;
+}
+
+function GoogleDriveImportPanel() {
+  const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState<{ importing: boolean; message: string; current: number; total: number; updatesCreated: number } | null>(null);
+
+  const { data: settings } = useQuery<GdriveSettings>({
+    queryKey: ["gdriveSettings"],
+    queryFn: () => fetch("/api/gdrive/settings").then(r => r.json()),
+  });
+
+  const { data: searchResults = [], isLoading: searching } = useQuery<DriveFolder[]>({
+    queryKey: ["gdriveFolderSearch", searchQuery],
+    queryFn: () => fetch(`/api/gdrive/folders?search=${encodeURIComponent(searchQuery)}`).then(r => r.json()),
+    enabled: showSearch && searchQuery.length >= 2,
+  });
+
+  const activeFolder = expandedFolder || (settings?.folders?.length === 1 ? settings.folders[0].id : null);
+
+  const { data: files = [], isLoading: filesLoading } = useQuery<DriveFile[]>({
+    queryKey: ["gdriveFiles", activeFolder],
+    queryFn: () => fetch(`/api/gdrive/files?folderId=${activeFolder}`).then(r => r.json()),
+    enabled: !!activeFolder,
+  });
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: (body: { folders: DriveFolder[]; autoSync?: boolean }) =>
+      fetch("/api/gdrive/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gdriveSettings"] });
+      queryClient.invalidateQueries({ queryKey: ["gdriveFiles"] });
+    },
+  });
+
+  const toggleAutoSync = useMutation({
+    mutationFn: (autoSync: boolean) =>
+      fetch("/api/gdrive/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folders: settings?.folders || [], autoSync }) }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gdriveSettings"] });
+    },
+  });
+
+  const startImport = async (body: { fileIds?: string[]; folderIds?: string[] }) => {
+    if (importProgress?.importing) return;
+    setImportProgress({ importing: true, message: "Starting import...", current: 0, total: 0, updatesCreated: 0 });
+
+    try {
+      const response = await fetch("/api/gdrive/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ error: "Import request failed" }));
+        toast.error(errData.error || "Import request failed");
+        setImportProgress(null);
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let gotDone = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "progress") {
+              setImportProgress(prev => ({ ...prev!, message: event.message, current: event.current, total: event.total }));
+            } else if (event.type === "file_done") {
+              setImportProgress(prev => ({ ...prev!, updatesCreated: prev!.updatesCreated + (event.updates || 0) }));
+            } else if (event.type === "file_error") {
+              toast.error(`Error processing: ${event.fileName}`);
+            } else if (event.type === "status") {
+              setImportProgress(prev => ({ ...prev!, message: event.message, total: event.total || prev!.total }));
+            } else if (event.type === "done") {
+              gotDone = true;
+              toast.success(event.message);
+              setImportProgress(null);
+              setSelectedFileIds(new Set());
+              queryClient.invalidateQueries({ queryKey: ["gdriveFiles"] });
+              queryClient.invalidateQueries({ queryKey: ["researchTimeline"] });
+              queryClient.invalidateQueries({ queryKey: ["gdriveSettings"] });
+            } else if (event.type === "error") {
+              gotDone = true;
+              toast.error(event.error || "Import failed");
+              setImportProgress(null);
+            }
+          } catch {}
+        }
+      }
+      if (!gotDone) {
+        setImportProgress(null);
+      }
+    } catch (err) {
+      toast.error("Failed to import from Google Drive");
+      setImportProgress(null);
+    }
+  };
+
+  const addFolder = (folder: DriveFolder) => {
+    const current = settings?.folders || [];
+    if (current.some(f => f.id === folder.id)) {
+      toast.info("Folder already added");
+      return;
+    }
+    const updated = [...current, folder];
+    saveSettingsMutation.mutate({ folders: updated, autoSync: settings?.autoSync });
+    setShowSearch(false);
+    setSearchQuery("");
+    toast.success(`Added "${folder.name}"`);
+  };
+
+  const removeFolder = (folderId: string) => {
+    const updated = (settings?.folders || []).filter(f => f.id !== folderId);
+    saveSettingsMutation.mutate({ folders: updated, autoSync: settings?.autoSync });
+    if (expandedFolder === folderId) setExpandedFolder(null);
+  };
+
+  const toggleFile = (fileId: string) => {
+    setSelectedFileIds(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId);
+      else next.add(fileId);
+      return next;
+    });
+  };
+
+  const hasFolders = (settings?.folders?.length || 0) > 0;
+  const newFiles = files.filter(f => !f.imported);
+  const importedFiles = files.filter(f => f.imported);
+
+  return (
+    <Card className="glass-panel border-primary/20" data-testid="card-gdrive-import">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="font-mono text-lg flex items-center gap-2">
+            <Cloud className="h-5 w-5 text-primary" />
+            Google Drive Transcript Import
+          </CardTitle>
+          <div className="flex items-center gap-3">
+            {hasFolders && (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <Switch
+                  checked={settings?.autoSync || false}
+                  onCheckedChange={(checked) => toggleAutoSync.mutate(checked)}
+                  data-testid="switch-auto-sync"
+                />
+                Auto-sync
+              </label>
+            )}
+            {hasFolders && (
+              <Button
+                size="sm"
+                onClick={() => startImport({ folderIds: settings!.folders.map(f => f.id) })}
+                disabled={!!importProgress?.importing}
+                data-testid="button-import-all-drive"
+              >
+                {importProgress?.importing ? (
+                  <><RefreshCw className="h-3 w-3 animate-spin mr-1" /> Importing...</>
+                ) : (
+                  <><Upload className="h-3 w-3 mr-1" /> Import All New</>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {importProgress?.importing && (
+          <div className="bg-muted/30 rounded-lg p-3 space-y-2 border border-primary/20" data-testid="import-progress">
+            <div className="flex items-center gap-2 text-sm">
+              <RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />
+              <span className="font-mono text-xs flex-1 truncate">{importProgress.message}</span>
+              {importProgress.updatesCreated > 0 && (
+                <Badge variant="secondary" className="text-xs">{importProgress.updatesCreated} updates</Badge>
+              )}
+            </div>
+            {importProgress.total > 0 && (
+              <div className="w-full bg-muted rounded-full h-1.5">
+                <div
+                  className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.round((importProgress.current / importProgress.total) * 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {hasFolders && (
+          <div className="space-y-1">
+            {settings!.folders.map(folder => (
+              <div key={folder.id} className="space-y-1">
+                <div
+                  className={`flex items-center justify-between px-2 py-1.5 rounded hover:bg-muted/30 cursor-pointer group ${expandedFolder === folder.id ? "bg-muted/20" : ""}`}
+                  data-testid={`folder-monitored-${folder.id}`}
+                >
+                  <button
+                    className="flex items-center gap-2 text-sm flex-1 text-left"
+                    onClick={() => setExpandedFolder(expandedFolder === folder.id ? null : folder.id)}
+                  >
+                    {expandedFolder === folder.id ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                    <FolderOpen className="h-4 w-4 text-yellow-500" />
+                    <span className="font-mono">{folder.name}</span>
+                  </button>
+                  <button
+                    onClick={() => removeFolder(folder.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    data-testid={`button-remove-folder-${folder.id}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {expandedFolder === folder.id && (
+                  <div className="ml-6 space-y-1">
+                    {filesLoading ? (
+                      <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        Loading files...
+                      </div>
+                    ) : (
+                      <>
+                        {newFiles.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">{newFiles.length} new file{newFiles.length !== 1 ? "s" : ""}</span>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-xs"
+                                  onClick={() => {
+                                    if (selectedFileIds.size === newFiles.length) setSelectedFileIds(new Set());
+                                    else setSelectedFileIds(new Set(newFiles.map(f => f.id)));
+                                  }}
+                                  data-testid="button-select-all-files"
+                                >
+                                  {selectedFileIds.size === newFiles.length ? "Deselect" : "Select All"}
+                                </Button>
+                                {selectedFileIds.size > 0 && (
+                                  <Button
+                                    size="sm"
+                                    className="h-6 text-xs"
+                                    onClick={() => startImport({ fileIds: Array.from(selectedFileIds), folderIds: [folder.id] })}
+                                    disabled={!!importProgress?.importing}
+                                    data-testid="button-import-selected"
+                                  >
+                                    Import ({selectedFileIds.size})
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="grid gap-0.5 max-h-40 overflow-y-auto">
+                              {newFiles.map(file => (
+                                <label
+                                  key={file.id}
+                                  className="flex items-center gap-2 px-2 py-1 hover:bg-muted/20 rounded cursor-pointer text-xs"
+                                  data-testid={`file-new-${file.id}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedFileIds.has(file.id)}
+                                    onChange={() => toggleFile(file.id)}
+                                    className="rounded border-border"
+                                  />
+                                  <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                  <span className="flex-1 truncate">{file.name}</span>
+                                  <span className="text-muted-foreground/60 flex-shrink-0">
+                                    {format(new Date(file.modifiedTime), "MMM d")}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {newFiles.length === 0 && importedFiles.length > 0 && (
+                          <div className="flex items-center gap-1 py-1 text-xs text-muted-foreground">
+                            <CheckCircle2 className="h-3 w-3 text-primary" />
+                            All {importedFiles.length} files imported
+                          </div>
+                        )}
+                        {importedFiles.length > 0 && newFiles.length > 0 && (
+                          <div className="text-xs text-muted-foreground/60">
+                            + {importedFiles.length} already imported
+                          </div>
+                        )}
+                        {files.length === 0 && (
+                          <p className="text-xs text-muted-foreground py-1">No files in this folder</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {settings?.lastSyncAt && (
+          <div className="text-xs text-muted-foreground flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Last sync: {format(new Date(settings.lastSyncAt), "MMM d, h:mm a")}
+          </div>
+        )}
+
+        {!showSearch ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSearch(true)}
+            data-testid="button-add-folder"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Folder
+          </Button>
+        ) : (
+          <div className="border border-border/50 rounded-lg p-3 space-y-2 bg-background/50">
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Search for a folder name (e.g. CIMC)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 text-sm"
+                autoFocus
+                data-testid="input-folder-search"
+              />
+              <Button size="sm" variant="ghost" onClick={() => { setShowSearch(false); setSearchQuery(""); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {searching ? (
+              <div className="flex items-center gap-2 py-2 justify-center text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Searching...
+              </div>
+            ) : searchQuery.length >= 2 && searchResults.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 text-center">No folders found</p>
+            ) : (
+              <div className="grid gap-1 max-h-48 overflow-y-auto">
+                {searchResults.map(folder => {
+                  const alreadyAdded = settings?.folders?.some(f => f.id === folder.id);
+                  return (
+                    <div key={folder.id} className="flex items-center justify-between hover:bg-muted/30 rounded px-2 py-1.5">
+                      <div className="flex items-center gap-2 text-sm">
+                        <FolderOpen className="h-4 w-4 text-yellow-500" />
+                        {folder.name}
+                      </div>
+                      {alreadyAdded ? (
+                        <Badge variant="secondary" className="text-xs">Added</Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs h-7"
+                          onClick={() => addFolder(folder)}
+                          data-testid={`button-add-folder-${folder.id}`}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Admin() {
   const [, setLocation] = useLocation();
@@ -62,9 +479,11 @@ export default function Admin() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-mono font-bold text-foreground">Admin Panel</h1>
-          <p className="text-sm text-muted-foreground">User info and activity log</p>
+          <p className="text-sm text-muted-foreground">User info, activity log, and data imports</p>
         </div>
       </div>
+
+      <GoogleDriveImportPanel />
 
       <Card className="glass-panel border-primary/20" data-testid="card-visualizations">
         <CardHeader>

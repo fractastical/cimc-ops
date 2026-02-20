@@ -13,7 +13,8 @@ import {
   Bell,
   LogOut,
   Banknote,
-  FileText
+  FileText,
+  Lightbulb
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -68,6 +69,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
     { icon: FlaskConical, label: "Research", path: "/research" },
+    { icon: Lightbulb, label: "Hypotheses", path: "/hypotheses" },
     { icon: GitGraph, label: "Repos", path: "/repos" },
     { icon: FileText, label: "Papers", path: "/papers" },
     { icon: Target, label: "Milestones", path: "/milestones" },

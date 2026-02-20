@@ -11,6 +11,7 @@ import Research from "@/pages/Research";
 import Milestones from "@/pages/Milestones";
 import MilestoneSubmit from "@/pages/MilestoneSubmit";
 import Admin from "@/pages/Admin";
+import Hypotheses from "@/pages/Hypotheses";
 import Papers from "@/pages/Papers";
 import Grants from "@/pages/Grants";
 import Login from "@/pages/Login";
@@ -31,6 +32,7 @@ function DashboardRouter() {
         <Route path="/slackbot" component={Home} />
         <Route path="/research" component={Research} />
         <Route path="/papers" component={Papers} />
+        <Route path="/hypotheses" component={Hypotheses} />
         <Route path="/milestones" component={Milestones} />
         <Route path="/grants" component={Grants} />
         <Route path="/admin" component={Admin} />
@@ -114,6 +116,9 @@ function App() {
             <AuthenticatedApp />
           </Route>
           <Route path="/papers">
+            <AuthenticatedApp />
+          </Route>
+          <Route path="/hypotheses">
             <AuthenticatedApp />
           </Route>
           <Route path="/milestones">
