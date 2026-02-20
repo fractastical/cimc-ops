@@ -20,13 +20,19 @@ import {
   getResearchProjects,
   getMilestones,
   getMilestoneSubmissions,
+  getNotionDatabases,
+  getNotionDatabaseEntries,
+  getNotionPage,
   type ResearchTimeline,
   type Hypothesis,
   type HypothesisActivity,
+  type NotionDatabase,
+  type NotionResearcher,
+  type NotionPageContent,
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, Download, Pencil, Check } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, Download, Pencil, Check, ExternalLink, BookOpen, Database } from "lucide-react";
 import { MilestoneProgressGrid } from "@/components/dashboard/MilestoneProgressGrid";
 import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";
@@ -1020,6 +1026,262 @@ function HypothesisActivityPanel() {
   );
 }
 
+function NotionResearcherDetail({ researcher, onClose }: { researcher: NotionResearcher; onClose: () => void }) {
+  const { data: pageContent, isLoading } = useQuery({
+    queryKey: ["notionPage", researcher.id],
+    queryFn: () => getNotionPage(researcher.id),
+  });
+
+  const skipProps = new Set(["_name", "Name", "name"]);
+  const displayProps = Object.entries(researcher.properties).filter(
+    ([key, val]) => !skipProps.has(key) && val !== null && val !== "" && !(Array.isArray(val) && val.length === 0)
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div 
+        className="bg-background border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5 text-primary" />
+            <h3 className="font-mono font-semibold">{researcher.name}</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={researcher.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80 transition-colors"
+              data-testid="link-notion-page"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          {displayProps.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {displayProps.map(([key, val]) => (
+                <div key={key} className="space-y-1">
+                  <span className="text-xs text-muted-foreground font-mono uppercase">{key}</span>
+                  <div className="text-sm">
+                    {Array.isArray(val) ? (
+                      <div className="flex flex-wrap gap-1">
+                        {val.map((v: string, i: number) => (
+                          <Badge key={i} variant="outline" className="text-xs">{v}</Badge>
+                        ))}
+                      </div>
+                    ) : typeof val === "boolean" ? (
+                      <Badge variant={val ? "default" : "outline"} className="text-xs">
+                        {val ? "Yes" : "No"}
+                      </Badge>
+                    ) : typeof val === "string" && val.startsWith("http") ? (
+                      <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs break-all">
+                        {val}
+                      </a>
+                    ) : (
+                      <span className="text-foreground">{String(val)}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          )}
+
+          {pageContent && pageContent.blocks.length > 0 && (
+            <div className="border-t border-border pt-4 space-y-2">
+              <h4 className="font-mono text-sm font-semibold text-muted-foreground">Page Content</h4>
+              <div className="space-y-1 text-sm">
+                {pageContent.blocks
+                  .filter(b => b.text)
+                  .map((block) => (
+                    <div key={block.id} className={
+                      block.type === "heading_1" ? "text-lg font-bold mt-3" :
+                      block.type === "heading_2" ? "text-base font-semibold mt-2" :
+                      block.type === "heading_3" ? "text-sm font-semibold mt-1" :
+                      block.type === "bulleted_list_item" ? "pl-4 before:content-['•'] before:mr-2 before:text-primary" :
+                      block.type === "numbered_list_item" ? "pl-4" :
+                      block.type === "to_do" ? "pl-4" :
+                      block.type === "quote" ? "pl-4 border-l-2 border-primary/40 italic text-muted-foreground" :
+                      block.type === "code" ? "font-mono bg-muted/20 p-2 rounded text-xs" :
+                      "text-foreground"
+                    }>
+                      {block.text}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NotionResearchersPanel() {
+  const [selectedDbId, setSelectedDbId] = useState<string | null>(null);
+  const [selectedResearcher, setSelectedResearcher] = useState<NotionResearcher | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const { data: databases = [], isLoading: loadingDbs } = useQuery({
+    queryKey: ["notionDatabases"],
+    queryFn: getNotionDatabases,
+  });
+
+  const { data: entries = [], isLoading: loadingEntries } = useQuery({
+    queryKey: ["notionEntries", selectedDbId],
+    queryFn: () => getNotionDatabaseEntries(selectedDbId!),
+    enabled: !!selectedDbId,
+  });
+
+  const filteredEntries = entries.filter(e =>
+    e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    Object.values(e.properties).some(v => 
+      typeof v === "string" && v.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  return (
+    <Card className="glass-panel border-primary/20" data-testid="card-notion-researchers">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-mono flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-primary" />
+            Researcher Profiles (Notion)
+          </CardTitle>
+          {selectedDbId && (
+            <span className="text-xs text-muted-foreground font-mono">
+              {entries.length} entries
+            </span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loadingDbs ? (
+          <div className="flex items-center justify-center py-4">
+            <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+          </div>
+        ) : databases.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No Notion databases found. Make sure to share databases with the integration.
+          </p>
+        ) : !selectedDbId ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Select a database to browse:</p>
+            {databases.map((db) => (
+              <button
+                key={db.id}
+                onClick={() => setSelectedDbId(db.id)}
+                className="w-full text-left p-3 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-muted/10 transition-colors"
+                data-testid={`button-notion-db-${db.id}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4 text-primary shrink-0" />
+                  <span className="font-mono text-sm font-medium truncate">{db.title}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setSelectedDbId(null); setSearchTerm(""); }}
+                className="text-xs"
+                data-testid="button-back-to-databases"
+              >
+                <ChevronDown className="h-3 w-3 mr-1 rotate-90" />
+                Back
+              </Button>
+              <Input
+                placeholder="Search researchers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="font-mono text-sm h-8"
+                data-testid="input-search-researchers"
+              />
+            </div>
+            
+            {loadingEntries ? (
+              <div className="flex items-center justify-center py-4">
+                <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+              </div>
+            ) : filteredEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No entries found</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {filteredEntries.map((entry) => {
+                  const propsToShow = Object.entries(entry.properties)
+                    .filter(([key, val]) => 
+                      key !== "Name" && key !== "name" && key !== "_name" &&
+                      val !== null && val !== "" && !(Array.isArray(val) && val.length === 0)
+                    )
+                    .slice(0, 3);
+                  
+                  return (
+                    <button
+                      key={entry.id}
+                      onClick={() => setSelectedResearcher(entry)}
+                      className="text-left p-3 rounded-lg border border-border/30 hover:border-primary/40 hover:bg-muted/10 transition-colors"
+                      data-testid={`card-researcher-${entry.id}`}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <User className="h-4 w-4 text-primary shrink-0" />
+                          <span className="font-mono text-sm font-medium truncate">{entry.name || "Untitled"}</span>
+                        </div>
+                        <a
+                          href={entry.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-muted-foreground hover:text-primary shrink-0"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                      {propsToShow.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {propsToShow.map(([key, val]) => (
+                            <div key={key} className="text-xs text-muted-foreground truncate">
+                              <span className="font-mono text-muted-foreground/60">{key}:</span>{" "}
+                              {Array.isArray(val) ? val.join(", ") : String(val)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+
+      {selectedResearcher && (
+        <NotionResearcherDetail
+          researcher={selectedResearcher}
+          onClose={() => setSelectedResearcher(null)}
+        />
+      )}
+    </Card>
+  );
+}
+
 export default function Research() {
   const queryClient = useQueryClient();
   const [jsonInput, setJsonInput] = useState("");
@@ -1042,12 +1304,12 @@ export default function Research() {
 
   const { data: allMilestones = [] } = useQuery({
     queryKey: ["/api/milestones"],
-    queryFn: getMilestones,
+    queryFn: () => getMilestones(),
   });
 
   const { data: milestoneSubmissions = [] } = useQuery({
     queryKey: ["/api/milestone-submissions"],
-    queryFn: getMilestoneSubmissions,
+    queryFn: () => getMilestoneSubmissions(),
   });
 
   const importMutation = useMutation({
@@ -1154,6 +1416,8 @@ export default function Research() {
         submissions={milestoneSubmissions}
         projects={researchProjects}
       />
+
+      <NotionResearchersPanel />
 
       <ResearchTimelineChart timeline={timeline || []} hypotheses={hypotheses} />
 

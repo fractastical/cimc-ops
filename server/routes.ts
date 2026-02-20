@@ -17,6 +17,7 @@ import { githubService } from "./services/github";
 import { slackService } from "./services/slack";
 import { schedulerService } from "./services/scheduler";
 import { openAlexService } from "./services/openalex";
+import { notionService } from "./services/notion";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 
 async function autoSyncOnStartup() {
@@ -2231,6 +2232,37 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error generating comms viz data:", error);
       res.status(500).json({ error: "Failed to generate data" });
+    }
+  });
+
+  // Notion integration routes
+  app.get("/api/notion/databases", isAuthenticated, async (req, res) => {
+    try {
+      const databases = await notionService.listDatabases();
+      res.json(databases);
+    } catch (error: any) {
+      console.error("Error listing Notion databases:", error);
+      res.status(500).json({ error: error.message || "Failed to list databases" });
+    }
+  });
+
+  app.get("/api/notion/databases/:databaseId", isAuthenticated, async (req, res) => {
+    try {
+      const entries = await notionService.queryDatabase(req.params.databaseId);
+      res.json(entries);
+    } catch (error: any) {
+      console.error("Error querying Notion database:", error);
+      res.status(500).json({ error: error.message || "Failed to query database" });
+    }
+  });
+
+  app.get("/api/notion/pages/:pageId", isAuthenticated, async (req, res) => {
+    try {
+      const page = await notionService.getPageContent(req.params.pageId);
+      res.json(page);
+    } catch (error: any) {
+      console.error("Error fetching Notion page:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch page" });
     }
   });
 

@@ -780,3 +780,41 @@ export async function updateMicrograntApplication(id: string, updates: Partial<M
   if (!res.ok) throw new Error("Failed to update application");
   return res.json();
 }
+
+// Notion integration
+export interface NotionDatabase {
+  id: string;
+  title: string;
+  url: string;
+}
+
+export interface NotionResearcher {
+  id: string;
+  name: string;
+  properties: Record<string, any>;
+  url: string;
+}
+
+export interface NotionPageContent {
+  properties: Record<string, any>;
+  blocks: { type: string; text: string; id: string }[];
+  url: string;
+}
+
+export async function getNotionDatabases(): Promise<NotionDatabase[]> {
+  const res = await fetch("/api/notion/databases");
+  if (!res.ok) throw new Error("Failed to fetch Notion databases");
+  return res.json();
+}
+
+export async function getNotionDatabaseEntries(databaseId: string): Promise<NotionResearcher[]> {
+  const res = await fetch(`/api/notion/databases/${databaseId}`);
+  if (!res.ok) throw new Error("Failed to fetch database entries");
+  return res.json();
+}
+
+export async function getNotionPage(pageId: string): Promise<NotionPageContent> {
+  const res = await fetch(`/api/notion/pages/${pageId}`);
+  if (!res.ok) throw new Error("Failed to fetch page");
+  return res.json();
+}
