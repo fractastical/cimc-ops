@@ -326,10 +326,10 @@ function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTim
                           </Button>
                         </div>
                       ) : (
-                        <span className="font-mono text-sm truncate group/name flex items-center gap-1" title={project.project.name}>
+                        <span className="font-mono text-sm truncate group/name flex items-center gap-1" title={`Click pencil to rename "${project.project.name}"`}>
                           {project.project.name}
                           <Pencil
-                            className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-primary shrink-0"
+                            className="h-3 w-3 text-muted-foreground/50 hover:text-primary transition-colors cursor-pointer shrink-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               setEditingProjectId(project.project.id);
