@@ -174,7 +174,7 @@ function MapHypothesesModal({
   );
 }
 
-function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTimeline[]; hypotheses: Hypothesis[] }) {
+function ResearchTimelineChart({ timeline, hypotheses, notionEntries, onResearcherClick }: { timeline: ResearchTimeline[]; hypotheses: Hypothesis[]; notionEntries?: NotionResearcher[]; onResearcherClick?: (researcher: NotionResearcher) => void }) {
   const queryClient = useQueryClient();
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [mappingProject, setMappingProject] = useState<ResearchTimeline | null>(null);
@@ -193,6 +193,15 @@ function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTim
       toast.error("Failed to rename project");
     },
   });
+
+  const findNotionResearcher = (name: string): NotionResearcher | undefined => {
+    if (!notionEntries || !name) return undefined;
+    const lower = name.toLowerCase().trim();
+    return notionEntries.find(e => {
+      const eName = e.name.toLowerCase().trim();
+      return eName === lower || eName.includes(lower) || lower.includes(eName);
+    });
+  };
 
   if (timeline.length === 0) {
     return (
@@ -403,12 +412,25 @@ function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTim
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Calendar className="h-3 w-3" />
                             <span className="font-mono">{format(parseISO(update.date), 'MMM d, yyyy')}</span>
-                            {update.grantee && (
-                              <>
-                                <User className="h-3 w-3 ml-2" />
-                                <span>{update.grantee}</span>
-                              </>
-                            )}
+                            {update.grantee && (() => {
+                              const notionMatch = findNotionResearcher(update.grantee);
+                              return (
+                                <>
+                                  <User className="h-3 w-3 ml-2" />
+                                  {notionMatch && onResearcherClick ? (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); onResearcherClick(notionMatch); }}
+                                      className="text-primary hover:underline cursor-pointer"
+                                      data-testid={`link-researcher-${update.id}`}
+                                    >
+                                      {update.grantee}
+                                    </button>
+                                  ) : (
+                                    <span>{update.grantee}</span>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                           <p className="text-sm text-foreground/90 leading-relaxed">
                             {update.description}
@@ -435,15 +457,23 @@ function ResearchTimelineChart({ timeline, hypotheses }: { timeline: ResearchTim
               const count = timeline.reduce((sum, t) => 
                 sum + t.updates.filter(u => u.grantee === grantee).length, 0
               );
+              const notionMatch = findNotionResearcher(grantee);
+              const isClickable = notionMatch && onResearcherClick;
               return (
-                <div 
+                <button 
                   key={grantee}
-                  className="px-3 py-1.5 rounded-full bg-muted/30 border border-border/50 text-sm font-mono flex items-center gap-2"
+                  onClick={() => isClickable && onResearcherClick(notionMatch)}
+                  className={`px-3 py-1.5 rounded-full border text-sm font-mono flex items-center gap-2 transition-colors ${
+                    isClickable
+                      ? "bg-primary/10 border-primary/30 hover:bg-primary/20 hover:border-primary/50 cursor-pointer"
+                      : "bg-muted/30 border-border/50 cursor-default"
+                  }`}
+                  data-testid={`button-contributor-${grantee}`}
                 >
-                  <User className="h-3 w-3 text-muted-foreground" />
-                  {grantee}
+                  <User className={`h-3 w-3 ${isClickable ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className={isClickable ? "text-primary" : ""}>{grantee}</span>
                   <span className="text-xs text-muted-foreground">({count})</span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -1286,6 +1316,7 @@ export default function Research() {
   const queryClient = useQueryClient();
   const [jsonInput, setJsonInput] = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [selectedResearcherForModal, setSelectedResearcherForModal] = useState<NotionResearcher | null>(null);
 
   const { data: timeline, isLoading } = useQuery({
     queryKey: ["researchTimeline"],
@@ -1310,6 +1341,19 @@ export default function Research() {
   const { data: milestoneSubmissions = [] } = useQuery({
     queryKey: ["/api/milestone-submissions"],
     queryFn: () => getMilestoneSubmissions(),
+  });
+
+  const { data: notionDatabases = [] } = useQuery({
+    queryKey: ["notionDatabases"],
+    queryFn: getNotionDatabases,
+  });
+
+  const researcherDbId = notionDatabases.length > 0 ? notionDatabases[0].id : null;
+
+  const { data: notionEntries = [] } = useQuery({
+    queryKey: ["notionEntries", researcherDbId],
+    queryFn: () => getNotionDatabaseEntries(researcherDbId!),
+    enabled: !!researcherDbId,
   });
 
   const importMutation = useMutation({
@@ -1419,11 +1463,23 @@ export default function Research() {
 
       <NotionResearchersPanel />
 
-      <ResearchTimelineChart timeline={timeline || []} hypotheses={hypotheses} />
+      <ResearchTimelineChart 
+        timeline={timeline || []} 
+        hypotheses={hypotheses} 
+        notionEntries={notionEntries}
+        onResearcherClick={setSelectedResearcherForModal}
+      />
 
       <HypothesisActivityPanel />
 
       <HypothesesSection timeline={timeline || []} />
+
+      {selectedResearcherForModal && (
+        <NotionResearcherDetail
+          researcher={selectedResearcherForModal}
+          onClose={() => setSelectedResearcherForModal(null)}
+        />
+      )}
     </div>
   );
 }
