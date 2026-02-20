@@ -53,6 +53,12 @@ export function MonthlyActivityChart() {
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={formattedData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#059669" stopOpacity={0.7} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
               <XAxis 
                 dataKey="month" 
@@ -83,9 +89,8 @@ export function MonthlyActivityChart() {
               />
               <Bar 
                 dataKey="commits" 
-                fill="hsl(var(--primary))" 
+                fill="url(#greenGradient)" 
                 radius={[4, 4, 0, 0]}
-                opacity={0.8}
               />
             </BarChart>
           </ResponsiveContainer>
