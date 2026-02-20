@@ -2103,79 +2103,106 @@ export async function registerRoutes(
     }
   });
 
-  // ============ Tag Cloud Data (Public) ============
+  // ============ Activity Timeline Visualization Data (Public) ============
   app.get("/api/viz/tagcloud", async (req, res) => {
     try {
-      const stopWords = new Set([
-        "the","a","an","and","or","but","in","on","at","to","for","of","with","by",
-        "from","is","was","are","were","be","been","being","have","has","had","do",
-        "does","did","will","would","could","should","may","might","shall","can",
-        "this","that","these","those","it","its","i","we","you","he","she","they",
-        "me","us","him","her","them","my","our","your","his","their","mine","ours",
-        "yours","hers","theirs","what","which","who","whom","how","when","where",
-        "why","if","then","than","so","no","not","only","very","just","also","more",
-        "most","some","any","all","each","every","both","few","many","much","such",
-        "own","other","another","about","into","through","during","before","after",
-        "above","below","between","under","over","again","further","once","as","up",
-        "down","out","off","here","there","too","s","t","re","ve","d","ll","m","o",
-        "don","didn","doesn","won","wouldn","couldn","shouldn","isn","wasn","aren",
-        "weren","hasn","haven","hadn","amp","new","using","used","use","based","one",
-        "two","three","first","second","like","including","across","total","per",
-        "sent","daily","weekly","monthly","summary","update","updates","commits",
-        "commit","pull","requests","active","repositories","repository","activity",
-        "top","contributor","bar_chart","calendar","microscope","page_facing_up",
-        "pencil","arrows_counterclockwise","white_check_mark","dna","computer",
-        "status","system","systems","sent"
-      ]);
-
-      const wordCounts: Record<string, number> = {};
-
-      const addWords = (text: string, weight: number = 1) => {
-        const words = text.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/);
-        for (const word of words) {
-          const clean = word.trim();
-          if (clean.length > 2 && !stopWords.has(clean) && !/^\d+$/.test(clean)) {
-            wordCounts[clean] = (wordCounts[clean] || 0) + weight;
-          }
-        }
-      };
-
-      const updates = await storage.getResearchUpdates();
-      for (const u of updates) {
-        if (u.description) addWords(u.description, 3);
-      }
-
-      const projects = await storage.getResearchProjects();
-      for (const p of projects) {
-        if (p.name && !p.name.startsWith("[TEST]")) addWords(p.name, 5);
-        if (p.description && !p.description.startsWith("[TEST")) addWords(p.description, 2);
-      }
-
-      const messages = await storage.getRecentSlackMessages(500);
-      for (const m of messages) {
-        if (m.message) addWords(m.message, 1);
-      }
-
+      const activityLog = await storage.getRecentActivity(365);
+      const slackMsgs = await storage.getRecentSlackMessages(500);
+      const researchUpdates = await storage.getResearchUpdates();
       const repos = await storage.getActiveRepositories();
+
+      const repoMap: Record<string, string> = {};
       for (const r of repos) {
-        if (r.name) addWords(r.name.replace(/[-_]/g, " "), 4);
-        if (r.description) addWords(r.description, 2);
+        repoMap[r.id] = r.name;
       }
 
-      const milestones = await storage.getMilestones();
-      for (const ml of milestones) {
-        if (ml.description && !ml.description.startsWith("[TEST]")) addWords(ml.description, 2);
+      interface TimelineEvent {
+        date: string;
+        label: string;
+        type: "commit" | "slack" | "research" | "pr" | "issue";
+        detail: string;
       }
 
-      const sorted = Object.entries(wordCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 200)
-        .map(([word, count]) => ({ word, count }));
+      const events: TimelineEvent[] = [];
 
-      res.json(sorted);
+      for (const a of activityLog) {
+        const dateStr = a.activityDate
+          ? new Date(a.activityDate).toISOString().split("T")[0]
+          : a.createdAt
+          ? new Date(a.createdAt).toISOString().split("T")[0]
+          : null;
+        if (!dateStr) continue;
+
+        const repoName = a.repositoryId ? (repoMap[a.repositoryId] || a.repositoryId) : "";
+        const evType = a.eventType === "push" ? "commit" : a.eventType === "pull_request" ? "pr" : a.eventType === "issues" ? "issue" : "commit";
+        const msg = a.message || "";
+        const shortMsg = msg.length > 60 ? msg.substring(0, 60) : msg;
+
+        events.push({
+          date: dateStr,
+          label: repoName || shortMsg || a.eventType || "event",
+          type: evType as any,
+          detail: shortMsg,
+        });
+      }
+
+      for (const m of slackMsgs) {
+        const dateStr = m.timestamp ? new Date(m.timestamp).toISOString().split("T")[0] : null;
+        if (!dateStr) continue;
+        const shortMsg = m.message.length > 60 ? m.message.substring(0, 60) : m.message;
+        events.push({
+          date: dateStr,
+          label: m.user || "slack",
+          type: "slack",
+          detail: shortMsg.replace(/[:*_~`]/g, ""),
+        });
+      }
+
+      for (const u of researchUpdates) {
+        const dateStr = u.date ? new Date(u.date).toISOString().split("T")[0] : null;
+        if (!dateStr) continue;
+        const shortDesc = u.description ? (u.description.length > 80 ? u.description.substring(0, 80) : u.description) : "";
+        events.push({
+          date: dateStr,
+          label: u.grantee || "research",
+          type: "research",
+          detail: shortDesc,
+        });
+      }
+
+      const dayMap: Record<string, { commits: number; slack: number; research: number; prs: number; labels: string[] }> = {};
+      for (const ev of events) {
+        if (!dayMap[ev.date]) {
+          dayMap[ev.date] = { commits: 0, slack: 0, research: 0, prs: 0, labels: [] };
+        }
+        const d = dayMap[ev.date];
+        if (ev.type === "commit") d.commits++;
+        else if (ev.type === "slack") d.slack++;
+        else if (ev.type === "research") d.research++;
+        else if (ev.type === "pr" || ev.type === "issue") d.prs++;
+
+        if (d.labels.length < 8) {
+          const lbl = ev.label || ev.detail;
+          if (lbl && !d.labels.includes(lbl)) d.labels.push(lbl);
+        }
+      }
+
+      const timeline = Object.entries(dayMap)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, data]) => ({
+          date,
+          commits: data.commits,
+          slack: data.slack,
+          research: data.research,
+          prs: data.prs,
+          total: data.commits + data.slack + data.research + data.prs,
+          labels: data.labels,
+        }));
+
+      res.json(timeline);
     } catch (error) {
-      console.error("Error generating tag cloud data:", error);
-      res.status(500).json({ error: "Failed to generate tag cloud" });
+      console.error("Error generating timeline data:", error);
+      res.status(500).json({ error: "Failed to generate timeline" });
     }
   });
 
