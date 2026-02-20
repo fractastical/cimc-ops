@@ -26,7 +26,7 @@ import {
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, Download, Pencil, Check } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, Download, Pencil, Check } from "lucide-react";
 import { MilestoneProgressGrid } from "@/components/dashboard/MilestoneProgressGrid";
 import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";

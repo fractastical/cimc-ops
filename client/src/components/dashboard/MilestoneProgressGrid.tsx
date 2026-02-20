@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, CheckCircle, Clock } from "lucide-react";
+import { BarChart3, CheckCircle, Clock, ChevronDown, ChevronRight } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import type { Milestone, MilestoneSubmission, ResearchProject } from "@/lib/api";
 
@@ -16,6 +16,51 @@ const statusConfig: Record<CellStatus, { bg: string; border: string; label: stri
   "no-milestone": { bg: "bg-transparent", border: "border-transparent", label: "" },
 };
 
+function getMilestoneStatus(
+  milestone: Milestone,
+  submissions: MilestoneSubmission[],
+  allMilestones: Milestone[]
+): { status: CellStatus; submission?: MilestoneSubmission } {
+  const projectMilestoneIds = new Set(
+    allMilestones.filter(m => m.projectId === milestone.projectId).map(m => m.id)
+  );
+  const projectSubs = submissions.filter(s => projectMilestoneIds.has(s.milestoneId));
+
+  for (const sub of projectSubs) {
+    const answers = sub.customAnswers || {};
+    const statusKey = `milestone_status:${milestone.id}`;
+    if (answers[statusKey]) {
+      try {
+        const parsed = JSON.parse(answers[statusKey]);
+        return { status: parsed.status as CellStatus, submission: sub };
+      } catch {}
+    }
+  }
+
+  const directSub = submissions.find(s => s.milestoneId === milestone.id);
+  if (!directSub) return { status: "no-submission" };
+
+  if (directSub.completionPercentage !== null && directSub.completionPercentage !== undefined) {
+    if (directSub.completionPercentage >= 100) return { status: "finished", submission: directSub };
+    if (directSub.completionPercentage > 0) return { status: "in-progress", submission: directSub };
+  }
+
+  return { status: "to-do", submission: directSub };
+}
+
+function getProjectSummaryStatus(
+  projectId: string,
+  month: string,
+  milestones: Milestone[],
+  submissions: MilestoneSubmission[]
+): CellStatus {
+  const milestone = milestones.find(m => m.projectId === projectId && m.month === month);
+  if (!milestone) return "no-milestone";
+
+  const { status } = getMilestoneStatus(milestone, submissions, milestones);
+  return status;
+}
+
 export function MilestoneProgressGrid({ 
   milestones, 
   submissions, 
@@ -26,6 +71,7 @@ export function MilestoneProgressGrid({
   projects: ResearchProject[];
 }) {
   const [hideTestProjects, setHideTestProjects] = useState(true);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
   if (!milestones?.length || !projects?.length) {
     return (
@@ -50,28 +96,16 @@ export function MilestoneProgressGrid({
   const allMonths = Array.from(new Set(filteredMilestones.map(m => m.month))).sort();
   const projectIds = Array.from(new Set(filteredMilestones.map(m => m.projectId)));
 
-  const getStatus = (projectId: string, month: string): { status: CellStatus; milestone?: Milestone; submission?: MilestoneSubmission } => {
-    const milestone = milestones.find(m => m.projectId === projectId && m.month === month);
-    if (!milestone) return { status: "no-milestone" };
-
-    const sub = submissions?.find(s => s.milestoneId === milestone.id);
-    if (!sub) return { status: "no-submission", milestone };
-
-    const answers = sub.customAnswers || {};
-    const statusKey = `milestone_status:${milestone.id}`;
-    if (answers[statusKey]) {
-      try {
-        const parsed = JSON.parse(answers[statusKey]);
-        return { status: parsed.status as CellStatus, milestone, submission: sub };
-      } catch {}
-    }
-
-    if (sub.completionPercentage !== null && sub.completionPercentage !== undefined) {
-      if (sub.completionPercentage >= 100) return { status: "finished", milestone, submission: sub };
-      if (sub.completionPercentage > 0) return { status: "in-progress", milestone, submission: sub };
-    }
-
-    return { status: "to-do", milestone, submission: sub };
+  const toggleProject = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
   };
 
   const currentMonth = format(new Date(), "yyyy-MM");
@@ -93,14 +127,14 @@ export function MilestoneProgressGrid({
             Hide test projects
           </label>
         </div>
-        <CardDescription>Each cube represents a milestone's status for that month</CardDescription>
+        <CardDescription>Click a project to see individual milestones</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
           <div className="overflow-x-auto">
             <div className="min-w-fit">
               <div className="flex items-end gap-1 mb-2">
-                <div className="w-48 shrink-0" />
+                <div className="w-56 shrink-0" />
                 {allMonths.map(month => (
                   <div 
                     key={month} 
@@ -115,33 +149,100 @@ export function MilestoneProgressGrid({
               {projectIds.map(projectId => {
                 const project = projectMap.get(projectId);
                 if (!project) return null;
+                const isExpanded = expandedProjects.has(projectId);
+                const projectMilestones = filteredMilestones
+                  .filter(m => m.projectId === projectId)
+                  .sort((a, b) => a.month.localeCompare(b.month));
 
                 return (
-                  <div key={projectId} className="flex items-center gap-1 mb-1.5" data-testid={`progress-row-${projectId}`}>
-                    <div className="w-48 shrink-0 truncate text-sm font-mono pr-2" title={project.name}>
-                      {project.name}
-                    </div>
-                    {allMonths.map(month => {
-                      const { status, milestone, submission } = getStatus(projectId, month);
-                      const config = statusConfig[status];
-                      const tooltipText = status === "no-milestone" 
-                        ? "" 
-                        : `${project.name} — ${format(parseISO(month + "-01"), "MMMM yyyy")}\n${config.label}${milestone ? `\n${milestone.description.slice(0, 80)}` : ''}${submission ? `\nSubmitted: ${format(new Date(submission.submittedAt), "MMM d")}` : ''}`;
+                  <div key={projectId} data-testid={`progress-row-${projectId}`}>
+                    <div 
+                      className="flex items-center gap-1 mb-1 cursor-pointer group hover:bg-muted/10 rounded-md -mx-1 px-1"
+                      onClick={() => toggleProject(projectId)}
+                    >
+                      <div className="w-56 shrink-0 flex items-center gap-1.5 pr-2">
+                        {isExpanded 
+                          ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        }
+                        <span className="truncate text-sm font-mono font-medium" title={project.name}>
+                          {project.name}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                          {projectMilestones.length}
+                        </Badge>
+                      </div>
+                      {allMonths.map(month => {
+                        const status = getProjectSummaryStatus(projectId, month, milestones, submissions);
+                        const config = statusConfig[status];
 
-                      return (
-                        <div
-                          key={month}
-                          className={`w-12 h-10 rounded-md border ${config.border} ${config.bg} transition-all hover:scale-110 cursor-default flex items-center justify-center`}
-                          title={tooltipText}
-                          data-testid={`progress-cell-${projectId}-${month}`}
-                        >
-                          {status === "finished" && <CheckCircle className="h-4 w-4 text-white/80" />}
-                          {status === "in-progress" && <Clock className="h-4 w-4 text-white/80" />}
-                          {status === "to-do" && <div className="w-2 h-2 rounded-sm bg-muted-foreground/40" />}
-                          {status === "no-submission" && <div className="w-2 h-2 rounded-sm border border-dashed border-muted-foreground/30" />}
-                        </div>
-                      );
-                    })}
+                        return (
+                          <div
+                            key={month}
+                            className={`w-12 h-8 rounded-md border ${config.border} ${config.bg} transition-all flex items-center justify-center`}
+                            data-testid={`progress-cell-${projectId}-${month}`}
+                          >
+                            {status === "finished" && <CheckCircle className="h-3.5 w-3.5 text-white/80" />}
+                            {status === "in-progress" && <Clock className="h-3.5 w-3.5 text-white/80" />}
+                            {status === "to-do" && <div className="w-1.5 h-1.5 rounded-sm bg-muted-foreground/40" />}
+                            {status === "no-submission" && <div className="w-1.5 h-1.5 rounded-sm border border-dashed border-muted-foreground/30" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {isExpanded && (
+                      <div className="ml-5 border-l border-border/30 pl-2 mb-3">
+                        {projectMilestones.map(milestone => {
+                          const { status, submission } = getMilestoneStatus(milestone, submissions, filteredMilestones);
+                          const config = statusConfig[status];
+                          const descriptionPreview = milestone.description.split('\n')[0].slice(0, 60);
+
+                          return (
+                            <div 
+                              key={milestone.id} 
+                              className="flex items-center gap-1 mb-1"
+                              data-testid={`progress-milestone-${milestone.id}`}
+                            >
+                              <div className="w-[196px] shrink-0 pr-2">
+                                <div className="text-xs text-muted-foreground truncate" title={milestone.description}>
+                                  <span className="font-mono text-primary/70">
+                                    {format(parseISO(milestone.month + "-01"), "MMM")}:
+                                  </span>{" "}
+                                  {descriptionPreview}
+                                </div>
+                              </div>
+                              {allMonths.map(month => {
+                                const isThisMonth = month === milestone.month;
+                                if (!isThisMonth) {
+                                  return (
+                                    <div key={month} className="w-12 h-7 flex items-center justify-center">
+                                      <div className="w-px h-3 bg-border/20" />
+                                    </div>
+                                  );
+                                }
+
+                                const tooltipText = `${project.name} — ${format(parseISO(month + "-01"), "MMMM yyyy")}\n${config.label}\n${milestone.description.slice(0, 120)}${submission ? `\nSubmitted: ${format(new Date(submission.submittedAt), "MMM d")}` : ''}`;
+
+                                return (
+                                  <div
+                                    key={month}
+                                    className={`w-12 h-7 rounded-md border ${config.border} ${config.bg} transition-all hover:scale-110 cursor-default flex items-center justify-center`}
+                                    title={tooltipText}
+                                    data-testid={`progress-milestone-cell-${milestone.id}-${month}`}
+                                  >
+                                    {status === "finished" && <CheckCircle className="h-3 w-3 text-white/80" />}
+                                    {status === "in-progress" && <Clock className="h-3 w-3 text-white/80" />}
+                                    {status === "to-do" && <div className="w-1.5 h-1.5 rounded-sm bg-muted-foreground/40" />}
+                                    {status === "no-submission" && <div className="w-1.5 h-1.5 rounded-sm border border-dashed border-muted-foreground/30" />}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
