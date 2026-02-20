@@ -68,13 +68,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
-    { icon: GitGraph, label: "Repos", path: "/repos" },
-    { icon: Bot, label: "Slackbot", path: "/slackbot" },
     { icon: FlaskConical, label: "Research", path: "/research" },
+    { icon: GitGraph, label: "Repos", path: "/repos" },
     { icon: FileText, label: "Papers", path: "/papers" },
     { icon: Target, label: "Milestones", path: "/milestones" },
     { icon: Banknote, label: "Grants", path: "/grants" },
     { icon: Shield, label: "Admin", path: "/admin" },
+    { icon: Bot, label: "Slackbot", path: "/slackbot" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
