@@ -46,7 +46,6 @@ Return ONLY a JSON array of objects. No markdown, no explanation. Example:
     const response = await openai.chat.completions.create({
       model: "gpt-5-mini",
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
       max_completion_tokens: 4096,
     });
 
