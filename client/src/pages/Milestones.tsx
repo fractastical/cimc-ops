@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { 
   Plus, 
@@ -66,6 +67,8 @@ function MilestoneProgressGrid({
   submissions: MilestoneSubmission[]; 
   projects: ResearchProject[];
 }) {
+  const [hideTestProjects, setHideTestProjects] = useState(true);
+
   if (!milestones?.length || !projects?.length) {
     return (
       <Card className="glass-panel border-primary/20">
@@ -76,9 +79,18 @@ function MilestoneProgressGrid({
     );
   }
 
-  const allMonths = Array.from(new Set(milestones.map(m => m.month))).sort();
-  const projectIds = Array.from(new Set(milestones.map(m => m.projectId)));
   const projectMap = new Map(projects.map(p => [p.id, p]));
+  const isTestProject = (projectId: string) => {
+    const name = projectMap.get(projectId)?.name || "";
+    return name.startsWith("[TEST]");
+  };
+
+  const filteredMilestones = hideTestProjects 
+    ? milestones.filter(m => !isTestProject(m.projectId)) 
+    : milestones;
+
+  const allMonths = Array.from(new Set(filteredMilestones.map(m => m.month))).sort();
+  const projectIds = Array.from(new Set(filteredMilestones.map(m => m.projectId)));
 
   type CellStatus = "finished" | "in-progress" | "to-do" | "no-submission" | "no-milestone";
 
@@ -119,10 +131,20 @@ function MilestoneProgressGrid({
   return (
     <Card className="glass-panel border-primary/20">
       <CardHeader className="pb-3">
-        <CardTitle className="font-mono text-lg flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-primary" />
-          Milestone Progress Grid
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="font-mono text-lg flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            Milestone Progress Grid
+          </CardTitle>
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground">
+            <Checkbox
+              checked={hideTestProjects}
+              onCheckedChange={(checked) => setHideTestProjects(checked === true)}
+              data-testid="checkbox-hide-test-projects"
+            />
+            Hide test projects
+          </label>
+        </div>
         <CardDescription>Each cube represents a milestone's status for that month</CardDescription>
       </CardHeader>
       <CardContent>
