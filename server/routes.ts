@@ -2113,25 +2113,29 @@ export async function registerRoutes(
       const repoMap: Record<string, string> = {};
       for (const r of repos) repoMap[r.id] = r.name;
 
-      const dayMap: Record<string, { commits: number; prs: number; issues: number; labels: string[] }> = {};
+      const freq: Record<string, { count: number; category: string }> = {};
       for (const a of activityLog) {
-        const dateStr = a.activityDate
-          ? new Date(a.activityDate).toISOString().split("T")[0]
-          : a.createdAt ? new Date(a.createdAt).toISOString().split("T")[0] : null;
-        if (!dateStr) continue;
-        if (!dayMap[dateStr]) dayMap[dateStr] = { commits: 0, prs: 0, issues: 0, labels: [] };
-        const d = dayMap[dateStr];
-        if (a.eventType === "push") d.commits++;
-        else if (a.eventType === "pull_request") d.prs++;
-        else if (a.eventType === "issues") d.issues++;
         const repoName = a.repositoryId ? (repoMap[a.repositoryId] || "") : "";
-        const label = repoName || (a.message ? a.message.substring(0, 50) : "");
-        if (label && d.labels.length < 6 && !d.labels.includes(label)) d.labels.push(label);
+        if (repoName) {
+          if (!freq[repoName]) freq[repoName] = { count: 0, category: "repo" };
+          freq[repoName].count++;
+        }
+        const author = a.author || "";
+        if (author && author.length > 1) {
+          if (!freq[author]) freq[author] = { count: 0, category: "author" };
+          freq[author].count++;
+        }
+        const eventLabel = a.eventType === "push" ? "commit" : a.eventType === "pull_request" ? "PR" : a.eventType === "issues" ? "issue" : "";
+        if (eventLabel) {
+          if (!freq[eventLabel]) freq[eventLabel] = { count: 0, category: "event" };
+          freq[eventLabel].count++;
+        }
       }
-      const timeline = Object.entries(dayMap)
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, data]) => ({ date, ...data, total: data.commits + data.prs + data.issues }));
-      res.json(timeline);
+      const tags = Object.entries(freq)
+        .map(([word, { count, category }]) => ({ word, count, category }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 60);
+      res.json({ title: "GITHUB ACTIVITY", subtitle: `${activityLog.length} events tracked`, tags });
     } catch (error) {
       console.error("Error generating GitHub viz data:", error);
       res.status(500).json({ error: "Failed to generate data" });
@@ -2149,40 +2153,45 @@ export async function registerRoutes(
       const projectMap: Record<string, string> = {};
       for (const p of projects) projectMap[p.id] = p.name;
 
-      const dayMap: Record<string, { meetings: number; milestones: number; submissions: number; labels: string[] }> = {};
-
-      for (const u of updates) {
-        const dateStr = u.date ? new Date(u.date).toISOString().split("T")[0] : null;
-        if (!dateStr) continue;
-        if (!dayMap[dateStr]) dayMap[dateStr] = { meetings: 0, milestones: 0, submissions: 0, labels: [] };
-        dayMap[dateStr].meetings++;
-        const label = u.grantee || (u.description ? u.description.substring(0, 40) : "");
-        if (label && dayMap[dateStr].labels.length < 6 && !dayMap[dateStr].labels.includes(label)) dayMap[dateStr].labels.push(label);
+      const freq: Record<string, { count: number; category: string }> = {};
+      for (const p of projects) {
+        if (!freq[p.name]) freq[p.name] = { count: 0, category: "project" };
+        freq[p.name].count += 3;
       }
-
+      for (const u of updates) {
+        const name = u.grantee || "";
+        if (name && name.length > 1) {
+          if (!freq[name]) freq[name] = { count: 0, category: "person" };
+          freq[name].count++;
+        }
+      }
       for (const ml of milestones) {
         if (ml.description?.startsWith("[TEST]")) continue;
-        const dateStr = ml.createdAt ? new Date(ml.createdAt).toISOString().split("T")[0] : null;
-        if (!dateStr) continue;
-        if (!dayMap[dateStr]) dayMap[dateStr] = { meetings: 0, milestones: 0, submissions: 0, labels: [] };
-        dayMap[dateStr].milestones++;
+        const desc = ml.description || "";
+        if (desc.length > 2) {
+          const short = desc.substring(0, 30).trim();
+          if (!freq[short]) freq[short] = { count: 0, category: "milestone" };
+          freq[short].count++;
+        }
         const projName = ml.projectId ? (projectMap[ml.projectId] || "") : "";
-        if (projName && dayMap[dateStr].labels.length < 6 && !dayMap[dateStr].labels.includes(projName)) dayMap[dateStr].labels.push(projName);
+        if (projName) {
+          if (!freq[projName]) freq[projName] = { count: 0, category: "project" };
+          freq[projName].count++;
+        }
       }
-
       for (const s of submissions) {
-        const dateStr = s.submittedAt ? new Date(s.submittedAt).toISOString().split("T")[0] : null;
-        if (!dateStr) continue;
-        if (!dayMap[dateStr]) dayMap[dateStr] = { meetings: 0, milestones: 0, submissions: 0, labels: [] };
-        dayMap[dateStr].submissions++;
-        const label = s.teamLeadName || "";
-        if (label && dayMap[dateStr].labels.length < 6 && !dayMap[dateStr].labels.includes(label)) dayMap[dateStr].labels.push(label);
+        const name = s.teamLeadName || "";
+        if (name && name.length > 1) {
+          if (!freq[name]) freq[name] = { count: 0, category: "lead" };
+          freq[name].count++;
+        }
       }
-
-      const timeline = Object.entries(dayMap)
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, data]) => ({ date, ...data, total: data.meetings + data.milestones + data.submissions }));
-      res.json(timeline);
+      const total = updates.length + milestones.length + submissions.length;
+      const tags = Object.entries(freq)
+        .map(([word, { count, category }]) => ({ word, count, category }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 60);
+      res.json({ title: "RESEARCH ACTIVITY", subtitle: `${total} research events`, tags });
     } catch (error) {
       console.error("Error generating research viz data:", error);
       res.status(500).json({ error: "Failed to generate data" });
@@ -2194,27 +2203,31 @@ export async function registerRoutes(
     try {
       const messages = await storage.getRecentSlackMessages(1000);
 
-      const dayMap: Record<string, { human: number; bot: number; alerts: number; labels: string[] }> = {};
+      const freq: Record<string, { count: number; category: string }> = {};
       for (const m of messages) {
-        const dateStr = m.timestamp ? new Date(m.timestamp).toISOString().split("T")[0] : null;
-        if (!dateStr) continue;
-        if (!dayMap[dateStr]) dayMap[dateStr] = { human: 0, bot: 0, alerts: 0, labels: [] };
-        const d = dayMap[dateStr];
-        if (m.isBot) {
-          if (m.message.includes("summary") || m.message.includes("Summary")) d.alerts++;
-          else d.bot++;
-        } else {
-          d.human++;
+        const user = m.user || "";
+        if (user && user.length > 1) {
+          if (!freq[user]) freq[user] = { count: 0, category: m.isBot ? "bot" : "human" };
+          freq[user].count++;
         }
-        const clean = m.message.replace(/[:*_~`]/g, "");
-        const label = m.user || (clean.length > 40 ? clean.substring(0, 40) : clean);
-        if (label && d.labels.length < 6 && !d.labels.includes(label)) d.labels.push(label);
+        const channel = m.channel || "";
+        if (channel && channel.length > 1) {
+          if (!freq[channel]) freq[channel] = { count: 0, category: "channel" };
+          freq[channel].count++;
+        }
+        const words = m.message.replace(/[:*_~`\[\](){}]/g, " ").split(/\s+/).filter(w => w.length > 4);
+        for (const w of words.slice(0, 3)) {
+          const lower = w.toLowerCase();
+          if (!freq[lower]) freq[lower] = { count: 0, category: "keyword" };
+          freq[lower].count++;
+        }
       }
-
-      const timeline = Object.entries(dayMap)
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, data]) => ({ date, ...data, total: data.human + data.bot + data.alerts }));
-      res.json(timeline);
+      const tags = Object.entries(freq)
+        .map(([word, { count, category }]) => ({ word, count, category }))
+        .filter(t => t.count >= 2)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 60);
+      res.json({ title: "COMMUNICATIONS", subtitle: `${messages.length} messages analyzed`, tags });
     } catch (error) {
       console.error("Error generating comms viz data:", error);
       res.status(500).json({ error: "Failed to generate data" });

@@ -1,25 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 
-interface DayData {
-  date: string;
-  meetings: number;
-  milestones: number;
-  submissions: number;
-  total: number;
-  labels: string[];
+interface Tag {
+  word: string;
+  count: number;
+  category: string;
 }
 
-const LAYERS = [
-  { key: "meetings" as const, color: [255, 255, 255], label: "meeting updates" },
-  { key: "milestones" as const, color: [180, 180, 180], label: "milestones" },
-  { key: "submissions" as const, color: [140, 140, 140], label: "submissions" },
-];
+interface VizData {
+  title: string;
+  subtitle: string;
+  tags: Tag[];
+}
+
+interface FloatingTag {
+  word: string;
+  count: number;
+  category: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  opacity: number;
+  angle: number;
+  angleSpeed: number;
+  phase: number;
+}
 
 export default function VizResearch() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [data, setData] = useState<DayData[]>([]);
+  const [data, setData] = useState<VizData | null>(null);
   const animRef = useRef(0);
   const tRef = useRef(0);
+  const tagsRef = useRef<FloatingTag[]>([]);
   const mouseRef = useRef({ x: -1, y: -1 });
 
   useEffect(() => {
@@ -27,7 +40,7 @@ export default function VizResearch() {
   }, []);
 
   useEffect(() => {
-    if (!data.length || !canvasRef.current) return;
+    if (!data?.tags?.length || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d")!;
 
@@ -39,140 +52,113 @@ export default function VizResearch() {
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("mouseleave", onLeave);
 
-    const maxTotal = Math.max(...data.map(d => d.total), 1);
+    const maxCount = Math.max(...data.tags.map(t => t.count), 1);
+    const W = canvas.width, H = canvas.height;
+
+    tagsRef.current = data.tags.map((tag, i) => {
+      const norm = tag.count / maxCount;
+      return {
+        ...tag,
+        x: Math.random() * W * 0.8 + W * 0.1,
+        y: Math.random() * H * 0.7 + H * 0.15,
+        vx: (Math.random() - 0.5) * 0.25,
+        vy: (Math.random() - 0.5) * 0.15,
+        size: 11 + norm * 40,
+        opacity: 0.12 + norm * 0.75,
+        angle: (Math.random() - 0.5) * 0.25,
+        angleSpeed: (Math.random() - 0.5) * 0.0008,
+        phase: i * 0.8,
+      };
+    });
 
     const draw = () => {
       const W = canvas.width, H = canvas.height, t = tRef.current;
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, W, H);
 
-      const mg = { l: 60, r: 40, t: 70, b: 80 };
-      const pW = W - mg.l - mg.r, pH = H - mg.t - mg.b;
-      const centerY = mg.t + pH / 2;
-      const stepX = data.length > 1 ? pW / (data.length - 1) : pW;
-
-      for (let i = 0; i < 20; i++) {
-        ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      for (let i = 0; i < 6; i++) {
+        const y = H * 0.15 + (H * 0.7 / 6) * i;
+        ctx.strokeStyle = "rgba(255,255,255,0.012)";
         ctx.beginPath();
-        ctx.moveTo(mg.l, mg.t + (pH / 20) * i);
-        ctx.lineTo(W - mg.r, mg.t + (pH / 20) * i);
+        for (let x = 0; x < W; x += 4) {
+          const wave = Math.sin(x * 0.005 + t * 0.2 + i) * 15;
+          if (x === 0) ctx.moveTo(x, y + wave);
+          else ctx.lineTo(x, y + wave);
+        }
         ctx.stroke();
       }
 
-      LAYERS.forEach((layer, li) => {
-        const [cr, cg, cb] = layer.color;
-        const wOff = li * 1.1;
-        const amp = pH * 0.35;
+      const mx = mouseRef.current.x, my = mouseRef.current.y;
+      let hovered: FloatingTag | null = null;
 
-        ctx.beginPath();
-        let started = false;
-        for (let i = 0; i < data.length; i++) {
-          const x = mg.l + i * stepX;
-          const val = data[i][layer.key];
-          const norm = val / maxTotal;
-          const wave = Math.sin(i * 0.2 + t * 0.3 + wOff) * 25 + Math.sin(i * 0.08 + t * 0.15 + wOff * 2) * 12;
-          const y = centerY - norm * amp + wave + (li - 1) * 40;
-          if (!started) { ctx.moveTo(x, y); started = true; }
-          else { ctx.quadraticCurveTo((mg.l + (i - 1) * stepX + x) / 2, y + wave * 0.3, x, y); }
-        }
-        ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.5)`;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+      for (const tag of tagsRef.current) {
+        tag.x += tag.vx + Math.sin(t * 0.25 + tag.phase) * 0.12;
+        tag.y += tag.vy + Math.cos(t * 0.2 + tag.phase * 1.3) * 0.08;
+        tag.angle += tag.angleSpeed;
 
-        for (let i = 0; i < data.length; i++) {
-          const d = data[i];
-          const x = mg.l + i * stepX;
-          const val = d[layer.key];
-          if (!val) continue;
-          const norm = val / maxTotal;
-          const wave = Math.sin(i * 0.2 + t * 0.3 + wOff) * 25 + Math.sin(i * 0.08 + t * 0.15 + wOff * 2) * 12;
-          const y = centerY - norm * amp + wave + (li - 1) * 40;
+        if (tag.x < 30) tag.vx = Math.abs(tag.vx) * 0.8 + 0.04;
+        if (tag.x > W - 30) tag.vx = -Math.abs(tag.vx) * 0.8 - 0.04;
+        if (tag.y < 50) tag.vy = Math.abs(tag.vy) * 0.8 + 0.04;
+        if (tag.y > H - 40) tag.vy = -Math.abs(tag.vy) * 0.8 - 0.04;
 
-          ctx.fillStyle = `rgba(${cr},${cg},${cb},${0.4 + norm * 0.4})`;
-          ctx.beginPath();
-          ctx.arc(x, y, 2 + norm * 5, 0, Math.PI * 2);
-          ctx.fill();
-
-          if (norm > 0.03 && d.labels.length) {
-            const label = d.labels[i % d.labels.length];
-            if (label) {
-              const fs = 9 + norm * 9;
-              ctx.font = `${fs}px "JetBrains Mono", monospace`;
-              ctx.fillStyle = `rgba(${cr},${cg},${cb},${0.12 + norm * 0.5})`;
-              ctx.save();
-              ctx.translate(x + 6, y - 6);
-              ctx.rotate(Math.sin(i * 0.4 + t * 0.3) * 0.12 - 0.25);
-              ctx.fillText(label.substring(0, 22), 0, 0);
-              ctx.restore();
-            }
+        if (mx > 0 && my > 0) {
+          const dx = tag.x - mx, dy = tag.y - my;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 90) {
+            tag.vx += dx / dist * 0.25;
+            tag.vy += dy / dist * 0.25;
           }
         }
-      });
 
-      const scanX = mg.l + ((t * 30) % pW);
-      const sg = ctx.createLinearGradient(scanX - 3, 0, scanX + 3, 0);
-      sg.addColorStop(0, "rgba(255,50,50,0)");
-      sg.addColorStop(0.5, "rgba(255,50,50,0.2)");
-      sg.addColorStop(1, "rgba(255,50,50,0)");
-      ctx.fillStyle = sg;
-      ctx.fillRect(scanX - 3, mg.t, 6, pH);
+        tag.vx *= 0.996;
+        tag.vy *= 0.996;
 
-      ctx.fillStyle = "rgba(255,255,255,0.25)";
-      ctx.font = '10px "JetBrains Mono", monospace';
-      ctx.textAlign = "center";
-      const every = Math.max(1, Math.floor(data.length / 12));
-      for (let i = 0; i < data.length; i += every) {
-        const x = mg.l + i * stepX;
-        const p = data[i].date.split("-");
-        ctx.fillText(`${p[1]}/${p[2]}`, x, H - mg.b + 20);
-        ctx.strokeStyle = "rgba(255,255,255,0.04)";
-        ctx.beginPath(); ctx.moveTo(x, mg.t); ctx.lineTo(x, mg.t + pH); ctx.stroke();
-      }
+        const pulse = Math.sin(t * 0.6 + tag.phase) * 0.06;
+        const alpha = Math.min(1, tag.opacity + pulse);
+        ctx.save();
+        ctx.translate(tag.x, tag.y);
+        ctx.rotate(tag.angle);
+        ctx.font = `${tag.size}px "JetBrains Mono", monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fillText(tag.word, 0, 0);
+        ctx.restore();
 
-      if (mouseRef.current.x > mg.l && mouseRef.current.x < W - mg.r) {
-        const idx = Math.round((mouseRef.current.x - mg.l) / stepX);
-        if (idx >= 0 && idx < data.length) {
-          const d = data[idx];
-          const x = mg.l + idx * stepX;
-          ctx.strokeStyle = "rgba(255,255,255,0.3)";
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath(); ctx.moveTo(x, mg.t); ctx.lineTo(x, mg.t + pH); ctx.stroke();
-          ctx.setLineDash([]);
-          const tx = Math.min(x + 10, W - 180);
-          ctx.fillStyle = "rgba(0,0,0,0.9)";
-          ctx.strokeStyle = "rgba(255,255,255,0.3)";
-          ctx.lineWidth = 1;
-          ctx.fillRect(tx, mg.t + 10, 170, 70);
-          ctx.strokeRect(tx, mg.t + 10, 170, 70);
-          ctx.fillStyle = "rgba(255,255,255,0.9)";
-          ctx.font = 'bold 11px "JetBrains Mono", monospace';
-          ctx.textAlign = "left";
-          ctx.fillText(d.date, tx + 8, mg.t + 28);
-          ctx.font = '10px "JetBrains Mono", monospace';
-          ctx.fillStyle = "rgba(255,255,255,0.7)";
-          ctx.fillText(`meetings: ${d.meetings}`, tx + 8, mg.t + 44);
-          ctx.fillText(`milestones: ${d.milestones}`, tx + 8, mg.t + 58);
-          ctx.fillText(`submissions: ${d.submissions}`, tx + 8, mg.t + 72);
+        if (mx > 0) {
+          const tw = ctx.measureText(tag.word).width;
+          if (Math.abs(mx - tag.x) < tw / 2 + 5 && Math.abs(my - tag.y) < tag.size / 2 + 5) {
+            hovered = tag;
+          }
         }
       }
 
-      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      if (hovered) {
+        const tx = Math.min(mx + 14, W - 200);
+        const ty = Math.max(my - 40, 40);
+        ctx.fillStyle = "rgba(0,0,0,0.9)";
+        ctx.strokeStyle = "rgba(255,255,255,0.3)";
+        ctx.lineWidth = 1;
+        ctx.fillRect(tx, ty, 180, 48);
+        ctx.strokeRect(tx, ty, 180, 48);
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.font = 'bold 12px "JetBrains Mono", monospace';
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(hovered.word, tx + 8, ty + 8);
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.fillText(`${hovered.category} · ${hovered.count} events`, tx + 8, ty + 28);
+      }
+
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
       ctx.font = 'bold 14px "JetBrains Mono", monospace';
       ctx.textAlign = "left";
-      ctx.fillText("RESEARCH ACTIVITY", mg.l, mg.t - 24);
+      ctx.textBaseline = "top";
+      ctx.fillText(data.title, 24, 24);
       ctx.font = '10px "JetBrains Mono", monospace';
-      ctx.fillStyle = "rgba(255,255,255,0.25)";
-      ctx.fillText(`${data[0]?.date || ""}  —  ${data[data.length - 1]?.date || ""}`, mg.l, mg.t - 8);
-
-      LAYERS.forEach((layer, i) => {
-        const [cr, cg, cb] = layer.color;
-        const lx = W - mg.r - 180, ly = mg.t - 24 + i * 14;
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},0.6)`;
-        ctx.fillRect(lx, ly - 4, 8, 8);
-        ctx.fillStyle = "rgba(255,255,255,0.3)";
-        ctx.font = '9px "JetBrains Mono", monospace';
-        ctx.fillText(layer.label, lx + 12, ly + 4);
-      });
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.fillText(data.subtitle, 24, 44);
 
       tRef.current += 0.02;
       animRef.current = requestAnimationFrame(draw);
@@ -190,7 +176,7 @@ export default function VizResearch() {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", cursor: "crosshair" }} data-testid="viz-research-container">
       <canvas ref={canvasRef} style={{ display: "block" }} data-testid="viz-research-canvas" />
-      <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.2)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 2 }}>
+      <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.15)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 2 }}>
         CIMC RESEARCH
       </div>
     </div>

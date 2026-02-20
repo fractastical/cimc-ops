@@ -1,25 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 
-interface DayData {
-  date: string;
-  commits: number;
-  prs: number;
-  issues: number;
-  total: number;
-  labels: string[];
+interface Tag {
+  word: string;
+  count: number;
+  category: string;
 }
 
-const LAYERS = [
-  { key: "commits" as const, color: [255, 255, 255], label: "commits" },
-  { key: "prs" as const, color: [180, 180, 180], label: "pull requests" },
-  { key: "issues" as const, color: [120, 120, 120], label: "issues" },
-];
+interface VizData {
+  title: string;
+  subtitle: string;
+  tags: Tag[];
+}
+
+interface FloatingTag {
+  word: string;
+  count: number;
+  category: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  opacity: number;
+  angle: number;
+  angleSpeed: number;
+  phase: number;
+}
 
 export default function VizGithub() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [data, setData] = useState<DayData[]>([]);
+  const [data, setData] = useState<VizData | null>(null);
   const animRef = useRef(0);
   const tRef = useRef(0);
+  const tagsRef = useRef<FloatingTag[]>([]);
   const mouseRef = useRef({ x: -1, y: -1 });
 
   useEffect(() => {
@@ -27,7 +40,7 @@ export default function VizGithub() {
   }, []);
 
   useEffect(() => {
-    if (!data.length || !canvasRef.current) return;
+    if (!data?.tags?.length || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d")!;
 
@@ -39,141 +52,108 @@ export default function VizGithub() {
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("mouseleave", onLeave);
 
-    const maxTotal = Math.max(...data.map(d => d.total), 1);
+    const maxCount = Math.max(...data.tags.map(t => t.count), 1);
+    const W = canvas.width, H = canvas.height;
+
+    tagsRef.current = data.tags.map((tag, i) => {
+      const norm = tag.count / maxCount;
+      return {
+        ...tag,
+        x: Math.random() * W * 0.8 + W * 0.1,
+        y: Math.random() * H * 0.7 + H * 0.15,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.2,
+        size: 12 + norm * 42,
+        opacity: 0.15 + norm * 0.7,
+        angle: (Math.random() - 0.5) * 0.3,
+        angleSpeed: (Math.random() - 0.5) * 0.001,
+        phase: i * 0.7,
+      };
+    });
 
     const draw = () => {
       const W = canvas.width, H = canvas.height, t = tRef.current;
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, W, H);
 
-      const m = { l: 60, r: 40, t: 70, b: 80 };
-      const pW = W - m.l - m.r, pH = H - m.t - m.b;
-      const centerY = m.t + pH / 2;
-      const stepX = data.length > 1 ? pW / (data.length - 1) : pW;
-
-      for (let i = 0; i < 20; i++) {
-        ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      for (let i = 0; i < 8; i++) {
+        ctx.strokeStyle = "rgba(255,255,255,0.015)";
         ctx.beginPath();
-        ctx.moveTo(m.l, m.t + (pH / 20) * i);
-        ctx.lineTo(W - m.r, m.t + (pH / 20) * i);
+        ctx.arc(W / 2, H / 2, 60 + i * 70, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      LAYERS.forEach((layer, li) => {
-        const [cr, cg, cb] = layer.color;
-        const wOff = li * 0.9;
-        const amp = pH * 0.35;
+      const mx = mouseRef.current.x, my = mouseRef.current.y;
+      let hovered: FloatingTag | null = null;
 
-        ctx.beginPath();
-        let started = false;
-        for (let i = 0; i < data.length; i++) {
-          const x = m.l + i * stepX;
-          const val = data[i][layer.key];
-          const norm = val / maxTotal;
-          const wave = Math.sin(i * 0.15 + t * 0.4 + wOff) * 20 + Math.sin(i * 0.07 + t * 0.2 + wOff * 2) * 10;
-          const y = centerY - norm * amp + wave + (li - 1) * 35;
-          if (!started) { ctx.moveTo(x, y); started = true; }
-          else { ctx.quadraticCurveTo((m.l + (i - 1) * stepX + x) / 2, y + wave * 0.3, x, y); }
-        }
-        ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.5)`;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+      for (const tag of tagsRef.current) {
+        tag.x += tag.vx + Math.sin(t * 0.3 + tag.phase) * 0.15;
+        tag.y += tag.vy + Math.cos(t * 0.25 + tag.phase) * 0.1;
+        tag.angle += tag.angleSpeed;
 
-        for (let i = 0; i < data.length; i++) {
-          const d = data[i];
-          const x = m.l + i * stepX;
-          const val = d[layer.key];
-          if (!val) continue;
-          const norm = val / maxTotal;
-          const wave = Math.sin(i * 0.15 + t * 0.4 + wOff) * 20 + Math.sin(i * 0.07 + t * 0.2 + wOff * 2) * 10;
-          const y = centerY - norm * amp + wave + (li - 1) * 35;
-          const barH = norm * amp * 0.6 + 2;
-          const grad = ctx.createLinearGradient(x, y, x, y + barH);
-          grad.addColorStop(0, `rgba(${cr},${cg},${cb},${0.3 + norm * 0.5})`);
-          grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-          ctx.fillStyle = grad;
-          ctx.fillRect(x - 1, y, 2, barH);
+        if (tag.x < 30) tag.vx = Math.abs(tag.vx) * 0.8 + 0.05;
+        if (tag.x > W - 30) tag.vx = -Math.abs(tag.vx) * 0.8 - 0.05;
+        if (tag.y < 50) tag.vy = Math.abs(tag.vy) * 0.8 + 0.05;
+        if (tag.y > H - 40) tag.vy = -Math.abs(tag.vy) * 0.8 - 0.05;
 
-          if (norm > 0.05 && d.labels.length) {
-            const label = d.labels[i % d.labels.length];
-            if (label) {
-              const fs = 8 + norm * 10;
-              ctx.font = `${fs}px "JetBrains Mono", monospace`;
-              ctx.fillStyle = `rgba(${cr},${cg},${cb},${0.15 + norm * 0.5})`;
-              ctx.save();
-              ctx.translate(x + 4, y - 4);
-              ctx.rotate(Math.sin(i * 0.3 + t * 0.5) * 0.15 - 0.3);
-              ctx.fillText(label.substring(0, 18), 0, 0);
-              ctx.restore();
-            }
+        if (mx > 0 && my > 0) {
+          const dx = tag.x - mx, dy = tag.y - my;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 100) {
+            tag.vx += dx / dist * 0.3;
+            tag.vy += dy / dist * 0.3;
           }
         }
-      });
 
-      const scanX = m.l + ((t * 40) % pW);
-      const sg = ctx.createLinearGradient(scanX - 3, 0, scanX + 3, 0);
-      sg.addColorStop(0, "rgba(255,50,50,0)");
-      sg.addColorStop(0.5, "rgba(255,50,50,0.2)");
-      sg.addColorStop(1, "rgba(255,50,50,0)");
-      ctx.fillStyle = sg;
-      ctx.fillRect(scanX - 3, m.t, 6, pH);
+        tag.vx *= 0.995;
+        tag.vy *= 0.995;
 
-      ctx.fillStyle = "rgba(255,255,255,0.25)";
-      ctx.font = '10px "JetBrains Mono", monospace';
-      ctx.textAlign = "center";
-      const every = Math.max(1, Math.floor(data.length / 15));
-      for (let i = 0; i < data.length; i += every) {
-        const x = m.l + i * stepX;
-        const p = data[i].date.split("-");
-        ctx.fillText(`${p[1]}/${p[2]}`, x, H - m.b + 20);
-        ctx.strokeStyle = "rgba(255,255,255,0.04)";
-        ctx.beginPath(); ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + pH); ctx.stroke();
-      }
+        const pulse = Math.sin(t * 0.8 + tag.phase) * 0.08;
+        const alpha = Math.min(1, tag.opacity + pulse);
+        ctx.save();
+        ctx.translate(tag.x, tag.y);
+        ctx.rotate(tag.angle);
+        ctx.font = `${tag.size}px "JetBrains Mono", monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fillText(tag.word, 0, 0);
+        ctx.restore();
 
-      if (mouseRef.current.x > m.l && mouseRef.current.x < W - m.r) {
-        const idx = Math.round((mouseRef.current.x - m.l) / stepX);
-        if (idx >= 0 && idx < data.length) {
-          const d = data[idx];
-          const x = m.l + idx * stepX;
-          ctx.strokeStyle = "rgba(255,255,255,0.3)";
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath(); ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + pH); ctx.stroke();
-          ctx.setLineDash([]);
-          const tx = Math.min(x + 10, W - 180);
-          ctx.fillStyle = "rgba(0,0,0,0.9)";
-          ctx.strokeStyle = "rgba(255,255,255,0.3)";
-          ctx.lineWidth = 1;
-          ctx.fillRect(tx, m.t + 10, 170, 70);
-          ctx.strokeRect(tx, m.t + 10, 170, 70);
-          ctx.fillStyle = "rgba(255,255,255,0.9)";
-          ctx.font = 'bold 11px "JetBrains Mono", monospace';
-          ctx.textAlign = "left";
-          ctx.fillText(d.date, tx + 8, m.t + 28);
-          ctx.font = '10px "JetBrains Mono", monospace';
-          ctx.fillStyle = "rgba(255,255,255,0.7)";
-          ctx.fillText(`commits: ${d.commits}`, tx + 8, m.t + 44);
-          ctx.fillText(`PRs: ${d.prs}  issues: ${d.issues}`, tx + 8, m.t + 58);
-          ctx.fillText(`total: ${d.total}`, tx + 8, m.t + 72);
+        if (mx > 0) {
+          const tw = ctx.measureText(tag.word).width;
+          if (Math.abs(mx - tag.x) < tw / 2 + 5 && Math.abs(my - tag.y) < tag.size / 2 + 5) {
+            hovered = tag;
+          }
         }
       }
 
-      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      if (hovered) {
+        const tx = Math.min(mx + 14, W - 200);
+        const ty = Math.max(my - 40, 40);
+        ctx.fillStyle = "rgba(0,0,0,0.9)";
+        ctx.strokeStyle = "rgba(255,255,255,0.3)";
+        ctx.lineWidth = 1;
+        ctx.fillRect(tx, ty, 180, 48);
+        ctx.strokeRect(tx, ty, 180, 48);
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.font = 'bold 12px "JetBrains Mono", monospace';
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(hovered.word, tx + 8, ty + 8);
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.fillText(`${hovered.category} · ${hovered.count} events`, tx + 8, ty + 28);
+      }
+
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
       ctx.font = 'bold 14px "JetBrains Mono", monospace';
       ctx.textAlign = "left";
-      ctx.fillText("GITHUB ACTIVITY", m.l, m.t - 24);
+      ctx.textBaseline = "top";
+      ctx.fillText(data.title, 24, 24);
       ctx.font = '10px "JetBrains Mono", monospace';
-      ctx.fillStyle = "rgba(255,255,255,0.25)";
-      ctx.fillText(`${data[0]?.date || ""}  —  ${data[data.length - 1]?.date || ""}`, m.l, m.t - 8);
-
-      LAYERS.forEach((layer, i) => {
-        const [cr, cg, cb] = layer.color;
-        const lx = W - m.r - 160, ly = m.t - 24 + i * 14;
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},0.6)`;
-        ctx.fillRect(lx, ly - 4, 8, 8);
-        ctx.fillStyle = "rgba(255,255,255,0.3)";
-        ctx.font = '9px "JetBrains Mono", monospace';
-        ctx.fillText(layer.label, lx + 12, ly + 4);
-      });
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.fillText(data.subtitle, 24, 44);
 
       tRef.current += 0.02;
       animRef.current = requestAnimationFrame(draw);
@@ -191,7 +171,7 @@ export default function VizGithub() {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", cursor: "crosshair" }} data-testid="viz-github-container">
       <canvas ref={canvasRef} style={{ display: "block" }} data-testid="viz-github-canvas" />
-      <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.2)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 2 }}>
+      <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.15)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 2 }}>
         CIMC GITHUB OPS
       </div>
     </div>
