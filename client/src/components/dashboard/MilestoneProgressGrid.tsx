@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, CheckCircle, Clock, ChevronDown, ChevronRight } from "lucide-react";
+import { BarChart3, CheckCircle, Clock } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import type { Milestone, MilestoneSubmission, ResearchProject } from "@/lib/api";
 
@@ -48,18 +48,6 @@ function getMilestoneStatus(
   return { status: "to-do", submission: directSub };
 }
 
-function getProjectSummaryStatus(
-  projectId: string,
-  month: string,
-  milestones: Milestone[],
-  submissions: MilestoneSubmission[]
-): CellStatus {
-  const milestone = milestones.find(m => m.projectId === projectId && m.month === month);
-  if (!milestone) return "no-milestone";
-
-  const { status } = getMilestoneStatus(milestone, submissions, milestones);
-  return status;
-}
 
 export function MilestoneProgressGrid({ 
   milestones, 
@@ -71,7 +59,6 @@ export function MilestoneProgressGrid({
   projects: ResearchProject[];
 }) {
   const [hideTestProjects, setHideTestProjects] = useState(true);
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
   if (!milestones?.length || !projects?.length) {
     return (
@@ -96,23 +83,6 @@ export function MilestoneProgressGrid({
   const allMonths = Array.from(new Set(filteredMilestones.map(m => m.month))).sort();
   const projectIds = Array.from(new Set(filteredMilestones.map(m => m.projectId)));
 
-  const toggleProject = (projectId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    const scrollY = window.scrollY;
-    setExpandedProjects(prev => {
-      const next = new Set(prev);
-      if (next.has(projectId)) {
-        next.delete(projectId);
-      } else {
-        next.add(projectId);
-      }
-      return next;
-    });
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior });
-    });
-  };
-
   const currentMonth = format(new Date(), "yyyy-MM");
 
   return (
@@ -132,7 +102,7 @@ export function MilestoneProgressGrid({
             Hide test projects
           </label>
         </div>
-        <CardDescription>Click a project to see individual milestones</CardDescription>
+        <CardDescription>Individual milestones by project and month</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
@@ -154,100 +124,70 @@ export function MilestoneProgressGrid({
               {projectIds.map(projectId => {
                 const project = projectMap.get(projectId);
                 if (!project) return null;
-                const isExpanded = expandedProjects.has(projectId);
                 const projectMilestones = filteredMilestones
                   .filter(m => m.projectId === projectId)
                   .sort((a, b) => a.month.localeCompare(b.month));
 
                 return (
-                  <div key={projectId} data-testid={`progress-row-${projectId}`}>
-                    <div 
-                      className="flex items-center gap-1 mb-1 cursor-pointer group hover:bg-muted/10 rounded-md -mx-1 px-1"
-                      onClick={(e) => toggleProject(projectId, e)}
-                    >
-                      <div className="w-56 shrink-0 flex items-center gap-1.5 pr-2">
-                        {isExpanded 
-                          ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        }
-                        <span className="truncate text-sm font-mono font-medium" title={project.name}>
-                          {project.name}
-                        </span>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
-                          {projectMilestones.length}
-                        </Badge>
-                      </div>
-                      {allMonths.map(month => {
-                        const status = getProjectSummaryStatus(projectId, month, milestones, submissions);
+                  <div key={projectId} data-testid={`progress-row-${projectId}`} className="mb-3">
+                    <div className="flex items-center gap-1.5 mb-1 px-1">
+                      <span className="truncate text-sm font-mono font-medium text-foreground" title={project.name}>
+                        {project.name}
+                      </span>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                        {projectMilestones.length}
+                      </Badge>
+                    </div>
+                    <div className="ml-2 border-l border-border/30 pl-2">
+                      {projectMilestones.map(milestone => {
+                        const { status, submission } = getMilestoneStatus(milestone, submissions, filteredMilestones);
                         const config = statusConfig[status];
+                        const descriptionPreview = milestone.description.split('\n')[0].slice(0, 60);
 
                         return (
-                          <div
-                            key={month}
-                            className={`w-12 h-8 rounded-md border ${config.border} ${config.bg} transition-all flex items-center justify-center`}
-                            data-testid={`progress-cell-${projectId}-${month}`}
+                          <div 
+                            key={milestone.id} 
+                            className="flex items-center gap-1 mb-1"
+                            data-testid={`progress-milestone-${milestone.id}`}
                           >
-                            {status === "finished" && <CheckCircle className="h-3.5 w-3.5 text-white/80" />}
-                            {status === "in-progress" && <Clock className="h-3.5 w-3.5 text-white/80" />}
-                            {status === "to-do" && <div className="w-1.5 h-1.5 rounded-sm bg-muted-foreground/40" />}
-                            {status === "no-submission" && <div className="w-1.5 h-1.5 rounded-sm border border-dashed border-muted-foreground/30" />}
+                            <div className="w-52 shrink-0 pr-2">
+                              <div className="text-xs text-muted-foreground truncate" title={milestone.description}>
+                                <span className="font-mono text-primary/70">
+                                  {format(parseISO(milestone.month + "-01"), "MMM")}:
+                                </span>{" "}
+                                {descriptionPreview}
+                              </div>
+                            </div>
+                            {allMonths.map(month => {
+                              const isThisMonth = month === milestone.month;
+                              if (!isThisMonth) {
+                                return (
+                                  <div key={month} className="w-12 h-7 flex items-center justify-center">
+                                    <div className="w-px h-3 bg-border/20" />
+                                  </div>
+                                );
+                              }
+
+                              const tooltipText = `${project.name} — ${format(parseISO(month + "-01"), "MMMM yyyy")}\n${config.label}\n${milestone.description.slice(0, 120)}${submission ? `\nSubmitted: ${format(new Date(submission.submittedAt), "MMM d")}` : ''}`;
+
+                              return (
+                                <div
+                                  key={month}
+                                  className={`w-12 h-7 rounded-md border ${config.border} ${config.bg} transition-all hover:scale-110 cursor-default flex items-center justify-center`}
+                                  title={tooltipText}
+                                  data-testid={`progress-milestone-cell-${milestone.id}-${month}`}
+                                >
+                                  {status === "finished" && <CheckCircle className="h-3 w-3 text-white/80" />}
+                                  {status === "in-progress" && <Clock className="h-3 w-3 text-white/80" />}
+                                  {status === "to-do" && <div className="w-1.5 h-1.5 rounded-sm bg-muted-foreground/40" />}
+                                  {status === "no-submission" && <div className="w-1.5 h-1.5 rounded-sm border border-dashed border-muted-foreground/30" />}
+                                </div>
+                              );
+                            })}
                           </div>
                         );
                       })}
                     </div>
-
-                    {isExpanded && (
-                      <div className="ml-5 border-l border-border/30 pl-2 mb-3">
-                        {projectMilestones.map(milestone => {
-                          const { status, submission } = getMilestoneStatus(milestone, submissions, filteredMilestones);
-                          const config = statusConfig[status];
-                          const descriptionPreview = milestone.description.split('\n')[0].slice(0, 60);
-
-                          return (
-                            <div 
-                              key={milestone.id} 
-                              className="flex items-center gap-1 mb-1"
-                              data-testid={`progress-milestone-${milestone.id}`}
-                            >
-                              <div className="w-[196px] shrink-0 pr-2">
-                                <div className="text-xs text-muted-foreground truncate" title={milestone.description}>
-                                  <span className="font-mono text-primary/70">
-                                    {format(parseISO(milestone.month + "-01"), "MMM")}:
-                                  </span>{" "}
-                                  {descriptionPreview}
-                                </div>
-                              </div>
-                              {allMonths.map(month => {
-                                const isThisMonth = month === milestone.month;
-                                if (!isThisMonth) {
-                                  return (
-                                    <div key={month} className="w-12 h-7 flex items-center justify-center">
-                                      <div className="w-px h-3 bg-border/20" />
-                                    </div>
-                                  );
-                                }
-
-                                const tooltipText = `${project.name} — ${format(parseISO(month + "-01"), "MMMM yyyy")}\n${config.label}\n${milestone.description.slice(0, 120)}${submission ? `\nSubmitted: ${format(new Date(submission.submittedAt), "MMM d")}` : ''}`;
-
-                                return (
-                                  <div
-                                    key={month}
-                                    className={`w-12 h-7 rounded-md border ${config.border} ${config.bg} transition-all hover:scale-110 cursor-default flex items-center justify-center`}
-                                    title={tooltipText}
-                                    data-testid={`progress-milestone-cell-${milestone.id}-${month}`}
-                                  >
-                                    {status === "finished" && <CheckCircle className="h-3 w-3 text-white/80" />}
-                                    {status === "in-progress" && <Clock className="h-3 w-3 text-white/80" />}
-                                    {status === "to-do" && <div className="w-1.5 h-1.5 rounded-sm bg-muted-foreground/40" />}
-                                    {status === "no-submission" && <div className="w-1.5 h-1.5 rounded-sm border border-dashed border-muted-foreground/30" />}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                 );
               })}
