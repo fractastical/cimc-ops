@@ -109,7 +109,7 @@ export function MilestoneProgressGrid({
           <div className="overflow-x-auto">
             <div className="min-w-fit">
               <div className="flex items-end gap-1 mb-2">
-                <div className="w-56 shrink-0" />
+                <div className="w-80 shrink-0" />
                 {allMonths.map(month => (
                   <div 
                     key={month} 
@@ -142,16 +142,16 @@ export function MilestoneProgressGrid({
                       {projectMilestones.map(milestone => {
                         const { status, submission } = getMilestoneStatus(milestone, submissions, filteredMilestones);
                         const config = statusConfig[status];
-                        const descriptionPreview = milestone.description.split('\n')[0].slice(0, 60);
+                        const descriptionPreview = milestone.description.split('\n')[0].slice(0, 120);
 
                         return (
                           <div 
                             key={milestone.id} 
-                            className="flex items-center gap-1 mb-1"
+                            className="flex items-start gap-1 mb-1"
                             data-testid={`progress-milestone-${milestone.id}`}
                           >
-                            <div className="w-52 shrink-0 pr-2">
-                              <div className="text-xs text-muted-foreground truncate" title={milestone.description}>
+                            <div className="w-80 shrink-0 pr-2">
+                              <div className="text-xs text-muted-foreground leading-snug" title={milestone.description}>
                                 <span className="font-mono text-primary/70">
                                   {format(parseISO(milestone.month + "-01"), "MMM")}:
                                 </span>{" "}

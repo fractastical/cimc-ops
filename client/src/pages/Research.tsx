@@ -277,7 +277,7 @@ function ResearchTimelineChart({ timeline, hypotheses, notionEntries, onResearch
           <div className="space-y-1">
             {/* Date headers */}
             <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground font-mono overflow-x-auto">
-              <div className="w-48 shrink-0">Project</div>
+              <div className="w-64 shrink-0">Project</div>
               <div className="flex gap-1 flex-1">
                 {sortedDates.map(date => (
                   <div 
@@ -304,7 +304,7 @@ function ResearchTimelineChart({ timeline, hypotheses, notionEntries, onResearch
                     className="flex items-center gap-2 py-2 px-2 rounded hover:bg-muted/20 cursor-pointer transition-colors"
                     onClick={() => setExpandedProject(isExpanded ? null : project.project.id)}
                   >
-                    <div className="w-48 shrink-0 flex items-center gap-2">
+                    <div className="w-64 shrink-0 flex items-center gap-2">
                       {isExpanded ? (
                         <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       ) : (
