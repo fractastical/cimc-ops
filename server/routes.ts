@@ -18,6 +18,8 @@ import { slackService } from "./services/slack";
 import { schedulerService } from "./services/scheduler";
 import { openAlexService } from "./services/openalex";
 import { notionService } from "./services/notion";
+import { gdriveService } from "./services/gdrive";
+import { parseTranscript, type ParsedUpdate } from "./services/transcript-parser";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 
 async function autoSyncOnStartup() {
@@ -62,6 +64,46 @@ async function autoSyncOnStartup() {
   } catch (error) {
     console.error("Auto-sync failed:", error);
   }
+}
+
+async function importParsedUpdates(parsed: ParsedUpdate[]): Promise<{ updatesAdded: number; projectCount: number }> {
+  const projectColors = [
+    "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", 
+    "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"
+  ];
+  let colorIndex = 0;
+  const projectMap = new Map<string, string>();
+  let updatesAdded = 0;
+
+  for (const note of parsed) {
+    let projectId = projectMap.get(note.project);
+    if (!projectId) {
+      let project = await storage.getResearchProjectByName(note.project);
+      if (!project) {
+        project = await storage.createResearchProject({
+          name: note.project,
+          description: `Research project: ${note.project}`,
+          color: projectColors[colorIndex % projectColors.length],
+        });
+        colorIndex++;
+      }
+      projectId = project.id;
+      projectMap.set(note.project, projectId);
+    }
+
+    const granteeMatch = note.description.match(/^([A-Z][a-z]+ [A-Z][a-z]+)/);
+    const grantee = note.grantee || (granteeMatch ? granteeMatch[1] : undefined);
+
+    await storage.createResearchUpdate({
+      projectId,
+      date: new Date(note.date),
+      description: note.description,
+      grantee,
+    });
+    updatesAdded++;
+  }
+
+  return { updatesAdded, projectCount: projectMap.size };
 }
 
 export async function registerRoutes(
@@ -680,6 +722,130 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error importing research notes:", error);
       res.status(500).json({ error: "Failed to import notes" });
+    }
+  });
+
+  // === Google Drive Integration Routes ===
+  
+  app.get("/api/gdrive/folders", async (req, res) => {
+    try {
+      const parentId = req.query.parentId as string | undefined;
+      const folders = await gdriveService.listFolders(parentId);
+      res.json(folders);
+    } catch (error: any) {
+      console.error("Error listing Drive folders:", error);
+      res.status(500).json({ error: error.message || "Failed to list folders" });
+    }
+  });
+
+  app.get("/api/gdrive/files", async (req, res) => {
+    try {
+      const folderId = req.query.folderId as string;
+      if (!folderId) return res.status(400).json({ error: "folderId required" });
+      const files = await gdriveService.listFiles(folderId);
+      const importedIds = await storage.getGdriveImportedFileIds();
+      const withStatus = files.map(f => ({
+        ...f,
+        imported: importedIds.includes(f.id),
+      }));
+      res.json(withStatus);
+    } catch (error: any) {
+      console.error("Error listing Drive files:", error);
+      res.status(500).json({ error: error.message || "Failed to list files" });
+    }
+  });
+
+  app.post("/api/gdrive/import", async (req, res) => {
+    try {
+      const { fileIds, folderId } = req.body as { fileIds?: string[]; folderId?: string };
+      
+      let filesToProcess: { id: string; name: string; mimeType: string }[] = [];
+      
+      if (fileIds && fileIds.length > 0) {
+        const allFiles = folderId ? await gdriveService.listFiles(folderId) : [];
+        filesToProcess = allFiles.filter(f => fileIds.includes(f.id));
+      } else if (folderId) {
+        const allFiles = await gdriveService.listFiles(folderId);
+        const importedIds = await storage.getGdriveImportedFileIds();
+        filesToProcess = allFiles.filter(f => !importedIds.includes(f.id));
+      }
+
+      if (filesToProcess.length === 0) {
+        return res.json({ success: true, message: "No new files to import", imported: 0, updatesCreated: 0 });
+      }
+
+      const projects = await storage.getResearchProjects();
+      const existingProjectNames = projects.map(p => p.name);
+      let totalUpdates = 0;
+      let filesImported = 0;
+
+      for (const file of filesToProcess) {
+        try {
+          const text = await gdriveService.getFileAsText(file.id, file.mimeType);
+          if (!text || text.trim().length < 50) continue;
+
+          const parsed = await parseTranscript(text, file.name, existingProjectNames);
+          
+          if (parsed.length > 0) {
+            const importRes = await importParsedUpdates(parsed);
+            await storage.markGdriveFileImported(file.id, file.name, parsed.length);
+            totalUpdates += importRes.updatesAdded;
+            filesImported++;
+            for (const p of parsed) {
+              if (!existingProjectNames.includes(p.project)) {
+                existingProjectNames.push(p.project);
+              }
+            }
+          } else {
+            await storage.markGdriveFileImported(file.id, file.name, 0);
+            filesImported++;
+          }
+        } catch (fileError) {
+          console.error(`Error processing file ${file.name}:`, fileError);
+        }
+      }
+
+      await storage.updateGdriveSettings({ lastGdriveSyncAt: new Date() });
+
+      res.json({ 
+        success: true, 
+        message: `Imported ${totalUpdates} updates from ${filesImported} files`,
+        imported: filesImported,
+        updatesCreated: totalUpdates,
+      });
+    } catch (error: any) {
+      console.error("Error importing from Drive:", error);
+      res.status(500).json({ error: error.message || "Failed to import from Drive" });
+    }
+  });
+
+  app.post("/api/gdrive/settings", async (req, res) => {
+    try {
+      const { folderId, folderName, autoSync } = req.body;
+      await storage.updateGdriveSettings({
+        gdriveFolderId: folderId || null,
+        gdriveFolderName: folderName || null,
+        gdriveAutoSync: !!autoSync,
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error saving Drive settings:", error);
+      res.status(500).json({ error: error.message || "Failed to save settings" });
+    }
+  });
+
+  app.get("/api/gdrive/settings", async (req, res) => {
+    try {
+      const settings = await storage.getIntegrationSettings();
+      res.json({
+        folderId: settings?.gdriveFolderId || null,
+        folderName: settings?.gdriveFolderName || null,
+        autoSync: settings?.gdriveAutoSync || false,
+        lastSyncAt: settings?.lastGdriveSyncAt || null,
+      });
+    } catch (error: any) {
+      console.error("Error getting Drive settings:", error);
+      res.status(500).json({ error: error.message || "Failed to get settings" });
     }
   });
 

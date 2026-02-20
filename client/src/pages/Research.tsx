@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   getResearchTimeline, 
@@ -32,10 +33,338 @@ import {
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, Download, Pencil, Check, ExternalLink, BookOpen, Database } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, Download, Pencil, Check, ExternalLink, BookOpen, Database, FolderOpen, FileText, Cloud, CheckCircle2, Clock } from "lucide-react";
 import { MilestoneProgressGrid } from "@/components/dashboard/MilestoneProgressGrid";
 import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";
+
+interface DriveFolder {
+  id: string;
+  name: string;
+}
+
+interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string;
+  imported: boolean;
+}
+
+interface GdriveSettings {
+  folderId: string | null;
+  folderName: string | null;
+  autoSync: boolean;
+  lastSyncAt: string | null;
+}
+
+function GoogleDriveImportPanel() {
+  const queryClient = useQueryClient();
+  const [folderPath, setFolderPath] = useState<DriveFolder[]>([]);
+  const [currentParentId, setCurrentParentId] = useState<string | undefined>(undefined);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const [showFolderBrowser, setShowFolderBrowser] = useState(false);
+
+  const { data: settings } = useQuery<GdriveSettings>({
+    queryKey: ["gdriveSettings"],
+    queryFn: () => fetch("/api/gdrive/settings").then(r => r.json()),
+  });
+
+  const { data: folders = [], isLoading: foldersLoading } = useQuery<DriveFolder[]>({
+    queryKey: ["gdriveFolders", currentParentId],
+    queryFn: () => fetch(`/api/gdrive/folders${currentParentId ? `?parentId=${currentParentId}` : ""}`).then(r => r.json()),
+    enabled: showFolderBrowser,
+  });
+
+  const { data: files = [], isLoading: filesLoading, refetch: refetchFiles } = useQuery<DriveFile[]>({
+    queryKey: ["gdriveFiles", settings?.folderId],
+    queryFn: () => fetch(`/api/gdrive/files?folderId=${settings?.folderId}`).then(r => r.json()),
+    enabled: !!settings?.folderId,
+  });
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: (body: { folderId: string; folderName: string; autoSync?: boolean }) =>
+      fetch("/api/gdrive/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gdriveSettings"] });
+      queryClient.invalidateQueries({ queryKey: ["gdriveFiles"] });
+      setShowFolderBrowser(false);
+      toast.success("Folder selected");
+    },
+  });
+
+  const toggleAutoSync = useMutation({
+    mutationFn: (autoSync: boolean) =>
+      fetch("/api/gdrive/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folderId: settings?.folderId, folderName: settings?.folderName, autoSync }) }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gdriveSettings"] });
+    },
+  });
+
+  const importMutation = useMutation({
+    mutationFn: (body: { fileIds?: string[]; folderId?: string }) =>
+      fetch("/api/gdrive/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
+    onSuccess: (data) => {
+      toast.success(data.message);
+      setSelectedFileIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ["gdriveFiles"] });
+      queryClient.invalidateQueries({ queryKey: ["researchTimeline"] });
+      queryClient.invalidateQueries({ queryKey: ["gdriveSettings"] });
+    },
+    onError: () => {
+      toast.error("Failed to import from Google Drive");
+    },
+  });
+
+  const navigateToFolder = (folder: DriveFolder) => {
+    setFolderPath(prev => [...prev, folder]);
+    setCurrentParentId(folder.id);
+  };
+
+  const navigateUp = (index: number) => {
+    if (index < 0) {
+      setFolderPath([]);
+      setCurrentParentId(undefined);
+    } else {
+      setFolderPath(prev => prev.slice(0, index + 1));
+      setCurrentParentId(folderPath[index].id);
+    }
+  };
+
+  const selectFolder = (folder: DriveFolder) => {
+    saveSettingsMutation.mutate({ folderId: folder.id, folderName: folder.name, autoSync: settings?.autoSync });
+  };
+
+  const toggleFile = (fileId: string) => {
+    setSelectedFileIds(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId);
+      else next.add(fileId);
+      return next;
+    });
+  };
+
+  const newFiles = files.filter(f => !f.imported);
+  const importedFiles = files.filter(f => f.imported);
+
+  return (
+    <Card className="glass-panel border-primary/20" data-testid="card-gdrive-import">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="font-mono text-lg flex items-center gap-2">
+            <Cloud className="h-5 w-5 text-primary" />
+            Google Drive Transcript Import
+          </CardTitle>
+          {settings?.folderId && (
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <Switch
+                  checked={settings?.autoSync || false}
+                  onCheckedChange={(checked) => toggleAutoSync.mutate(checked)}
+                  data-testid="switch-auto-sync"
+                />
+                Auto-sync
+              </label>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            {settings?.folderId ? (
+              <div className="flex items-center gap-2 text-sm">
+                <FolderOpen className="h-4 w-4 text-primary" />
+                <span className="text-muted-foreground">Monitoring:</span>
+                <span className="font-mono text-foreground">{settings.folderName}</span>
+                {settings.lastSyncAt && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    Last sync: {format(new Date(settings.lastSyncAt), "MMM d, h:mm a")}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Select a Google Drive folder containing meeting transcripts to import
+              </p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setShowFolderBrowser(!showFolderBrowser); setFolderPath([]); setCurrentParentId(undefined); }}
+            data-testid="button-browse-folders"
+          >
+            <FolderOpen className="h-4 w-4 mr-2" />
+            {settings?.folderId ? "Change Folder" : "Browse Folders"}
+          </Button>
+        </div>
+
+        {showFolderBrowser && (
+          <div className="border border-border/50 rounded-lg p-3 space-y-2 bg-background/50">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
+              <button
+                onClick={() => navigateUp(-1)}
+                className="hover:text-primary transition-colors"
+                data-testid="button-folder-root"
+              >
+                My Drive
+              </button>
+              {folderPath.map((f, i) => (
+                <span key={f.id} className="flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3" />
+                  <button
+                    onClick={() => navigateUp(i)}
+                    className="hover:text-primary transition-colors"
+                  >
+                    {f.name}
+                  </button>
+                </span>
+              ))}
+            </div>
+            {foldersLoading ? (
+              <div className="flex items-center gap-2 py-4 justify-center text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Loading folders...
+              </div>
+            ) : folders.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 text-center">No subfolders found</p>
+            ) : (
+              <div className="grid gap-1 max-h-48 overflow-y-auto">
+                {folders.map(folder => (
+                  <div key={folder.id} className="flex items-center justify-between group hover:bg-muted/30 rounded px-2 py-1.5">
+                    <button
+                      className="flex items-center gap-2 text-sm flex-1 text-left"
+                      onClick={() => navigateToFolder(folder)}
+                      data-testid={`button-folder-${folder.id}`}
+                    >
+                      <FolderOpen className="h-4 w-4 text-yellow-500" />
+                      {folder.name}
+                    </button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-xs h-7"
+                      onClick={() => selectFolder(folder)}
+                      data-testid={`button-select-folder-${folder.id}`}
+                    >
+                      Select
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {settings?.folderId && !showFolderBrowser && (
+          <>
+            {filesLoading ? (
+              <div className="flex items-center gap-2 py-4 justify-center text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Loading files...
+              </div>
+            ) : (
+              <>
+                {newFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary" />
+                        New Files ({newFiles.length})
+                      </h4>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (selectedFileIds.size === newFiles.length) {
+                              setSelectedFileIds(new Set());
+                            } else {
+                              setSelectedFileIds(new Set(newFiles.map(f => f.id)));
+                            }
+                          }}
+                          data-testid="button-select-all-files"
+                        >
+                          {selectedFileIds.size === newFiles.length ? "Deselect All" : "Select All"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => importMutation.mutate({
+                            fileIds: selectedFileIds.size > 0 ? Array.from(selectedFileIds) : undefined,
+                            folderId: settings.folderId!,
+                          })}
+                          disabled={importMutation.isPending}
+                          data-testid="button-import-drive"
+                        >
+                          {importMutation.isPending ? (
+                            <><RefreshCw className="h-3 w-3 animate-spin mr-1" /> Importing...</>
+                          ) : (
+                            <><Upload className="h-3 w-3 mr-1" /> Import {selectedFileIds.size > 0 ? `(${selectedFileIds.size})` : "All New"}</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid gap-1 max-h-40 overflow-y-auto">
+                      {newFiles.map(file => (
+                        <label
+                          key={file.id}
+                          className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/30 rounded cursor-pointer text-sm"
+                          data-testid={`file-new-${file.id}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedFileIds.has(file.id)}
+                            onChange={() => toggleFile(file.id)}
+                            className="rounded border-border"
+                          />
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="flex-1 truncate">{file.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(file.modifiedTime), "MMM d")}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {newFiles.length === 0 && importedFiles.length > 0 && (
+                  <div className="flex items-center gap-2 py-3 justify-center text-sm text-muted-foreground">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    All files imported. New files will appear here automatically.
+                  </div>
+                )}
+
+                {importedFiles.length > 0 && (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-primary inline" />
+                      {importedFiles.length} file{importedFiles.length !== 1 ? "s" : ""} already imported
+                    </summary>
+                    <div className="mt-1 grid gap-0.5 max-h-32 overflow-y-auto pl-5">
+                      {importedFiles.map(file => (
+                        <div key={file.id} className="text-xs text-muted-foreground/70 truncate" data-testid={`file-imported-${file.id}`}>
+                          {file.name}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {files.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-3">
+                    No files found in this folder
+                  </p>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 const PROJECT_COLORS = [
   "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", 
@@ -1453,6 +1782,8 @@ export default function Research() {
           </CardContent>
         </Card>
       )}
+
+      <GoogleDriveImportPanel />
 
       <MilestoneProgressGrid
         milestones={allMilestones}

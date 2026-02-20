@@ -45,6 +45,10 @@ export const integrationSettings = pgTable("integration_settings", {
     { label: "Any block or delays?", required: false },
   ]),
   lastMonthlySentAt: timestamp("last_monthly_sent_at"), // Prevent duplicate sends
+  gdriveFolderId: text("gdrive_folder_id"),
+  gdriveFolderName: text("gdrive_folder_name"),
+  gdriveAutoSync: boolean("gdrive_auto_sync").default(false).notNull(),
+  lastGdriveSyncAt: timestamp("last_gdrive_sync_at"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -137,6 +141,16 @@ export type ResearchUpdate = typeof researchUpdates.$inferSelect;
 
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLog.$inferSelect;
+
+export const gdriveImportedFiles = pgTable("gdrive_imported_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fileId: text("file_id").notNull(),
+  fileName: text("file_name").notNull(),
+  importedAt: timestamp("imported_at").defaultNow().notNull(),
+  updatesCreated: integer("updates_created").default(0).notNull(),
+});
+
+export type GdriveImportedFile = typeof gdriveImportedFiles.$inferSelect;
 
 // Slack message history (for display in the UI)
 export const slackMessages = pgTable("slack_messages", {

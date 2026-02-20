@@ -2,6 +2,8 @@ import { storage } from "../storage";
 import { slackService } from "./slack";
 import { githubService } from "./github";
 import { emailService } from "./email";
+import { gdriveService } from "./gdrive";
+import { parseTranscript } from "./transcript-parser";
 import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay, getDate, lastDayOfMonth, setDay, isBefore, addDays } from "date-fns";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -26,6 +28,11 @@ export class SchedulerService {
     this.syncInterval = setInterval(async () => {
       await this.syncGitHub();
     }, 6 * 60 * 60 * 1000); // Every 6 hours
+
+    // Sync Google Drive every 2 hours
+    setInterval(async () => {
+      await this.syncGoogleDrive();
+    }, 2 * 60 * 60 * 1000);
 
     // Also check on start (with a delay to avoid startup race conditions)
     setTimeout(() => this.checkSummaries(), 10000);
@@ -574,6 +581,73 @@ export class SchedulerService {
   // Manual trigger for testing milestone reminders
   async triggerMilestoneReminders() {
     await this.sendMonthlyMilestoneReminders();
+  }
+
+  async syncGoogleDrive() {
+    try {
+      const settings = await storage.getIntegrationSettings();
+      if (!settings?.gdriveAutoSync || !settings?.gdriveFolderId) return;
+
+      console.log("Running Google Drive auto-sync...");
+      const allFiles = await gdriveService.listFiles(settings.gdriveFolderId);
+      const importedIds = await storage.getGdriveImportedFileIds();
+      const newFiles = allFiles.filter(f => !importedIds.includes(f.id));
+
+      if (newFiles.length === 0) {
+        console.log("No new Google Drive files to import");
+        return;
+      }
+
+      const projects = await storage.getResearchProjects();
+      const existingProjectNames = projects.map(p => p.name);
+      let totalUpdates = 0;
+
+      const projectColors = [
+        "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444",
+        "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"
+      ];
+
+      for (const file of newFiles) {
+        try {
+          const text = await gdriveService.getFileAsText(file.id, file.mimeType);
+          if (!text || text.trim().length < 50) {
+            await storage.markGdriveFileImported(file.id, file.name, 0);
+            continue;
+          }
+
+          const parsed = await parseTranscript(text, file.name, existingProjectNames);
+
+          for (const note of parsed) {
+            let project = await storage.getResearchProjectByName(note.project);
+            if (!project) {
+              project = await storage.createResearchProject({
+                name: note.project,
+                description: `Research project: ${note.project}`,
+                color: projectColors[totalUpdates % projectColors.length],
+              });
+              existingProjectNames.push(note.project);
+            }
+
+            await storage.createResearchUpdate({
+              projectId: project.id,
+              date: new Date(note.date),
+              description: note.description,
+              grantee: note.grantee,
+            });
+            totalUpdates++;
+          }
+
+          await storage.markGdriveFileImported(file.id, file.name, parsed.length);
+        } catch (fileError) {
+          console.error(`Error processing Drive file ${file.name}:`, fileError);
+        }
+      }
+
+      await storage.updateGdriveSettings({ lastGdriveSyncAt: new Date() });
+      console.log(`Google Drive auto-sync complete: ${totalUpdates} updates from ${newFiles.length} files`);
+    } catch (error) {
+      console.error("Google Drive auto-sync failed:", error);
+    }
   }
 }
 

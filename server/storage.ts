@@ -56,6 +56,7 @@ import {
   adminActionsLog,
   micrograntApplications,
   grantComments,
+  gdriveImportedFiles,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -110,6 +111,11 @@ export interface IStorage {
   getResearchUpdates(projectId?: string): Promise<ResearchUpdate[]>;
   createResearchUpdate(update: InsertResearchUpdate): Promise<ResearchUpdate>;
   getResearchTimeline(): Promise<{ project: ResearchProject; updates: ResearchUpdate[] }[]>;
+
+  // Google Drive Import Tracking
+  getGdriveImportedFileIds(): Promise<string[]>;
+  markGdriveFileImported(fileId: string, fileName: string, updatesCreated: number): Promise<void>;
+  updateGdriveSettings(updates: { gdriveFolderId?: string | null; gdriveFolderName?: string | null; gdriveAutoSync?: boolean; lastGdriveSyncAt?: Date }): Promise<void>;
 
   // Project-Hypothesis Links
   getProjectHypotheses(projectId: string): Promise<Array<{ projectId: string; hypothesisId: string; relationship: string | null; hypothesis: Hypothesis }>>;
@@ -521,6 +527,22 @@ export class DatabaseStorage implements IStorage {
       })
     );
     return result;
+  }
+
+  // Google Drive Import Tracking
+  async getGdriveImportedFileIds(): Promise<string[]> {
+    const rows = await db.select({ fileId: gdriveImportedFiles.fileId }).from(gdriveImportedFiles);
+    return rows.map(r => r.fileId);
+  }
+
+  async markGdriveFileImported(fileId: string, fileName: string, updatesCreated: number): Promise<void> {
+    await db.insert(gdriveImportedFiles).values({ fileId, fileName, updatesCreated });
+  }
+
+  async updateGdriveSettings(updates: { gdriveFolderId?: string | null; gdriveFolderName?: string | null; gdriveAutoSync?: boolean; lastGdriveSyncAt?: Date }): Promise<void> {
+    const existing = await this.getIntegrationSettings();
+    if (!existing) return;
+    await db.update(integrationSettings).set({ ...updates, updatedAt: new Date() }).where(eq(integrationSettings.id, existing.id));
   }
 
   // Hypotheses
