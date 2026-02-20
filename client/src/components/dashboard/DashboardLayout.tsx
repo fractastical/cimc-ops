@@ -11,7 +11,6 @@ import {
   Menu, 
   X,
   Bell,
-  Shield,
   LogOut,
   Banknote,
   FileText
@@ -73,7 +72,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { icon: FileText, label: "Papers", path: "/papers" },
     { icon: Target, label: "Milestones", path: "/milestones" },
     { icon: Banknote, label: "Grants", path: "/grants" },
-    { icon: Shield, label: "Admin", path: "/admin" },
     { icon: Bot, label: "Slackbot", path: "/slackbot" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
