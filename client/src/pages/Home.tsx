@@ -2,8 +2,9 @@ import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { BotTerminal } from "@/components/dashboard/BotTerminal";
 import { ResearchBoard } from "@/components/dashboard/ResearchBoard";
 import { MonthlyActivityChart } from "@/components/dashboard/MonthlyActivityChart";
+import { MilestoneProgressGrid } from "@/components/dashboard/MilestoneProgressGrid";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getRepositories, getSlackMessages, getResearchProjects, getResearchUpdates, sendDailySummary, sendWeeklySummary, sendRepoSummary, sendResearchSummary, TimeFrame } from "@/lib/api";
+import { getRepositories, getSlackMessages, getResearchProjects, getResearchUpdates, sendDailySummary, sendWeeklySummary, sendRepoSummary, sendResearchSummary, getMilestones, getMilestoneSubmissions, TimeFrame } from "@/lib/api";
 import { motion } from "framer-motion";
 import { RefreshCw, Send, Calendar, CalendarDays, Rocket, Microscope } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +33,16 @@ export default function Home() {
   const { data: researchUpdates = [], isLoading: updatesLoading } = useQuery({
     queryKey: ["researchUpdates"],
     queryFn: getResearchUpdates,
+  });
+
+  const { data: allMilestones = [] } = useQuery({
+    queryKey: ["milestones", "all"],
+    queryFn: () => getMilestones(),
+  });
+
+  const { data: milestoneSubmissions = [] } = useQuery({
+    queryKey: ["milestoneSubmissions"],
+    queryFn: () => getMilestoneSubmissions(),
   });
 
   const dailyMutation = useMutation({
@@ -141,6 +152,18 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <MilestoneProgressGrid
+          milestones={allMilestones}
+          submissions={milestoneSubmissions}
+          projects={researchProjects}
+        />
+      </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         {/* Top Row: Activity Heatmap */}
