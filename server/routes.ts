@@ -76,6 +76,51 @@ function parseJsonArray(val: string | null | undefined): string[] {
   }
 }
 
+function normalizeProjectName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function findBestProjectMatch(parsedName: string, existingProjects: { id: string; name: string }[]): { id: string; name: string } | null {
+  if (existingProjects.length === 0) return null;
+
+  const normalizedParsed = normalizeProjectName(parsedName);
+  const parsedWords = normalizedParsed.split(' ').filter(w => w.length > 2);
+  
+  let bestMatch: { id: string; name: string } | null = null;
+  let bestScore = 0;
+
+  for (const proj of existingProjects) {
+    const normalizedExisting = normalizeProjectName(proj.name);
+    
+    if (normalizedExisting === normalizedParsed) return proj;
+    
+    if (normalizedExisting.includes(normalizedParsed) || normalizedParsed.includes(normalizedExisting)) {
+      const score = Math.min(normalizedParsed.length, normalizedExisting.length) / Math.max(normalizedParsed.length, normalizedExisting.length);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = proj;
+      }
+      continue;
+    }
+
+    const existingWords = normalizedExisting.split(' ').filter(w => w.length > 2);
+    const commonWords = parsedWords.filter(w => existingWords.some(ew => ew.includes(w) || w.includes(ew)));
+    const wordOverlap = commonWords.length / Math.max(parsedWords.length, existingWords.length);
+    
+    if (wordOverlap > bestScore) {
+      bestScore = wordOverlap;
+      bestMatch = proj;
+    }
+  }
+
+  if (bestScore >= 0.5) return bestMatch;
+  return null;
+}
+
 async function importParsedUpdates(parsed: ParsedUpdate[]): Promise<{ updatesAdded: number; projectCount: number }> {
   const projectColors = [
     "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", 
@@ -85,16 +130,32 @@ async function importParsedUpdates(parsed: ParsedUpdate[]): Promise<{ updatesAdd
   const projectMap = new Map<string, string>();
   let updatesAdded = 0;
 
+  const allProjects = await storage.getResearchProjects();
+  const projectList = allProjects.map(p => ({ id: p.id, name: p.name }));
+
   for (const note of parsed) {
     let projectId = projectMap.get(note.project);
     if (!projectId) {
       let project = await storage.getResearchProjectByName(note.project);
+      
+      if (!project) {
+        const fuzzyMatch = findBestProjectMatch(note.project, projectList);
+        if (fuzzyMatch) {
+          project = allProjects.find(p => p.id === fuzzyMatch.id) || await storage.getResearchProject(fuzzyMatch.id);
+          if (project) {
+            console.log(`Fuzzy matched "${note.project}" -> "${fuzzyMatch.name}"`);
+          }
+        }
+      }
+      
       if (!project) {
         project = await storage.createResearchProject({
           name: note.project,
           description: `Research project: ${note.project}`,
           color: projectColors[colorIndex % projectColors.length],
         });
+        projectList.push({ id: project.id, name: project.name });
+        allProjects.push(project);
         colorIndex++;
       }
       projectId = project.id;
@@ -938,6 +999,24 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating research project:", error);
       res.status(500).json({ error: "Failed to update project" });
+    }
+  });
+
+  app.post("/api/research/projects/merge", async (req, res) => {
+    try {
+      const { keepId, mergeIds } = req.body as { keepId: string; mergeIds: string[] };
+      if (!keepId || !mergeIds || mergeIds.length === 0) {
+        return res.status(400).json({ error: "keepId and mergeIds are required" });
+      }
+      const filteredMergeIds = mergeIds.filter(id => id !== keepId);
+      if (filteredMergeIds.length === 0) {
+        return res.status(400).json({ error: "Cannot merge a project with itself" });
+      }
+      const movedCount = await storage.mergeResearchProjects(keepId, filteredMergeIds);
+      res.json({ success: true, updatesReassigned: movedCount });
+    } catch (error) {
+      console.error("Error merging projects:", error);
+      res.status(500).json({ error: "Failed to merge projects" });
     }
   });
 

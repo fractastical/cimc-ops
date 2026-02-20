@@ -18,6 +18,7 @@ import {
   getHypothesisActivity,
   getHypothesisActivityTimeline,
   updateResearchProject,
+  mergeResearchProjects,
   getResearchProjects,
   getMilestones,
   getMilestoneSubmissions,
@@ -33,7 +34,7 @@ import {
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, Download, Pencil, Check, ExternalLink, BookOpen, Database, FolderOpen, FileText, Cloud, CheckCircle2, Clock } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, GitBranch, X, Plus, Github, Download, Pencil, Check, ExternalLink, BookOpen, Database, FolderOpen, FileText, Cloud, CheckCircle2, Clock, Merge, Trash2 } from "lucide-react";
 import { MilestoneProgressGrid } from "@/components/dashboard/MilestoneProgressGrid";
 import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";
@@ -1711,10 +1712,113 @@ function NotionResearchersPanel() {
   );
 }
 
+function MergeProjectsPanel({ timeline }: { timeline: ResearchTimeline[] }) {
+  const queryClient = useQueryClient();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [keepId, setKeepId] = useState<string | null>(null);
+
+  const mergeMutation = useMutation({
+    mutationFn: ({ keepId, mergeIds }: { keepId: string; mergeIds: string[] }) =>
+      mergeResearchProjects(keepId, mergeIds),
+    onSuccess: (data) => {
+      toast.success(`Merged projects! ${data.updatesReassigned} updates reassigned.`);
+      setSelectedIds(new Set());
+      setKeepId(null);
+      queryClient.invalidateQueries({ queryKey: ["researchTimeline"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/research-projects"] });
+    },
+    onError: () => toast.error("Failed to merge projects"),
+  });
+
+  const projects = timeline.map(t => ({
+    id: t.project.id,
+    name: t.project.name,
+    color: t.project.color || "#3b82f6",
+    updateCount: t.updates.length,
+  })).sort((a, b) => a.name.localeCompare(b.name));
+
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+      if (keepId === id) setKeepId(null);
+    } else {
+      next.add(id);
+    }
+    setSelectedIds(next);
+  };
+
+  const handleMerge = () => {
+    if (!keepId || selectedIds.size < 2) return;
+    const mergeIds = Array.from(selectedIds).filter(id => id !== keepId);
+    mergeMutation.mutate({ keepId, mergeIds });
+  };
+
+  return (
+    <Card className="glass-panel border-primary/20" data-testid="card-merge-projects">
+      <CardHeader>
+        <CardTitle className="font-mono text-lg flex items-center gap-2">
+          <Merge className="h-5 w-5 text-primary" />
+          Merge Duplicate Projects
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Select projects to merge, then pick which one to keep. All updates from the others will be moved to the kept project, and the duplicates will be deleted.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto">
+          {projects.map(p => (
+            <div
+              key={p.id}
+              data-testid={`merge-project-${p.id}`}
+              onClick={() => toggleSelect(p.id)}
+              className={`flex items-center gap-2 p-2 rounded cursor-pointer border text-sm transition-colors ${
+                selectedIds.has(p.id) 
+                  ? keepId === p.id 
+                    ? "border-green-500 bg-green-500/10" 
+                    : "border-primary bg-primary/10" 
+                  : "border-border/30 hover:border-border/60"
+              }`}
+            >
+              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+              <span className="truncate flex-1">{p.name}</span>
+              <Badge variant="secondary" className="text-xs">{p.updateCount}</Badge>
+              {selectedIds.has(p.id) && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setKeepId(p.id); }}
+                  className={`text-xs px-1.5 py-0.5 rounded ${keepId === p.id ? "bg-green-500 text-white" : "bg-muted hover:bg-muted/80"}`}
+                  data-testid={`keep-project-${p.id}`}
+                >
+                  {keepId === p.id ? "Keeping" : "Keep"}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {selectedIds.size >= 2 && (
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleMerge}
+              disabled={!keepId || mergeMutation.isPending}
+              data-testid="button-merge-projects"
+            >
+              <Merge className="h-4 w-4 mr-2" />
+              {mergeMutation.isPending ? "Merging..." : `Merge ${selectedIds.size} projects`}
+            </Button>
+            {!keepId && <span className="text-sm text-amber-400">Click "Keep" on the project you want to keep</span>}
+            <Button variant="ghost" onClick={() => { setSelectedIds(new Set()); setKeepId(null); }}>Clear</Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Research() {
   const queryClient = useQueryClient();
   const [jsonInput, setJsonInput] = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
   const [selectedResearcherForModal, setSelectedResearcherForModal] = useState<NotionResearcher | null>(null);
 
   const { data: timeline, isLoading } = useQuery({
@@ -1816,6 +1920,14 @@ export default function Research() {
           </Button>
           <Button 
             variant="outline" 
+            onClick={() => setShowMerge(!showMerge)}
+            data-testid="button-toggle-merge"
+          >
+            <Merge className="h-4 w-4 mr-2" />
+            Merge Duplicates
+          </Button>
+          <Button 
+            variant="outline" 
             onClick={() => setShowImport(!showImport)}
             data-testid="button-toggle-import"
           >
@@ -1859,6 +1971,8 @@ export default function Research() {
           </CardContent>
         </Card>
       )}
+
+      {showMerge && <MergeProjectsPanel timeline={timeline || []} />}
 
       <GoogleDriveImportPanel />
 

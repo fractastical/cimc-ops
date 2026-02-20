@@ -233,6 +233,16 @@ export async function updateResearchProject(id: string, updates: { status?: stri
   return res.json();
 }
 
+export async function mergeResearchProjects(keepId: string, mergeIds: string[]): Promise<{ success: boolean; updatesReassigned: number }> {
+  const res = await fetch("/api/research/projects/merge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keepId, mergeIds }),
+  });
+  if (!res.ok) throw new Error("Failed to merge projects");
+  return res.json();
+}
+
 export async function getResearchUpdates(): Promise<ResearchUpdate[]> {
   const res = await fetch("/api/research/updates");
   if (!res.ok) throw new Error("Failed to fetch research updates");

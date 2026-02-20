@@ -106,6 +106,7 @@ export interface IStorage {
   createResearchProject(project: InsertResearchProject): Promise<ResearchProject>;
   updateResearchProject(id: string, updates: Partial<InsertResearchProject>): Promise<ResearchProject | undefined>;
   deleteResearchProject(id: string): Promise<void>;
+  mergeResearchProjects(keepId: string, mergeIds: string[]): Promise<number>;
 
   // Research Updates
   getResearchUpdates(projectId?: string): Promise<ResearchUpdate[]>;
@@ -496,6 +497,19 @@ export class DatabaseStorage implements IStorage {
 
   async deleteResearchProject(id: string): Promise<void> {
     await db.delete(researchProjects).where(eq(researchProjects.id, id));
+  }
+
+  async mergeResearchProjects(keepId: string, mergeIds: string[]): Promise<number> {
+    if (mergeIds.length === 0) return 0;
+    let movedCount = 0;
+    for (const mergeId of mergeIds) {
+      const result = await db.update(researchUpdates)
+        .set({ projectId: keepId })
+        .where(eq(researchUpdates.projectId, mergeId));
+      movedCount += (result as any).rowCount || 0;
+      await db.delete(researchProjects).where(eq(researchProjects.id, mergeId));
+    }
+    return movedCount;
   }
 
   // Research Updates
