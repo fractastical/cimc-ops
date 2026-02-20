@@ -66,6 +66,16 @@ async function autoSyncOnStartup() {
   }
 }
 
+function parseJsonArray(val: string | null | undefined): string[] {
+  if (!val) return [];
+  try {
+    const parsed = JSON.parse(val);
+    return Array.isArray(parsed) ? parsed : [val];
+  } catch {
+    return val ? [val] : [];
+  }
+}
+
 async function importParsedUpdates(parsed: ParsedUpdate[]): Promise<{ updatesAdded: number; projectCount: number }> {
   const projectColors = [
     "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", 
@@ -730,6 +740,11 @@ export async function registerRoutes(
   app.get("/api/gdrive/folders", async (req, res) => {
     try {
       const parentId = req.query.parentId as string | undefined;
+      const search = req.query.search as string | undefined;
+      if (search) {
+        const folders = await gdriveService.searchFolders(search);
+        return res.json(folders);
+      }
       const folders = await gdriveService.listFolders(parentId);
       res.json(folders);
     } catch (error: any) {
@@ -757,17 +772,25 @@ export async function registerRoutes(
 
   app.post("/api/gdrive/import", async (req, res) => {
     try {
-      const { fileIds, folderId } = req.body as { fileIds?: string[]; folderId?: string };
+      const { fileIds, folderIds } = req.body as { fileIds?: string[]; folderIds?: string[] };
       
+      const settings = await storage.getIntegrationSettings();
+      const targetFolderIds = folderIds || parseJsonArray(settings?.gdriveFolderId);
+
+      if (targetFolderIds.length === 0) {
+        return res.json({ success: true, message: "No folders configured", imported: 0, updatesCreated: 0 });
+      }
+
       let filesToProcess: { id: string; name: string; mimeType: string }[] = [];
-      
-      if (fileIds && fileIds.length > 0) {
-        const allFiles = folderId ? await gdriveService.listFiles(folderId) : [];
-        filesToProcess = allFiles.filter(f => fileIds.includes(f.id));
-      } else if (folderId) {
-        const allFiles = await gdriveService.listFiles(folderId);
-        const importedIds = await storage.getGdriveImportedFileIds();
-        filesToProcess = allFiles.filter(f => !importedIds.includes(f.id));
+      const importedIds = await storage.getGdriveImportedFileIds();
+
+      for (const fid of targetFolderIds) {
+        const allFiles = await gdriveService.listFiles(fid);
+        if (fileIds && fileIds.length > 0) {
+          filesToProcess.push(...allFiles.filter(f => fileIds.includes(f.id)));
+        } else {
+          filesToProcess.push(...allFiles.filter(f => !importedIds.includes(f.id)));
+        }
       }
 
       if (filesToProcess.length === 0) {
@@ -821,12 +844,16 @@ export async function registerRoutes(
 
   app.post("/api/gdrive/settings", async (req, res) => {
     try {
-      const { folderId, folderName, autoSync } = req.body;
-      await storage.updateGdriveSettings({
-        gdriveFolderId: folderId || null,
-        gdriveFolderName: folderName || null,
-        gdriveAutoSync: !!autoSync,
-      });
+      const { folders, autoSync } = req.body as { folders?: { id: string; name: string }[]; autoSync?: boolean };
+      const updates: any = {};
+      if (folders !== undefined) {
+        updates.gdriveFolderId = JSON.stringify(folders.map(f => f.id));
+        updates.gdriveFolderName = JSON.stringify(folders.map(f => f.name));
+      }
+      if (autoSync !== undefined) {
+        updates.gdriveAutoSync = autoSync;
+      }
+      await storage.updateGdriveSettings(updates);
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error saving Drive settings:", error);
@@ -837,9 +864,11 @@ export async function registerRoutes(
   app.get("/api/gdrive/settings", async (req, res) => {
     try {
       const settings = await storage.getIntegrationSettings();
+      const folderIds = parseJsonArray(settings?.gdriveFolderId);
+      const folderNames = parseJsonArray(settings?.gdriveFolderName);
+      const folders = folderIds.map((id, i) => ({ id, name: folderNames[i] || id }));
       res.json({
-        folderId: settings?.gdriveFolderId || null,
-        folderName: settings?.gdriveFolderName || null,
+        folders,
         autoSync: settings?.gdriveAutoSync || false,
         lastSyncAt: settings?.lastGdriveSyncAt || null,
       });

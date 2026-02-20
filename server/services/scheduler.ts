@@ -588,10 +588,21 @@ export class SchedulerService {
       const settings = await storage.getIntegrationSettings();
       if (!settings?.gdriveAutoSync || !settings?.gdriveFolderId) return;
 
-      console.log("Running Google Drive auto-sync...");
-      const allFiles = await gdriveService.listFiles(settings.gdriveFolderId);
+      let folderIds: string[];
+      try {
+        const parsed = JSON.parse(settings.gdriveFolderId);
+        folderIds = Array.isArray(parsed) ? parsed : [settings.gdriveFolderId];
+      } catch {
+        folderIds = [settings.gdriveFolderId];
+      }
+
+      console.log(`Running Google Drive auto-sync across ${folderIds.length} folder(s)...`);
       const importedIds = await storage.getGdriveImportedFileIds();
-      const newFiles = allFiles.filter(f => !importedIds.includes(f.id));
+      let newFiles: Array<{ id: string; name: string; mimeType: string; modifiedTime: string }> = [];
+      for (const fid of folderIds) {
+        const files = await gdriveService.listFiles(fid);
+        newFiles.push(...files.filter(f => !importedIds.includes(f.id)));
+      }
 
       if (newFiles.length === 0) {
         console.log("No new Google Drive files to import");

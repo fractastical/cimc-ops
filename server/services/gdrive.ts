@@ -83,6 +83,23 @@ export const gdriveService = {
     }));
   },
 
+  async searchFolders(name: string): Promise<DriveFolder[]> {
+    const drive = await getUncachableGoogleDriveClient();
+    const query = `mimeType='application/vnd.google-apps.folder' and trashed=false and name contains '${name.replace(/'/g, "\\'")}'`;
+    const response = await drive.files.list({
+      q: query,
+      fields: 'files(id, name)',
+      orderBy: 'name',
+      pageSize: 50,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    return (response.data.files || []).map((f: any) => ({
+      id: f.id!,
+      name: f.name!,
+    }));
+  },
+
   async listFiles(folderId: string): Promise<DriveFile[]> {
     const drive = await getUncachableGoogleDriveClient();
     const response = await drive.files.list({
