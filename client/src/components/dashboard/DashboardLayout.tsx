@@ -13,7 +13,8 @@ import {
   Bell,
   Shield,
   LogOut,
-  Banknote
+  Banknote,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -70,6 +71,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { icon: GitGraph, label: "Repos", path: "/repos" },
     { icon: Bot, label: "Slackbot", path: "/slackbot" },
     { icon: FlaskConical, label: "Research", path: "/research" },
+    { icon: FileText, label: "Papers", path: "/papers" },
     { icon: Target, label: "Milestones", path: "/milestones" },
     { icon: Banknote, label: "Grants", path: "/grants" },
     { icon: Shield, label: "Admin", path: "/admin" },
