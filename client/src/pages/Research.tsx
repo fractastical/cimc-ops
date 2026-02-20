@@ -31,6 +31,8 @@ import {
   type NotionDatabase,
   type NotionResearcher,
   type NotionPageContent,
+  type Milestone,
+  type MilestoneSubmission,
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
@@ -581,7 +583,7 @@ function MapHypothesesModal({
   );
 }
 
-function ResearchTimelineChart({ timeline, hypotheses, notionEntries, onResearcherClick }: { timeline: ResearchTimeline[]; hypotheses: Hypothesis[]; notionEntries?: NotionResearcher[]; onResearcherClick?: (researcher: NotionResearcher) => void }) {
+function ResearchTimelineChart({ timeline, hypotheses, notionEntries, onResearcherClick, milestones, milestoneSubmissions }: { timeline: ResearchTimeline[]; hypotheses: Hypothesis[]; notionEntries?: NotionResearcher[]; onResearcherClick?: (researcher: NotionResearcher) => void; milestones?: Milestone[]; milestoneSubmissions?: MilestoneSubmission[] }) {
   const queryClient = useQueryClient();
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [mappingProject, setMappingProject] = useState<ResearchTimeline | null>(null);
@@ -630,6 +632,13 @@ function ResearchTimelineChart({ timeline, hypotheses, notionEntries, onResearch
       </div>
     );
   }
+
+  const sortedTimeline = [...timeline].sort((a, b) => {
+    const aMilestones = (milestoneSubmissions || []).filter(s => s.projectId === a.project.id).length;
+    const bMilestones = (milestoneSubmissions || []).filter(s => s.projectId === b.project.id).length;
+    if (bMilestones !== aMilestones) return bMilestones - aMilestones;
+    return b.updates.length - a.updates.length;
+  });
 
   // Get all unique dates
   const allDates = new Set<string>();
@@ -693,8 +702,8 @@ function ResearchTimelineChart({ timeline, hypotheses, notionEntries, onResearch
               </div>
             </div>
 
-            {/* Project rows */}
-            {timeline.map((project, idx) => {
+            {/* Project rows - sorted by milestones completed, then by update count */}
+            {sortedTimeline.map((project, idx) => {
               const isExpanded = expandedProject === project.project.id;
               const updateDates = new Map(
                 project.updates.map(u => [format(parseISO(u.date), 'yyyy-MM-dd'), u])
@@ -1987,6 +1996,8 @@ export default function Research() {
         hypotheses={hypotheses} 
         notionEntries={notionEntries}
         onResearcherClick={setSelectedResearcherForModal}
+        milestones={allMilestones}
+        milestoneSubmissions={milestoneSubmissions}
       />
 
       <HypothesisActivityPanel />
