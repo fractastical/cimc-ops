@@ -773,13 +773,26 @@ export async function registerRoutes(
   app.post("/api/gdrive/import", async (req, res) => {
     try {
       const { fileIds, folderIds } = req.body as { fileIds?: string[]; folderIds?: string[] };
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders();
+
+      const sendEvent = (data: any) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
       
       const settings = await storage.getIntegrationSettings();
       const targetFolderIds = folderIds || parseJsonArray(settings?.gdriveFolderId);
 
       if (targetFolderIds.length === 0) {
-        return res.json({ success: true, message: "No folders configured", imported: 0, updatesCreated: 0 });
+        sendEvent({ type: "done", success: true, message: "No folders configured", imported: 0, updatesCreated: 0 });
+        res.end();
+        return;
       }
+
+      sendEvent({ type: "status", message: "Scanning folders for files..." });
 
       let filesToProcess: { id: string; name: string; mimeType: string }[] = [];
       const importedIds = await storage.getGdriveImportedFileIds();
@@ -794,51 +807,72 @@ export async function registerRoutes(
       }
 
       if (filesToProcess.length === 0) {
-        return res.json({ success: true, message: "No new files to import", imported: 0, updatesCreated: 0 });
+        sendEvent({ type: "done", success: true, message: "No new files to import", imported: 0, updatesCreated: 0 });
+        res.end();
+        return;
       }
+
+      sendEvent({ type: "status", message: `Found ${filesToProcess.length} files to process`, total: filesToProcess.length });
 
       const projects = await storage.getResearchProjects();
       const existingProjectNames = projects.map(p => p.name);
       let totalUpdates = 0;
       let filesImported = 0;
 
-      for (const file of filesToProcess) {
-        try {
-          const text = await gdriveService.getFileAsText(file.id, file.mimeType);
-          if (!text || text.trim().length < 50) continue;
+      const keepAlive = setInterval(() => {
+        try { res.write(`: heartbeat\n\n`); } catch (_) {}
+      }, 15000);
 
-          const parsed = await parseTranscript(text, file.name, existingProjectNames);
-          
-          if (parsed.length > 0) {
-            const importRes = await importParsedUpdates(parsed);
-            await storage.markGdriveFileImported(file.id, file.name, parsed.length);
-            totalUpdates += importRes.updatesAdded;
-            filesImported++;
-            for (const p of parsed) {
-              if (!existingProjectNames.includes(p.project)) {
-                existingProjectNames.push(p.project);
-              }
+      try {
+        for (let i = 0; i < filesToProcess.length; i++) {
+          const file = filesToProcess[i];
+          try {
+            sendEvent({ type: "progress", current: i + 1, total: filesToProcess.length, fileName: file.name, message: `Processing ${i + 1}/${filesToProcess.length}: ${file.name}` });
+
+            const text = await gdriveService.getFileAsText(file.id, file.mimeType);
+            if (!text || text.trim().length < 50) {
+              sendEvent({ type: "file_done", fileName: file.name, updates: 0, skipped: true });
+              continue;
             }
-          } else {
-            await storage.markGdriveFileImported(file.id, file.name, 0);
-            filesImported++;
+
+            const parsed = await parseTranscript(text, file.name, existingProjectNames);
+            
+            if (parsed.length > 0) {
+              const importRes = await importParsedUpdates(parsed);
+              await storage.markGdriveFileImported(file.id, file.name, parsed.length);
+              totalUpdates += importRes.updatesAdded;
+              filesImported++;
+              for (const p of parsed) {
+                if (!existingProjectNames.includes(p.project)) {
+                  existingProjectNames.push(p.project);
+                }
+              }
+              sendEvent({ type: "file_done", fileName: file.name, updates: importRes.updatesAdded });
+            } else {
+              sendEvent({ type: "file_done", fileName: file.name, updates: 0 });
+              filesImported++;
+            }
+          } catch (fileError: any) {
+            console.error(`Error processing file ${file.name}:`, fileError);
+            sendEvent({ type: "file_error", fileName: file.name, error: fileError.message || "Unknown error" });
           }
-        } catch (fileError) {
-          console.error(`Error processing file ${file.name}:`, fileError);
         }
+      } finally {
+        clearInterval(keepAlive);
       }
 
       await storage.updateGdriveSettings({ lastGdriveSyncAt: new Date() });
 
-      res.json({ 
-        success: true, 
-        message: `Imported ${totalUpdates} updates from ${filesImported} files`,
-        imported: filesImported,
-        updatesCreated: totalUpdates,
-      });
+      sendEvent({ type: "done", success: true, message: `Imported ${totalUpdates} updates from ${filesImported} files`, imported: filesImported, updatesCreated: totalUpdates });
+      res.end();
     } catch (error: any) {
       console.error("Error importing from Drive:", error);
-      res.status(500).json({ error: error.message || "Failed to import from Drive" });
+      try {
+        res.write(`data: ${JSON.stringify({ type: "error", error: error.message || "Failed to import" })}\n\n`);
+        res.end();
+      } catch (_) {
+        // response already ended
+      }
     }
   });
 

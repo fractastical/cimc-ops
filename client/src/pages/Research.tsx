@@ -63,6 +63,7 @@ function GoogleDriveImportPanel() {
   const [showSearch, setShowSearch] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState<{ importing: boolean; message: string; current: number; total: number; updatesCreated: number } | null>(null);
 
   const { data: settings } = useQuery<GdriveSettings>({
     queryKey: ["gdriveSettings"],
@@ -100,24 +101,75 @@ function GoogleDriveImportPanel() {
     },
   });
 
-  const importMutation = useMutation({
-    mutationFn: (body: { fileIds?: string[]; folderIds?: string[] }) =>
-      fetch("/api/gdrive/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success(data.message);
-      } else {
-        toast.error(data.error || "Import failed");
+  const startImport = async (body: { fileIds?: string[]; folderIds?: string[] }) => {
+    if (importProgress?.importing) return;
+    setImportProgress({ importing: true, message: "Starting import...", current: 0, total: 0, updatesCreated: 0 });
+
+    try {
+      const response = await fetch("/api/gdrive/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ error: "Import request failed" }));
+        toast.error(errData.error || "Import request failed");
+        setImportProgress(null);
+        return;
       }
-      setSelectedFileIds(new Set());
-      queryClient.invalidateQueries({ queryKey: ["gdriveFiles"] });
-      queryClient.invalidateQueries({ queryKey: ["researchTimeline"] });
-      queryClient.invalidateQueries({ queryKey: ["gdriveSettings"] });
-    },
-    onError: () => {
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let gotDone = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "progress") {
+              setImportProgress(prev => ({ ...prev!, message: event.message, current: event.current, total: event.total }));
+            } else if (event.type === "file_done") {
+              setImportProgress(prev => ({ ...prev!, updatesCreated: prev!.updatesCreated + (event.updates || 0) }));
+            } else if (event.type === "file_error") {
+              toast.error(`Error processing: ${event.fileName}`);
+            } else if (event.type === "status") {
+              setImportProgress(prev => ({ ...prev!, message: event.message, total: event.total || prev!.total }));
+            } else if (event.type === "done") {
+              gotDone = true;
+              toast.success(event.message);
+              setImportProgress(null);
+              setSelectedFileIds(new Set());
+              queryClient.invalidateQueries({ queryKey: ["gdriveFiles"] });
+              queryClient.invalidateQueries({ queryKey: ["researchTimeline"] });
+              queryClient.invalidateQueries({ queryKey: ["gdriveSettings"] });
+            } else if (event.type === "error") {
+              gotDone = true;
+              toast.error(event.error || "Import failed");
+              setImportProgress(null);
+            }
+          } catch {}
+        }
+      }
+      if (!gotDone) {
+        setImportProgress(null);
+      }
+    } catch (err) {
       toast.error("Failed to import from Google Drive");
-    },
-  });
+      setImportProgress(null);
+    }
+  };
 
   const addFolder = (folder: DriveFolder) => {
     const current = settings?.folders || [];
@@ -173,11 +225,11 @@ function GoogleDriveImportPanel() {
             {hasFolders && (
               <Button
                 size="sm"
-                onClick={() => importMutation.mutate({ folderIds: settings!.folders.map(f => f.id) })}
-                disabled={importMutation.isPending}
+                onClick={() => startImport({ folderIds: settings!.folders.map(f => f.id) })}
+                disabled={!!importProgress?.importing}
                 data-testid="button-import-all-drive"
               >
-                {importMutation.isPending ? (
+                {importProgress?.importing ? (
                   <><RefreshCw className="h-3 w-3 animate-spin mr-1" /> Importing...</>
                 ) : (
                   <><Upload className="h-3 w-3 mr-1" /> Import All New</>
@@ -188,6 +240,25 @@ function GoogleDriveImportPanel() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {importProgress?.importing && (
+          <div className="bg-muted/30 rounded-lg p-3 space-y-2 border border-primary/20" data-testid="import-progress">
+            <div className="flex items-center gap-2 text-sm">
+              <RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />
+              <span className="font-mono text-xs flex-1 truncate">{importProgress.message}</span>
+              {importProgress.updatesCreated > 0 && (
+                <Badge variant="secondary" className="text-xs">{importProgress.updatesCreated} updates</Badge>
+              )}
+            </div>
+            {importProgress.total > 0 && (
+              <div className="w-full bg-muted rounded-full h-1.5">
+                <div
+                  className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.round((importProgress.current / importProgress.total) * 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )}
         {hasFolders && (
           <div className="space-y-1">
             {settings!.folders.map(folder => (
@@ -242,8 +313,8 @@ function GoogleDriveImportPanel() {
                                   <Button
                                     size="sm"
                                     className="h-6 text-xs"
-                                    onClick={() => importMutation.mutate({ fileIds: Array.from(selectedFileIds), folderIds: [folder.id] })}
-                                    disabled={importMutation.isPending}
+                                    onClick={() => startImport({ fileIds: Array.from(selectedFileIds), folderIds: [folder.id] })}
+                                    disabled={!!importProgress?.importing}
                                     data-testid="button-import-selected"
                                   >
                                     Import ({selectedFileIds.size})
