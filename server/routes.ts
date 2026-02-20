@@ -2103,106 +2103,121 @@ export async function registerRoutes(
     }
   });
 
-  // ============ Activity Timeline Visualization Data (Public) ============
-  app.get("/api/viz/tagcloud", async (req, res) => {
+  // ============ Visualization Data Endpoints (Public) ============
+
+  // Viz 1: GitHub Activity - commits, PRs, issues per repo over time
+  app.get("/api/viz/github", async (req, res) => {
     try {
       const activityLog = await storage.getRecentActivity(365);
-      const slackMsgs = await storage.getRecentSlackMessages(500);
-      const researchUpdates = await storage.getResearchUpdates();
       const repos = await storage.getActiveRepositories();
-
       const repoMap: Record<string, string> = {};
-      for (const r of repos) {
-        repoMap[r.id] = r.name;
-      }
+      for (const r of repos) repoMap[r.id] = r.name;
 
-      interface TimelineEvent {
-        date: string;
-        label: string;
-        type: "commit" | "slack" | "research" | "pr" | "issue";
-        detail: string;
-      }
-
-      const events: TimelineEvent[] = [];
-
+      const dayMap: Record<string, { commits: number; prs: number; issues: number; labels: string[] }> = {};
       for (const a of activityLog) {
         const dateStr = a.activityDate
           ? new Date(a.activityDate).toISOString().split("T")[0]
-          : a.createdAt
-          ? new Date(a.createdAt).toISOString().split("T")[0]
-          : null;
+          : a.createdAt ? new Date(a.createdAt).toISOString().split("T")[0] : null;
         if (!dateStr) continue;
-
-        const repoName = a.repositoryId ? (repoMap[a.repositoryId] || a.repositoryId) : "";
-        const evType = a.eventType === "push" ? "commit" : a.eventType === "pull_request" ? "pr" : a.eventType === "issues" ? "issue" : "commit";
-        const msg = a.message || "";
-        const shortMsg = msg.length > 60 ? msg.substring(0, 60) : msg;
-
-        events.push({
-          date: dateStr,
-          label: repoName || shortMsg || a.eventType || "event",
-          type: evType as any,
-          detail: shortMsg,
-        });
+        if (!dayMap[dateStr]) dayMap[dateStr] = { commits: 0, prs: 0, issues: 0, labels: [] };
+        const d = dayMap[dateStr];
+        if (a.eventType === "push") d.commits++;
+        else if (a.eventType === "pull_request") d.prs++;
+        else if (a.eventType === "issues") d.issues++;
+        const repoName = a.repositoryId ? (repoMap[a.repositoryId] || "") : "";
+        const label = repoName || (a.message ? a.message.substring(0, 50) : "");
+        if (label && d.labels.length < 6 && !d.labels.includes(label)) d.labels.push(label);
       }
+      const timeline = Object.entries(dayMap)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, data]) => ({ date, ...data, total: data.commits + data.prs + data.issues }));
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error generating GitHub viz data:", error);
+      res.status(500).json({ error: "Failed to generate data" });
+    }
+  });
 
-      for (const m of slackMsgs) {
-        const dateStr = m.timestamp ? new Date(m.timestamp).toISOString().split("T")[0] : null;
-        if (!dateStr) continue;
-        const shortMsg = m.message.length > 60 ? m.message.substring(0, 60) : m.message;
-        events.push({
-          date: dateStr,
-          label: m.user || "slack",
-          type: "slack",
-          detail: shortMsg.replace(/[:*_~`]/g, ""),
-        });
-      }
+  // Viz 2: Research Activity - meeting updates, milestones, submissions over time
+  app.get("/api/viz/research", async (req, res) => {
+    try {
+      const updates = await storage.getResearchUpdates();
+      const milestones = await storage.getMilestones();
+      const submissions = await storage.getMilestoneSubmissions();
+      const projects = await storage.getResearchProjects();
 
-      for (const u of researchUpdates) {
+      const projectMap: Record<string, string> = {};
+      for (const p of projects) projectMap[p.id] = p.name;
+
+      const dayMap: Record<string, { meetings: number; milestones: number; submissions: number; labels: string[] }> = {};
+
+      for (const u of updates) {
         const dateStr = u.date ? new Date(u.date).toISOString().split("T")[0] : null;
         if (!dateStr) continue;
-        const shortDesc = u.description ? (u.description.length > 80 ? u.description.substring(0, 80) : u.description) : "";
-        events.push({
-          date: dateStr,
-          label: u.grantee || "research",
-          type: "research",
-          detail: shortDesc,
-        });
+        if (!dayMap[dateStr]) dayMap[dateStr] = { meetings: 0, milestones: 0, submissions: 0, labels: [] };
+        dayMap[dateStr].meetings++;
+        const label = u.grantee || (u.description ? u.description.substring(0, 40) : "");
+        if (label && dayMap[dateStr].labels.length < 6 && !dayMap[dateStr].labels.includes(label)) dayMap[dateStr].labels.push(label);
       }
 
-      const dayMap: Record<string, { commits: number; slack: number; research: number; prs: number; labels: string[] }> = {};
-      for (const ev of events) {
-        if (!dayMap[ev.date]) {
-          dayMap[ev.date] = { commits: 0, slack: 0, research: 0, prs: 0, labels: [] };
-        }
-        const d = dayMap[ev.date];
-        if (ev.type === "commit") d.commits++;
-        else if (ev.type === "slack") d.slack++;
-        else if (ev.type === "research") d.research++;
-        else if (ev.type === "pr" || ev.type === "issue") d.prs++;
+      for (const ml of milestones) {
+        if (ml.description?.startsWith("[TEST]")) continue;
+        const dateStr = ml.createdAt ? new Date(ml.createdAt).toISOString().split("T")[0] : null;
+        if (!dateStr) continue;
+        if (!dayMap[dateStr]) dayMap[dateStr] = { meetings: 0, milestones: 0, submissions: 0, labels: [] };
+        dayMap[dateStr].milestones++;
+        const projName = ml.projectId ? (projectMap[ml.projectId] || "") : "";
+        if (projName && dayMap[dateStr].labels.length < 6 && !dayMap[dateStr].labels.includes(projName)) dayMap[dateStr].labels.push(projName);
+      }
 
-        if (d.labels.length < 8) {
-          const lbl = ev.label || ev.detail;
-          if (lbl && !d.labels.includes(lbl)) d.labels.push(lbl);
-        }
+      for (const s of submissions) {
+        const dateStr = s.submittedAt ? new Date(s.submittedAt).toISOString().split("T")[0] : null;
+        if (!dateStr) continue;
+        if (!dayMap[dateStr]) dayMap[dateStr] = { meetings: 0, milestones: 0, submissions: 0, labels: [] };
+        dayMap[dateStr].submissions++;
+        const label = s.teamLeadName || "";
+        if (label && dayMap[dateStr].labels.length < 6 && !dayMap[dateStr].labels.includes(label)) dayMap[dateStr].labels.push(label);
       }
 
       const timeline = Object.entries(dayMap)
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, data]) => ({
-          date,
-          commits: data.commits,
-          slack: data.slack,
-          research: data.research,
-          prs: data.prs,
-          total: data.commits + data.slack + data.research + data.prs,
-          labels: data.labels,
-        }));
-
+        .map(([date, data]) => ({ date, ...data, total: data.meetings + data.milestones + data.submissions }));
       res.json(timeline);
     } catch (error) {
-      console.error("Error generating timeline data:", error);
-      res.status(500).json({ error: "Failed to generate timeline" });
+      console.error("Error generating research viz data:", error);
+      res.status(500).json({ error: "Failed to generate data" });
+    }
+  });
+
+  // Viz 3: Communications - Slack messages, bot vs human, channels over time
+  app.get("/api/viz/comms", async (req, res) => {
+    try {
+      const messages = await storage.getRecentSlackMessages(1000);
+
+      const dayMap: Record<string, { human: number; bot: number; alerts: number; labels: string[] }> = {};
+      for (const m of messages) {
+        const dateStr = m.timestamp ? new Date(m.timestamp).toISOString().split("T")[0] : null;
+        if (!dateStr) continue;
+        if (!dayMap[dateStr]) dayMap[dateStr] = { human: 0, bot: 0, alerts: 0, labels: [] };
+        const d = dayMap[dateStr];
+        if (m.isBot) {
+          if (m.message.includes("summary") || m.message.includes("Summary")) d.alerts++;
+          else d.bot++;
+        } else {
+          d.human++;
+        }
+        const clean = m.message.replace(/[:*_~`]/g, "");
+        const label = m.user || (clean.length > 40 ? clean.substring(0, 40) : clean);
+        if (label && d.labels.length < 6 && !d.labels.includes(label)) d.labels.push(label);
+      }
+
+      const timeline = Object.entries(dayMap)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, data]) => ({ date, ...data, total: data.human + data.bot + data.alerts }));
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error generating comms viz data:", error);
+      res.status(500).json({ error: "Failed to generate data" });
     }
   });
 

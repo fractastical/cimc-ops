@@ -74,23 +74,63 @@ export default function Admin() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <a
-              href="/viz/tagcloud"
+              href="/viz/github"
               target="_blank"
               rel="noopener noreferrer"
               className="group flex items-center gap-3 p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all"
-              data-testid="link-viz-tagcloud"
+              data-testid="link-viz-github"
             >
               <div className="w-10 h-10 rounded bg-black border border-white/20 flex items-center justify-center text-white text-xs font-mono shrink-0">
-                W
+                G
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                  Research Tag Cloud
+                  GitHub Activity
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
-                  Animated wave visualization from meeting transcripts
+                  Commits, PRs, issues over time
+                </p>
+              </div>
+              <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary shrink-0" />
+            </a>
+            <a
+              href="/viz/research"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-3 p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all"
+              data-testid="link-viz-research"
+            >
+              <div className="w-10 h-10 rounded bg-black border border-white/20 flex items-center justify-center text-white text-xs font-mono shrink-0">
+                R
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                  Research Activity
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  Meetings, milestones, submissions
+                </p>
+              </div>
+              <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary shrink-0" />
+            </a>
+            <a
+              href="/viz/comms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-3 p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all"
+              data-testid="link-viz-comms"
+            >
+              <div className="w-10 h-10 rounded bg-black border border-white/20 flex items-center justify-center text-white text-xs font-mono shrink-0">
+                C
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                  Communications
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  Slack messages, bots, alerts
                 </p>
               </div>
               <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary shrink-0" />
