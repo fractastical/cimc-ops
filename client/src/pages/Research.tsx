@@ -1460,8 +1460,6 @@ export default function Research() {
         projects={researchProjects}
       />
 
-      <NotionResearchersPanel />
-
       <ResearchTimelineChart 
         timeline={timeline || []} 
         hypotheses={hypotheses} 
@@ -1472,6 +1470,8 @@ export default function Research() {
       <HypothesisActivityPanel />
 
       <HypothesesSection timeline={timeline || []} />
+
+      <NotionResearchersPanel />
 
       {selectedResearcherForModal && (
         <NotionResearcherDetail
