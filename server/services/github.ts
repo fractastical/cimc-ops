@@ -253,6 +253,7 @@ export class GitHubService {
           if (event.type === "PullRequestEvent") {
             const pr = event.payload.pull_request;
             const action = event.payload.action;
+            const eventDate = event.created_at ? new Date(event.created_at) : new Date();
             
             const activityLog: InsertActivityLog = {
               repositoryId: repoId,
@@ -261,12 +262,14 @@ export class GitHubService {
               message: `${action} PR: ${pr?.title || "Pull Request"}`,
               url: pr?.html_url,
               metadata: { action, number: pr?.number },
+              activityDate: eventDate,
             };
             
             await storage.createActivityLog(activityLog);
             eventsAdded++;
           } else if (event.type === "IssuesEvent") {
             const issue = event.payload.issue;
+            const eventDate = event.created_at ? new Date(event.created_at) : new Date();
             
             const activityLog: InsertActivityLog = {
               repositoryId: repoId,
@@ -275,6 +278,7 @@ export class GitHubService {
               message: `${event.payload.action} issue: ${issue?.title || "Issue"}`,
               url: issue?.html_url,
               metadata: { action: event.payload.action, number: issue?.number },
+              activityDate: eventDate,
             };
             
             await storage.createActivityLog(activityLog);
@@ -355,6 +359,7 @@ export class GitHubService {
           message: `${action.charAt(0).toUpperCase() + action.slice(1)} PR #${pr.number}: ${pr.title}`,
           url: pr.html_url,
           metadata: { number: pr.number, action, merged: pr.merged },
+          activityDate: pr.updated_at ? new Date(pr.updated_at) : new Date(),
         };
         break;
 
@@ -368,6 +373,7 @@ export class GitHubService {
           message: `${payload.action.charAt(0).toUpperCase() + payload.action.slice(1)} issue #${issue.number}: ${issue.title}`,
           url: issue.html_url,
           metadata: { number: issue.number, action: payload.action },
+          activityDate: issue.updated_at ? new Date(issue.updated_at) : new Date(),
         };
         break;
 
