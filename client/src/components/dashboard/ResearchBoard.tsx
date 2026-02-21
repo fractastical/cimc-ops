@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FlaskConical, Clock, FileText, User } from "lucide-react";
-import type { ResearchProject, ResearchUpdate } from "@/lib/api";
+import type { ResearchProject, ResearchUpdate, MilestoneSubmission } from "@/lib/api";
 import { updateResearchProject } from "@/lib/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 interface ResearchBoardProps {
   projects: ResearchProject[];
   updates: ResearchUpdate[];
+  milestoneSubmissions?: MilestoneSubmission[];
 }
 
 const STATUS_OPTIONS = [
@@ -19,7 +20,7 @@ const STATUS_OPTIONS = [
   { value: "archived", label: "Archived", color: "bg-gray-500" },
 ];
 
-export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
+export function ResearchBoard({ projects, updates, milestoneSubmissions = [] }: ResearchBoardProps) {
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({
@@ -47,11 +48,18 @@ export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
     )[0];
   };
 
+  const getCompletedMilestoneCount = (projectId: string) => {
+    return milestoneSubmissions.filter(s => s.projectId === projectId).length;
+  };
+
   const statusOrder: Record<string, number> = { active: 0, "on-hold": 1, completed: 2, archived: 3 };
   const sortedProjects = [...projects].sort((a, b) => {
     const statusA = statusOrder[a.status || "active"] ?? 4;
     const statusB = statusOrder[b.status || "active"] ?? 4;
     if (statusA !== statusB) return statusA - statusB;
+    const msA = getCompletedMilestoneCount(a.id);
+    const msB = getCompletedMilestoneCount(b.id);
+    if (msB !== msA) return msB - msA;
     const countA = getUpdateCount(a.id);
     const countB = getUpdateCount(b.id);
     if (countB !== countA) return countB - countA;

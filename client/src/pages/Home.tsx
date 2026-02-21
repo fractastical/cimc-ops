@@ -165,7 +165,7 @@ export default function Home() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <ResearchBoard projects={researchProjects} updates={researchUpdates} />
+        <ResearchBoard projects={researchProjects} updates={researchUpdates} milestoneSubmissions={milestoneSubmissions} />
       </motion.div>
 
       {/* 3. Repo Summary (Total Bar Chart) */}
