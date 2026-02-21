@@ -52,6 +52,9 @@ export function ResearchBoard({ projects, updates }: ResearchBoardProps) {
     const statusA = statusOrder[a.status || "active"] ?? 4;
     const statusB = statusOrder[b.status || "active"] ?? 4;
     if (statusA !== statusB) return statusA - statusB;
+    const countA = getUpdateCount(a.id);
+    const countB = getUpdateCount(b.id);
+    if (countB !== countA) return countB - countA;
     return (b.hIndex || 0) - (a.hIndex || 0);
   });
 
