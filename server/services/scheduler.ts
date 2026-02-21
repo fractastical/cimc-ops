@@ -8,6 +8,21 @@ import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOf
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
+const BOT_PATTERNS = [
+  /\[bot\]$/i,
+  /^dependabot$/i,
+  /^renovate$/i,
+  /^github-actions$/i,
+  /^replit/i,
+  /^snyk-bot$/i,
+  /^greenkeeper$/i,
+  /^codecov$/i,
+];
+
+function isBot(author: string): boolean {
+  return BOT_PATTERNS.some(pattern => pattern.test(author));
+}
+
 export type SummaryType = "repo" | "research" | "both";
 export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly";
 
@@ -187,7 +202,12 @@ export class SchedulerService {
     const activities = await storage.getActivitySince(lastSentAt);
 
     const commits = activities.filter(a => a.eventType === "push");
-    const prs = activities.filter(a => a.eventType === "pull_request" || a.eventType === "pull_request_merged");
+    const humanPrs = activities.filter(a => 
+      (a.eventType === "pull_request" || a.eventType === "pull_request_merged") && !isBot(a.author)
+    );
+    const botPrs = activities.filter(a => 
+      (a.eventType === "pull_request" || a.eventType === "pull_request_merged") && isBot(a.author)
+    );
     
     // Skip posting if zero activity
     if (activities.length === 0) {
@@ -196,7 +216,7 @@ export class SchedulerService {
     }
 
     const authorCounts = new Map<string, number>();
-    activities.forEach(a => {
+    activities.filter(a => !isBot(a.author)).forEach(a => {
       authorCounts.set(a.author, (authorCounts.get(a.author) || 0) + 1);
     });
 
@@ -208,6 +228,9 @@ export class SchedulerService {
       repos.map(async (repo) => {
         const stats = await storage.getActivityByRepositorySince(repo.id, lastSentAt);
         const commitActivities = stats.filter(s => s.eventType === "push");
+        const repoPrs = stats.filter(s => 
+          (s.eventType === "pull_request" || s.eventType === "pull_request_merged") && !isBot(s.author)
+        );
         
         // Find the longest commit message from this repo
         let longestMessage = "";
@@ -216,10 +239,15 @@ export class SchedulerService {
             longestMessage = activity.message;
           }
         });
+
+        // Collect unique PR authors
+        const prAuthors = Array.from(new Set(repoPrs.map(p => p.author)));
         
         return {
           repo: repo.name,
           commits: commitActivities.length,
+          prs: repoPrs.length,
+          prAuthors,
           longestMessage: longestMessage || null,
         };
       })
@@ -227,10 +255,11 @@ export class SchedulerService {
 
     const summary = {
       totalCommits: commits.length,
-      totalPRs: prs.length,
-      activeRepos: repoActivity.filter(r => r.commits > 0).length,
+      totalPRs: humanPrs.length,
+      botPRs: botPrs.length,
+      activeRepos: repoActivity.filter(r => r.commits > 0 || r.prs > 0).length,
       topContributor,
-      repoActivity: repoActivity.filter(r => r.commits > 0).slice(0, 5),
+      repoActivity: repoActivity.filter(r => r.commits > 0 || r.prs > 0).slice(0, 5),
     };
 
     await slackService.sendDailySummary(summary);
@@ -257,22 +286,28 @@ export class SchedulerService {
       return activityDate >= periodStart && activityDate <= periodEnd;
     });
     const commits = activities.filter(a => a.eventType === "push");
-    const prs = activities.filter(a => a.eventType === "pull_request" || a.eventType === "pull_request_merged");
+    const humanPrs = activities.filter(a => 
+      (a.eventType === "pull_request" || a.eventType === "pull_request_merged") && !isBot(a.author)
+    );
 
     // Get repo activity for the specific period
     const repos = await storage.getActiveRepositories();
     const allRepoStats = await Promise.all(
       repos.map(async (repo) => {
         const stats = await storage.getActivityByRepository(repo.id, 14);
-        // Filter to period range
         const periodStats = stats.filter(s => {
           const date = s.activityDate ? new Date(s.activityDate) : new Date(s.createdAt);
           return date >= periodStart && date <= periodEnd;
         });
+        const repoPrs = periodStats.filter(s => 
+          (s.eventType === "pull_request" || s.eventType === "pull_request_merged") && !isBot(s.author)
+        );
+        const prAuthors = Array.from(new Set(repoPrs.map(p => p.author)));
         return {
           repo: repo.name,
           commits: periodStats.filter(s => s.eventType === "push").length,
-          prs: periodStats.filter(s => s.eventType === "pull_request" || s.eventType === "pull_request_merged").length,
+          prs: repoPrs.length,
+          prAuthors,
         };
       })
     );
@@ -298,9 +333,9 @@ export class SchedulerService {
       after: papers.filter(p => p.currentStage === "after").length,
     };
 
-    // Get unique contributors (from commits and research)
+    // Get unique contributors (from commits and research), excluding bots
     const authorCounts = new Map<string, number>();
-    activities.forEach(a => {
+    activities.filter(a => !isBot(a.author)).forEach(a => {
       authorCounts.set(a.author, (authorCounts.get(a.author) || 0) + 1);
     });
     const grantees = new Set<string>();
@@ -312,7 +347,7 @@ export class SchedulerService {
       periodLabel,
       // Repo stats
       totalCommits: commits.length,
-      totalPRs: prs.length,
+      totalPRs: humanPrs.length,
       activeRepos: activeRepos.length,
       repoActivity: activeRepos.sort((a, b) => b.commits - a.commits).slice(0, 8),
       // Research stats
@@ -382,11 +417,13 @@ export class SchedulerService {
     const activities = await storage.getRecentActivity(days);
 
     const commits = activities.filter(a => a.eventType === "push");
-    const prs = activities.filter(a => a.eventType === "pull_request" || a.eventType === "pull_request_merged");
-    const issues = activities.filter(a => a.eventType === "issues");
+    const humanPrs = activities.filter(a => 
+      (a.eventType === "pull_request" || a.eventType === "pull_request_merged") && !isBot(a.author)
+    );
+    const issues = activities.filter(a => a.eventType === "issues" && !isBot(a.author));
     
     const authorCounts = new Map<string, number>();
-    activities.forEach(a => {
+    activities.filter(a => !isBot(a.author)).forEach(a => {
       authorCounts.set(a.author, (authorCounts.get(a.author) || 0) + 1);
     });
 
@@ -398,10 +435,15 @@ export class SchedulerService {
     const repoActivity = await Promise.all(
       repos.map(async (repo) => {
         const stats = await storage.getActivityByRepository(repo.id, days);
+        const repoPrs = stats.filter(s => 
+          (s.eventType === "pull_request" || s.eventType === "pull_request_merged") && !isBot(s.author)
+        );
+        const prAuthors = Array.from(new Set(repoPrs.map(p => p.author)));
         return {
           repo: repo.name,
           commits: stats.filter(s => s.eventType === "push").length,
-          prs: stats.filter(s => s.eventType === "pull_request" || s.eventType === "pull_request_merged").length,
+          prs: repoPrs.length,
+          prAuthors,
         };
       })
     );
@@ -410,7 +452,7 @@ export class SchedulerService {
       timeframe,
       periodLabel,
       totalCommits: commits.length,
-      totalPRs: prs.length,
+      totalPRs: humanPrs.length,
       totalIssues: issues.length,
       activeRepos: repoActivity.filter(r => r.commits > 0 || r.prs > 0).length,
       contributors,

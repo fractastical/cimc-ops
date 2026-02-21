@@ -884,15 +884,20 @@ export class SlackService {
   async sendDailySummary(summary: {
     totalCommits: number;
     totalPRs: number;
+    botPRs?: number;
     activeRepos: number;
     topContributor: string;
-    repoActivity: Array<{ repo: string; commits: number; longestMessage?: string | null }>;
+    repoActivity: Array<{ repo: string; commits: number; prs?: number; prAuthors?: string[]; longestMessage?: string | null }>;
   }) {
-    // Build repo activity section with longest commit messages
     const repoLines = summary.repoActivity.map(r => {
       let line = `  • *${r.repo}*: ${r.commits} commits`;
+      if (r.prs && r.prs > 0) {
+        line += `, ${r.prs} PRs`;
+        if (r.prAuthors && r.prAuthors.length > 0) {
+          line += ` (by ${r.prAuthors.join(", ")})`;
+        }
+      }
       if (r.longestMessage) {
-        // Truncate long messages to 150 chars
         const msg = r.longestMessage.length > 150 
           ? r.longestMessage.substring(0, 147) + "..." 
           : r.longestMessage;
@@ -901,13 +906,14 @@ export class SlackService {
       return line;
     }).join("\n");
 
-    const text = `:bar_chart: *Daily GitHub Activity Summary*\n\n` +
-                 `• Total Commits: ${summary.totalCommits}\n` +
-                 `• Pull Requests: ${summary.totalPRs}\n` +
-                 `• Active Repositories: ${summary.activeRepos}\n` +
-                 `• Top Contributor: ${summary.topContributor}\n\n` +
-                 `*Repository Activity:*\n` +
-                 repoLines;
+    let text = `:bar_chart: *Daily GitHub Activity Summary*\n\n` +
+               `• Total Commits: ${summary.totalCommits}\n` +
+               `• Pull Requests: ${summary.totalPRs}` +
+               (summary.botPRs && summary.botPRs > 0 ? ` (+ ${summary.botPRs} from bots)` : "") + `\n` +
+               `• Active Repositories: ${summary.activeRepos}\n` +
+               `• Top Contributor: ${summary.topContributor}\n\n` +
+               `*Repository Activity:*\n` +
+               repoLines;
 
     return await this.sendMessage(text);
   }
@@ -918,10 +924,21 @@ export class SlackService {
     totalIssues: number;
     activeRepos: number;
     contributors: string[];
-    repoActivity: Array<{ repo: string; commits: number; prs: number }>;
+    repoActivity: Array<{ repo: string; commits: number; prs: number; prAuthors?: string[] }>;
     weekStart: string;
     weekEnd: string;
   }) {
+    const repoLines = summary.repoActivity.map(r => {
+      let line = `  • *${r.repo}*: ${r.commits} commits`;
+      if (r.prs > 0) {
+        line += `, ${r.prs} PRs`;
+        if (r.prAuthors && r.prAuthors.length > 0) {
+          line += ` (by ${r.prAuthors.join(", ")})`;
+        }
+      }
+      return line;
+    }).join("\n");
+
     const text = `:calendar: *Weekly GitHub Activity Summary*\n` +
                  `_${summary.weekStart} - ${summary.weekEnd}_\n\n` +
                  `*Overview:*\n` +
@@ -933,9 +950,7 @@ export class SlackService {
                  `*Top Contributors:*\n` +
                  summary.contributors.slice(0, 5).map((c, i) => `  ${i + 1}. ${c}`).join("\n") +
                  `\n\n*Repository Breakdown:*\n` +
-                 summary.repoActivity
-                   .map(r => `  • *${r.repo}*: ${r.commits} commits, ${r.prs} PRs`)
-                   .join("\n");
+                 repoLines;
 
     return await this.sendMessage(text);
   }
@@ -945,7 +960,7 @@ export class SlackService {
     totalCommits: number;
     totalPRs: number;
     activeRepos: number;
-    repoActivity: Array<{ repo: string; commits: number; prs: number }>;
+    repoActivity: Array<{ repo: string; commits: number; prs: number; prAuthors?: string[] }>;
     totalResearchUpdates: number;
     projectsWithUpdates: number;
     projectUpdates: Array<{ name: string; updateCount: number }>;
@@ -967,7 +982,12 @@ export class SlackService {
       text += `\n*Active Repositories:*\n`;
       for (const repo of summary.repoActivity.slice(0, 6)) {
         text += `  • *${repo.repo}*: ${repo.commits} commit${repo.commits !== 1 ? "s" : ""}`;
-        if (repo.prs > 0) text += `, ${repo.prs} PR${repo.prs !== 1 ? "s" : ""}`;
+        if (repo.prs > 0) {
+          text += `, ${repo.prs} PR${repo.prs !== 1 ? "s" : ""}`;
+          if (repo.prAuthors && repo.prAuthors.length > 0) {
+            text += ` (by ${repo.prAuthors.join(", ")})`;
+          }
+        }
         text += `\n`;
       }
       if (summary.repoActivity.length > 6) {
@@ -1017,7 +1037,7 @@ export class SlackService {
     totalIssues: number;
     activeRepos: number;
     contributors: string[];
-    repoActivity: Array<{ repo: string; commits: number; prs: number }>;
+    repoActivity: Array<{ repo: string; commits: number; prs: number; prAuthors?: string[] }>;
   }) {
     const timeframeEmoji = {
       daily: ":sunrise:",
@@ -1025,6 +1045,19 @@ export class SlackService {
       monthly: ":date:",
       quarterly: ":chart_with_upwards_trend:",
     }[summary.timeframe] || ":bar_chart:";
+
+    const repoLines = summary.repoActivity.length > 0
+      ? summary.repoActivity.map(r => {
+          let line = `  • *${r.repo}*: ${r.commits} commits`;
+          if (r.prs > 0) {
+            line += `, ${r.prs} PRs`;
+            if (r.prAuthors && r.prAuthors.length > 0) {
+              line += ` (by ${r.prAuthors.join(", ")})`;
+            }
+          }
+          return line;
+        }).join("\n")
+      : "  No activity";
 
     const text = `${timeframeEmoji} *${summary.timeframe.charAt(0).toUpperCase() + summary.timeframe.slice(1)} Repository Summary*\n` +
                  `_${summary.periodLabel}_\n\n` +
@@ -1039,9 +1072,7 @@ export class SlackService {
                    ? summary.contributors.slice(0, 5).map((c, i) => `  ${i + 1}. ${c}`).join("\n")
                    : "  No activity") +
                  `\n\n*Repository Breakdown:*\n` +
-                 (summary.repoActivity.length > 0
-                   ? summary.repoActivity.map(r => `  • *${r.repo}*: ${r.commits} commits, ${r.prs} PRs`).join("\n")
-                   : "  No activity");
+                 repoLines;
 
     return await this.sendMessage(text);
   }
