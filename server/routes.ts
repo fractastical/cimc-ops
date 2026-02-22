@@ -2523,12 +2523,61 @@ export async function registerRoutes(
         freq[lang] = { count: scaled, category: "language" };
       }
 
+      const stopWords = new Set([
+        "the", "and", "for", "from", "with", "this", "that", "into", "not",
+        "are", "was", "were", "been", "have", "has", "had", "but", "all",
+        "can", "will", "just", "more", "some", "than", "them", "then",
+        "also", "only", "each", "when", "what", "which", "their", "about",
+        "would", "make", "like", "been", "could", "after", "before", "should",
+        "merge", "pull", "request", "commit", "update", "fix", "add", "feat",
+        "chore", "docs", "style", "refactor", "test", "build", "bump",
+        "version", "release", "readme", "updated", "added", "fixed", "removed",
+        "changes", "change", "minor", "main", "branch", "master", "wip",
+        "initial", "first", "new", "file", "files", "code", "use", "using",
+        "now", "set", "get", "done", "todo", "moved", "check", "still",
+        "noreply", "anthropic", "authored", "co-authored-by", "claude",
+        "opus", "sonnet", "replit", "create", "remove", "delete", "move",
+        "rename", "implement", "improve", "handle", "ensure", "allow",
+        "support", "enable", "include", "display", "show", "hide", "clean",
+        "issue", "issues", "link", "site", "page", "data", "type", "types",
+        "error", "errors", "work", "working", "updates", "commits", "contributor",
+        "config", "path", "based", "added", "default", "properly", "correctly",
+        "better", "small", "large", "start", "stop", "run", "running"
+      ]);
+      const commitKeywords: Record<string, number> = {};
+      const pushEvents = allActivity.filter(a => a.eventType === "push" || a.eventType === "commit");
+      const seenMessages = new Set<string>();
+      for (const act of pushEvents) {
+        const firstLine = act.message.split("\n")[0].trim();
+        if (seenMessages.has(firstLine)) continue;
+        seenMessages.add(firstLine);
+        if (firstLine.startsWith("Merge pull request") || firstLine.startsWith("Merge branch")) continue;
+        const words = firstLine
+          .replace(/[^a-zA-Z0-9_-]/g, " ")
+          .split(/\s+/)
+          .filter(w => w.length >= 4 && w.length <= 30)
+          .map(w => w.toLowerCase());
+        for (const w of words) {
+          if (stopWords.has(w) || /^\d+$/.test(w)) continue;
+          commitKeywords[w] = (commitKeywords[w] || 0) + 1;
+        }
+      }
+
+      const topKeywords = Object.entries(commitKeywords)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20);
+      for (const [word, count] of topKeywords) {
+        if (count >= 2 && !freq[word]) {
+          freq[word] = { count: Math.min(count, 20), category: "commit_keyword" };
+        }
+      }
+
       const total = updates.length + milestones.length + submissions.length;
       const tags = Object.entries(freq)
         .map(([word, { count, category }]) => ({ word, count, category }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 70);
-      res.json({ title: "RESEARCH ACTIVITY", subtitle: `${total} research events · ${repos.filter(r => r.isActive).length} repos`, tags });
+        .slice(0, 80);
+      res.json({ title: "RESEARCH ACTIVITY", subtitle: `${total} research events · ${repos.filter(r => r.isActive).length} repos · ${pushEvents.length} commits`, tags });
     } catch (error) {
       console.error("Error generating research viz data:", error);
       res.status(500).json({ error: "Failed to generate data" });

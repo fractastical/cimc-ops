@@ -33,6 +33,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   milestone: "rgba(255, 255, 255, 0.6)",
   lead: "rgba(220, 40, 40, 0.7)",
   language: "rgba(80, 200, 255, 0.9)",
+  commit_keyword: "rgba(180, 255, 120, 0.85)",
 };
 
 const SPINE_COLOR = "rgba(220, 40, 40, 0.8)";
@@ -65,7 +66,7 @@ export default function VizResearch() {
       const W = canvas.width, H = canvas.height;
       const maxCount = Math.max(...data.tags.map(t => t.count), 1);
       const spineY = H * 0.5;
-      const numClusters = 5;
+      const numClusters = 6;
       const clusterWidth = W / numClusters;
 
       const categoryToCluster: Record<string, number> = {
@@ -74,6 +75,7 @@ export default function VizResearch() {
         milestone: 2,
         lead: 3,
         language: 4,
+        commit_keyword: 5,
       };
 
       const clusterBuckets: Tag[][] = Array.from({ length: numClusters }, () => []);
@@ -165,9 +167,9 @@ export default function VizResearch() {
         ctx.stroke();
       }
 
-      const numSections = 5;
+      const numSections = 6;
       const sectionW = W / numSections;
-      const sectionLabels = ["PROJECTS", "CONTRIBUTORS", "MILESTONES", "LEADS", "LANGUAGES"];
+      const sectionLabels = ["PROJECTS", "CONTRIBUTORS", "MILESTONES", "LEADS", "LANGUAGES", "COMMIT TERMS"];
       ctx.setLineDash([4, 6]);
       ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
       ctx.lineWidth = 1;
