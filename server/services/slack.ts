@@ -1,4 +1,5 @@
 import { storage } from "../storage";
+import { splitGranteeNames } from "../utils";
 import crypto from "crypto";
 
 interface SlackMessagePayload {
@@ -633,8 +634,13 @@ export class SlackService {
       projectUpdateMap.set(update.projectId, existing);
     }
 
-    // Get unique grantees
-    const grantees = Array.from(new Set(updates.map((u: any) => u.grantee).filter(Boolean)));
+    const granteeSet = new Set<string>();
+    for (const u of updates) {
+      if (u.grantee) {
+        for (const name of splitGranteeNames(u.grantee)) granteeSet.add(name);
+      }
+    }
+    const grantees = Array.from(granteeSet);
     
     // Total commits
     const totalCommits = activeRepos.reduce((sum, r) => sum + r.commits, 0);

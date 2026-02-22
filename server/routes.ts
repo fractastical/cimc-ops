@@ -11,6 +11,7 @@ import {
   insertAdminEmailSchema,
   insertMicrograntApplicationSchema,
 } from "@shared/schema";
+import { splitGranteeNames } from "./utils";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { emailService } from "./services/email";
 import { githubService } from "./services/github";
@@ -2469,8 +2470,9 @@ export async function registerRoutes(
         freq[p.name].count += 3;
       }
       for (const u of updates) {
-        const name = u.grantee || "";
-        if (name && name.length > 1) {
+        const raw = u.grantee || "";
+        const names = splitGranteeNames(raw);
+        for (const name of names) {
           if (!freq[name]) freq[name] = { count: 0, category: "person" };
           freq[name].count++;
         }

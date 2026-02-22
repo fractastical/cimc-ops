@@ -4,6 +4,7 @@ import { githubService } from "./github";
 import { emailService } from "./email";
 import { gdriveService } from "./gdrive";
 import { parseTranscript } from "./transcript-parser";
+import { splitGranteeNames } from "../utils";
 import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay, getDate, lastDayOfMonth, setDay, isBefore, addDays } from "date-fns";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -340,7 +341,9 @@ export class SchedulerService {
     });
     const grantees = new Set<string>();
     projectUpdates.forEach(p => p.updates.forEach(u => {
-      if (u.grantee) grantees.add(u.grantee);
+      if (u.grantee) {
+        for (const name of splitGranteeNames(u.grantee)) grantees.add(name);
+      }
     }));
 
     const summary = {
@@ -503,10 +506,11 @@ export class SchedulerService {
       updates: t.updates.filter(u => new Date(u.date) >= cutoffDate)
     })).filter(t => t.updates.length > 0);
 
-    // Get unique grantees
     const grantees = new Set<string>();
     projectUpdates.forEach(p => p.updates.forEach(u => {
-      if (u.grantee) grantees.add(u.grantee);
+      if (u.grantee) {
+        for (const name of splitGranteeNames(u.grantee)) grantees.add(name);
+      }
     }));
 
     const summary = {
