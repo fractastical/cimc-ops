@@ -2464,42 +2464,64 @@ export async function registerRoutes(
       const projectMap: Record<string, string> = {};
       for (const p of projects) projectMap[p.id] = p.name;
 
-      const freq: Record<string, { count: number; category: string }> = {};
-      for (const p of projects) {
-        if (!freq[p.name]) freq[p.name] = { count: 0, category: "project" };
-        freq[p.name].count += 3;
+      interface TagEntry {
+        count: number;
+        category: string;
+        dates: number[];
       }
+      const freq: Record<string, TagEntry> = {};
+
+      const addDate = (key: string, ts: number | undefined) => {
+        if (ts && freq[key]) freq[key].dates.push(ts);
+      };
+
+      for (const p of projects) {
+        if (!freq[p.name]) freq[p.name] = { count: 0, category: "project", dates: [] };
+        freq[p.name].count += 3;
+        addDate(p.name, new Date(p.createdAt).getTime());
+      }
+
       for (const u of updates) {
         const raw = u.grantee || "";
         const names = splitGranteeNames(raw);
+        const ts = u.date ? new Date(u.date).getTime() : undefined;
         for (const name of names) {
-          if (!freq[name]) freq[name] = { count: 0, category: "person" };
+          if (!freq[name]) freq[name] = { count: 0, category: "person", dates: [] };
           freq[name].count++;
+          if (ts) freq[name].dates.push(ts);
         }
       }
+
       for (const ml of milestones) {
         if (ml.description?.startsWith("[TEST]")) continue;
         const desc = ml.description || "";
+        const ts = ml.month ? new Date(ml.month + "-15").getTime() : undefined;
         if (desc.length > 2) {
           const short = desc.substring(0, 30).trim();
-          if (!freq[short]) freq[short] = { count: 0, category: "milestone" };
+          if (!freq[short]) freq[short] = { count: 0, category: "milestone", dates: [] };
           freq[short].count++;
+          if (ts) freq[short].dates.push(ts);
         }
         const projName = ml.projectId ? (projectMap[ml.projectId] || "") : "";
         if (projName) {
-          if (!freq[projName]) freq[projName] = { count: 0, category: "project" };
+          if (!freq[projName]) freq[projName] = { count: 0, category: "project", dates: [] };
           freq[projName].count++;
+          if (ts) freq[projName].dates.push(ts);
         }
       }
+
       for (const s of submissions) {
         const name = s.teamLeadName || "";
         if (name && name.length > 1) {
-          if (!freq[name]) freq[name] = { count: 0, category: "lead" };
+          if (!freq[name]) freq[name] = { count: 0, category: "lead", dates: [] };
           freq[name].count++;
+          const ts = s.submittedAt ? new Date(s.submittedAt).getTime() : undefined;
+          if (ts) freq[name].dates.push(ts);
         }
       }
 
       const repoLangMap: Record<string, string> = {};
+      const langDates: Record<string, number[]> = {};
       const langCounts: Record<string, number> = {};
       for (const repo of repos) {
         if (!repo.isActive) continue;
@@ -2507,6 +2529,7 @@ export async function registerRoutes(
         if (lang === "Unknown") continue;
         repoLangMap[repo.id] = lang;
         langCounts[lang] = (langCounts[lang] || 0) + 1;
+        if (!langDates[lang]) langDates[lang] = [];
       }
 
       const since = new Date();
@@ -2517,12 +2540,14 @@ export async function registerRoutes(
         const lang = repoLangMap[act.repositoryId];
         if (lang) {
           langCounts[lang] = (langCounts[lang] || 0) + 1;
+          const ts = act.activityDate ? new Date(act.activityDate).getTime() : new Date(act.createdAt).getTime();
+          langDates[lang].push(ts);
         }
       }
 
       for (const [lang, rawCount] of Object.entries(langCounts)) {
         const scaled = Math.min(Math.floor(rawCount / 5) + 2, 25);
-        freq[lang] = { count: scaled, category: "language" };
+        freq[lang] = { count: scaled, category: "language", dates: langDates[lang] || [] };
       }
 
       const stopWords = new Set([
@@ -2546,7 +2571,7 @@ export async function registerRoutes(
         "config", "path", "based", "added", "default", "properly", "correctly",
         "better", "small", "large", "start", "stop", "run", "running"
       ]);
-      const commitKeywords: Record<string, number> = {};
+      const commitKeywords: Record<string, { count: number; dates: number[] }> = {};
       const pushEvents = allActivity.filter(a => a.eventType === "push" || a.eventType === "commit");
       const seenMessages = new Set<string>();
       for (const act of pushEvents) {
@@ -2554,6 +2579,7 @@ export async function registerRoutes(
         if (seenMessages.has(firstLine)) continue;
         seenMessages.add(firstLine);
         if (firstLine.startsWith("Merge pull request") || firstLine.startsWith("Merge branch")) continue;
+        const ts = act.activityDate ? new Date(act.activityDate).getTime() : new Date(act.createdAt).getTime();
         const words = firstLine
           .replace(/[^a-zA-Z0-9_-]/g, " ")
           .split(/\s+/)
@@ -2561,25 +2587,43 @@ export async function registerRoutes(
           .map(w => w.toLowerCase());
         for (const w of words) {
           if (stopWords.has(w) || /^\d+$/.test(w)) continue;
-          commitKeywords[w] = (commitKeywords[w] || 0) + 1;
+          if (!commitKeywords[w]) commitKeywords[w] = { count: 0, dates: [] };
+          commitKeywords[w].count++;
+          commitKeywords[w].dates.push(ts);
         }
       }
 
       const topKeywords = Object.entries(commitKeywords)
-        .sort((a, b) => b[1] - a[1])
+        .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 20);
-      for (const [word, count] of topKeywords) {
-        if (count >= 2 && !freq[word]) {
-          freq[word] = { count: Math.min(count, 20), category: "commit_keyword" };
+      for (const [word, kw] of topKeywords) {
+        if (kw.count >= 2 && !freq[word]) {
+          freq[word] = { count: Math.min(kw.count, 20), category: "commit_keyword", dates: kw.dates };
         }
       }
 
       const total = updates.length + milestones.length + submissions.length;
       const tags = Object.entries(freq)
-        .map(([word, { count, category }]) => ({ word, count, category }))
+        .map(([word, entry]) => {
+          const sorted = entry.dates.sort((a, b) => a - b);
+          const minDate = sorted.length > 0 ? sorted[0] : null;
+          const maxDate = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+          const meanDate = sorted.length > 0 ? Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length) : null;
+          return { word, count: entry.count, category: entry.category, minDate, maxDate, meanDate };
+        })
         .sort((a, b) => b.count - a.count)
         .slice(0, 80);
-      res.json({ title: "RESEARCH ACTIVITY", subtitle: `${total} research events · ${repos.filter(r => r.isActive).length} repos · ${pushEvents.length} commits`, tags });
+
+      const allDates = tags.filter(t => t.meanDate).map(t => t.meanDate!);
+      const globalMinDate = allDates.length > 0 ? Math.min(...allDates) : Date.now() - 90 * 86400000;
+      const globalMaxDate = allDates.length > 0 ? Math.max(...allDates) : Date.now();
+
+      res.json({
+        title: "RESEARCH ACTIVITY",
+        subtitle: `${total} research events · ${repos.filter(r => r.isActive).length} repos · ${pushEvents.length} commits`,
+        tags,
+        dateRange: { min: globalMinDate, max: globalMaxDate },
+      });
     } catch (error) {
       console.error("Error generating research viz data:", error);
       res.status(500).json({ error: "Failed to generate data" });
