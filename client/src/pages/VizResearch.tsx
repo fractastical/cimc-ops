@@ -12,27 +12,37 @@ interface VizData {
   tags: Tag[];
 }
 
-interface FloatingTag {
+interface PlacedTag {
   word: string;
   count: number;
   category: string;
   x: number;
-  y: number;
-  vx: number;
-  vy: number;
+  baseY: number;
+  stemY: number;
+  side: number;
   size: number;
   opacity: number;
-  angle: number;
-  angleSpeed: number;
   phase: number;
+  drift: number;
+  cluster: number;
 }
+
+const CATEGORY_COLORS: Record<string, string> = {
+  project: "rgba(220, 40, 40, 0.9)",
+  person: "rgba(255, 255, 255, 0.85)",
+  milestone: "rgba(255, 255, 255, 0.6)",
+  lead: "rgba(220, 40, 40, 0.7)",
+};
+
+const SPINE_COLOR = "rgba(220, 40, 40, 0.8)";
+const STEM_COLOR = "rgba(255, 255, 255, 0.15)";
 
 export default function VizResearch() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<VizData | null>(null);
   const animRef = useRef(0);
   const tRef = useRef(0);
-  const tagsRef = useRef<FloatingTag[]>([]);
+  const tagsRef = useRef<PlacedTag[]>([]);
   const mouseRef = useRef({ x: -1, y: -1 });
 
   useEffect(() => {
@@ -44,7 +54,60 @@ export default function VizResearch() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d")!;
 
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      layoutTags();
+    };
+
+    const layoutTags = () => {
+      const W = canvas.width, H = canvas.height;
+      const maxCount = Math.max(...data.tags.map(t => t.count), 1);
+      const spineY = H * 0.5;
+      const numClusters = 4;
+      const clusterWidth = W / numClusters;
+
+      const sorted = [...data.tags].sort((a, b) => b.count - a.count);
+
+      const placed: PlacedTag[] = [];
+      let aboveCount = 0;
+      let belowCount = 0;
+
+      for (let i = 0; i < sorted.length; i++) {
+        const tag = sorted[i];
+        const norm = tag.count / maxCount;
+        const cluster = Math.floor(i / Math.ceil(sorted.length / numClusters));
+        const clusterBase = cluster * clusterWidth;
+        const itemsInCluster = Math.ceil(sorted.length / numClusters);
+        const idxInCluster = i % itemsInCluster;
+
+        const side = (aboveCount <= belowCount) ? -1 : 1;
+        if (side === -1) aboveCount++; else belowCount++;
+
+        const stemLen = 30 + norm * 120 + (idxInCluster % 5) * 25;
+        const xSpread = clusterWidth * 0.85;
+        const xOffset = (idxInCluster / itemsInCluster) * xSpread;
+        const jitter = (Math.random() - 0.5) * 20;
+
+        const x = clusterBase + clusterWidth * 0.08 + xOffset + jitter;
+        const stemY = spineY + side * stemLen;
+
+        placed.push({
+          ...tag,
+          x: Math.max(40, Math.min(W - 40, x)),
+          baseY: spineY,
+          stemY,
+          side,
+          size: 9 + norm * 9,
+          opacity: 0.3 + norm * 0.7,
+          phase: i * 0.7 + Math.random() * 2,
+          drift: (Math.random() - 0.5) * 0.3,
+          cluster,
+        });
+      }
+      tagsRef.current = placed;
+    };
+
     resize();
     window.addEventListener("resize", resize);
     const onMove = (e: MouseEvent) => { mouseRef.current = { x: e.clientX, y: e.clientY }; };
@@ -52,115 +115,169 @@ export default function VizResearch() {
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("mouseleave", onLeave);
 
-    const maxCount = Math.max(...data.tags.map(t => t.count), 1);
-    const W = canvas.width, H = canvas.height;
-
-    tagsRef.current = data.tags.map((tag, i) => {
-      const norm = tag.count / maxCount;
-      return {
-        ...tag,
-        x: Math.random() * W * 0.8 + W * 0.1,
-        y: Math.random() * H * 0.7 + H * 0.15,
-        vx: (Math.random() - 0.5) * 0.25,
-        vy: (Math.random() - 0.5) * 0.15,
-        size: 11 + norm * 40,
-        opacity: 0.12 + norm * 0.75,
-        angle: (Math.random() - 0.5) * 0.25,
-        angleSpeed: (Math.random() - 0.5) * 0.0008,
-        phase: i * 0.8,
-      };
-    });
-
     const draw = () => {
       const W = canvas.width, H = canvas.height, t = tRef.current;
+      const tags = tagsRef.current;
+      const spineY = H * 0.5;
+
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, W, H);
 
-      for (let i = 0; i < 6; i++) {
-        const y = H * 0.15 + (H * 0.7 / 6) * i;
-        ctx.strokeStyle = "rgba(255,255,255,0.012)";
+      ctx.strokeStyle = SPINE_COLOR;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, spineY);
+      for (let x = 0; x < W; x += 3) {
+        const micro = Math.sin(x * 0.008 + t * 0.4) * 2 + Math.sin(x * 0.003 + t * 0.15) * 4;
+        ctx.lineTo(x, spineY + micro);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(220, 40, 40, 0.25)";
+      ctx.lineWidth = 0.5;
+      for (let offset of [-1, 1]) {
         ctx.beginPath();
-        for (let x = 0; x < W; x += 4) {
-          const wave = Math.sin(x * 0.005 + t * 0.2 + i) * 15;
-          if (x === 0) ctx.moveTo(x, y + wave);
-          else ctx.lineTo(x, y + wave);
+        ctx.moveTo(0, spineY + offset * 8);
+        for (let x = 0; x < W; x += 3) {
+          const micro = Math.sin(x * 0.006 + t * 0.3 + offset * 2) * 3;
+          ctx.lineTo(x, spineY + offset * 8 + micro);
         }
         ctx.stroke();
       }
 
+      const numSections = 4;
+      const sectionW = W / numSections;
+      const sectionLabels = ["PROJECTS", "CONTRIBUTORS", "MILESTONES", "LEADS"];
+      ctx.setLineDash([4, 6]);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 1;
+      for (let i = 1; i < numSections; i++) {
+        const sx = i * sectionW;
+        ctx.beginPath();
+        ctx.moveTo(sx, 30);
+        ctx.lineTo(sx, H - 30);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.textAlign = "center";
+      for (let i = 0; i < numSections; i++) {
+        ctx.fillText(sectionLabels[i], i * sectionW + sectionW / 2, H - 16);
+      }
+
       const mx = mouseRef.current.x, my = mouseRef.current.y;
-      let hovered: FloatingTag | null = null;
+      let hovered: PlacedTag | null = null;
 
-      for (const tag of tagsRef.current) {
-        tag.x += tag.vx + Math.sin(t * 0.25 + tag.phase) * 0.12;
-        tag.y += tag.vy + Math.cos(t * 0.2 + tag.phase * 1.3) * 0.08;
-        tag.angle += tag.angleSpeed;
+      for (const tag of tags) {
+        const pulse = Math.sin(t * 0.5 + tag.phase) * 1.5;
+        const yOff = Math.sin(t * 0.3 + tag.phase) * tag.drift * 8;
+        const stemEnd = tag.stemY + yOff + pulse * tag.side;
+        const spinePoint = tag.baseY + Math.sin(tag.x * 0.008 + t * 0.4) * 2 + Math.sin(tag.x * 0.003 + t * 0.15) * 4;
 
-        if (tag.x < 30) tag.vx = Math.abs(tag.vx) * 0.8 + 0.04;
-        if (tag.x > W - 30) tag.vx = -Math.abs(tag.vx) * 0.8 - 0.04;
-        if (tag.y < 50) tag.vy = Math.abs(tag.vy) * 0.8 + 0.04;
-        if (tag.y > H - 40) tag.vy = -Math.abs(tag.vy) * 0.8 - 0.04;
+        ctx.strokeStyle = STEM_COLOR;
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(tag.x, spinePoint);
+        ctx.lineTo(tag.x, stemEnd);
+        ctx.stroke();
 
-        if (mx > 0 && my > 0) {
-          const dx = tag.x - mx, dy = tag.y - my;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 90) {
-            tag.vx += dx / dist * 0.25;
-            tag.vy += dy / dist * 0.25;
-          }
-        }
+        const tickW = 3 + tag.count * 0.5;
+        ctx.strokeStyle = CATEGORY_COLORS[tag.category] || "rgba(255,255,255,0.4)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(tag.x - tickW, stemEnd);
+        ctx.lineTo(tag.x + tickW, stemEnd);
+        ctx.stroke();
 
-        tag.vx *= 0.996;
-        tag.vy *= 0.996;
-
-        const pulse = Math.sin(t * 0.6 + tag.phase) * 0.06;
-        const alpha = Math.min(1, tag.opacity + pulse);
         ctx.save();
-        ctx.translate(tag.x, tag.y);
-        ctx.rotate(tag.angle);
+        ctx.translate(tag.x, stemEnd + tag.side * (tag.size * 0.5 + 4));
         ctx.font = `${tag.size}px "JetBrains Mono", monospace`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.textAlign = "left";
+        ctx.textBaseline = tag.side === -1 ? "bottom" : "top";
+        ctx.fillStyle = CATEGORY_COLORS[tag.category] || "rgba(255,255,255,0.6)";
+        ctx.globalAlpha = tag.opacity;
         ctx.fillText(tag.word, 0, 0);
+        ctx.globalAlpha = 1;
         ctx.restore();
 
         if (mx > 0) {
           const tw = ctx.measureText(tag.word).width;
-          if (Math.abs(mx - tag.x) < tw / 2 + 5 && Math.abs(my - tag.y) < tag.size / 2 + 5) {
+          const textY = stemEnd + tag.side * (tag.size * 0.5 + 4);
+          const textTop = tag.side === -1 ? textY - tag.size : textY;
+          if (mx >= tag.x - 4 && mx <= tag.x + tw + 4 && my >= textTop - 4 && my <= textTop + tag.size + 4) {
             hovered = tag;
           }
         }
       }
 
-      if (hovered) {
-        const tx = Math.min(mx + 14, W - 200);
-        const ty = Math.max(my - 40, 40);
-        ctx.fillStyle = "rgba(0,0,0,0.9)";
-        ctx.strokeStyle = "rgba(255,255,255,0.3)";
-        ctx.lineWidth = 1;
-        ctx.fillRect(tx, ty, 180, 48);
-        ctx.strokeRect(tx, ty, 180, 48);
-        ctx.fillStyle = "rgba(255,255,255,0.9)";
-        ctx.font = 'bold 12px "JetBrains Mono", monospace';
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        ctx.fillText(hovered.word, tx + 8, ty + 8);
-        ctx.font = '10px "JetBrains Mono", monospace';
-        ctx.fillStyle = "rgba(255,255,255,0.6)";
-        ctx.fillText(`${hovered.category} · ${hovered.count} events`, tx + 8, ty + 28);
+      for (let i = 0; i < tags.length; i++) {
+        for (let j = i + 1; j < tags.length; j++) {
+          const a = tags[i], b = tags[j];
+          if (a.category !== b.category) continue;
+          const dx = a.x - b.x, dy = a.stemY - b.stemY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 120) {
+            const alpha = (1 - dist / 120) * 0.06;
+            ctx.strokeStyle = `rgba(220, 40, 40, ${alpha})`;
+            ctx.lineWidth = 0.4;
+            ctx.beginPath();
+            const aEnd = a.stemY + Math.sin(t * 0.3 + a.phase) * a.drift * 8;
+            const bEnd = b.stemY + Math.sin(t * 0.3 + b.phase) * b.drift * 8;
+            ctx.moveTo(a.x, aEnd);
+            ctx.lineTo(b.x, bEnd);
+            ctx.stroke();
+          }
+        }
       }
 
-      ctx.fillStyle = "rgba(255,255,255,0.35)";
-      ctx.font = 'bold 14px "JetBrains Mono", monospace';
+      if (mx > 0 && my > 0) {
+        for (const tag of tags) {
+          const dx = tag.x - mx, dy = tag.stemY - my;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 150) {
+            const alpha = (1 - dist / 150) * 0.12;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.lineWidth = 0.3;
+            ctx.beginPath();
+            ctx.moveTo(mx, my);
+            ctx.lineTo(tag.x, tag.stemY);
+            ctx.stroke();
+          }
+        }
+      }
+
+      if (hovered) {
+        const tx = Math.min(mx + 16, W - 220);
+        const ty = Math.max(my - 50, 40);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.92)";
+        ctx.strokeStyle = "rgba(220, 40, 40, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.rect(tx, ty, 200, 52);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(hovered.word, tx + 10, ty + 10);
+        ctx.font = '9px "JetBrains Mono", monospace';
+        ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.fillText(`${hovered.category} | ${hovered.count} events`, tx + 10, ty + 30);
+      }
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+      ctx.font = 'bold 13px "JetBrains Mono", monospace';
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
-      ctx.fillText(data.title, 24, 24);
-      ctx.font = '10px "JetBrains Mono", monospace';
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
-      ctx.fillText(data.subtitle, 24, 44);
+      ctx.fillText(data.title, 20, 18);
+      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.fillText(data.subtitle, 20, 36);
 
-      tRef.current += 0.02;
+      tRef.current += 0.016;
       animRef.current = requestAnimationFrame(draw);
     };
     draw();
@@ -176,7 +293,7 @@ export default function VizResearch() {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", cursor: "crosshair" }} data-testid="viz-research-container">
       <canvas ref={canvasRef} style={{ display: "block" }} data-testid="viz-research-canvas" />
-      <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.15)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 2 }}>
+      <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.12)", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 3 }}>
         CIMC RESEARCH
       </div>
     </div>
