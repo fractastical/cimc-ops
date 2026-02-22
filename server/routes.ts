@@ -2458,6 +2458,7 @@ export async function registerRoutes(
       const milestones = await storage.getMilestones();
       const submissions = await storage.getMilestoneSubmissions();
       const projects = await storage.getResearchProjects();
+      const repos = await storage.getRepositories();
 
       const projectMap: Record<string, string> = {};
       for (const p of projects) projectMap[p.id] = p.name;
@@ -2495,12 +2496,39 @@ export async function registerRoutes(
           freq[name].count++;
         }
       }
+
+      const repoLangMap: Record<string, string> = {};
+      const langCounts: Record<string, number> = {};
+      for (const repo of repos) {
+        if (!repo.isActive) continue;
+        const lang = repo.language || "Unknown";
+        if (lang === "Unknown") continue;
+        repoLangMap[repo.id] = lang;
+        langCounts[lang] = (langCounts[lang] || 0) + 1;
+      }
+
+      const since = new Date();
+      since.setDate(since.getDate() - 90);
+      const allActivity = await storage.getActivitySince(since);
+      for (const act of allActivity) {
+        if (act.eventType !== "push" && act.eventType !== "commit") continue;
+        const lang = repoLangMap[act.repositoryId];
+        if (lang) {
+          langCounts[lang] = (langCounts[lang] || 0) + 1;
+        }
+      }
+
+      for (const [lang, rawCount] of Object.entries(langCounts)) {
+        const scaled = Math.min(Math.floor(rawCount / 5) + 2, 25);
+        freq[lang] = { count: scaled, category: "language" };
+      }
+
       const total = updates.length + milestones.length + submissions.length;
       const tags = Object.entries(freq)
         .map(([word, { count, category }]) => ({ word, count, category }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 60);
-      res.json({ title: "RESEARCH ACTIVITY", subtitle: `${total} research events`, tags });
+        .slice(0, 70);
+      res.json({ title: "RESEARCH ACTIVITY", subtitle: `${total} research events · ${repos.filter(r => r.isActive).length} repos`, tags });
     } catch (error) {
       console.error("Error generating research viz data:", error);
       res.status(500).json({ error: "Failed to generate data" });

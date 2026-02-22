@@ -32,6 +32,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   person: "rgba(255, 255, 255, 0.85)",
   milestone: "rgba(255, 255, 255, 0.6)",
   lead: "rgba(220, 40, 40, 0.7)",
+  language: "rgba(80, 200, 255, 0.9)",
 };
 
 const SPINE_COLOR = "rgba(220, 40, 40, 0.8)";
@@ -64,46 +65,65 @@ export default function VizResearch() {
       const W = canvas.width, H = canvas.height;
       const maxCount = Math.max(...data.tags.map(t => t.count), 1);
       const spineY = H * 0.5;
-      const numClusters = 4;
+      const numClusters = 5;
       const clusterWidth = W / numClusters;
 
-      const sorted = [...data.tags].sort((a, b) => b.count - a.count);
+      const categoryToCluster: Record<string, number> = {
+        project: 0,
+        person: 1,
+        milestone: 2,
+        lead: 3,
+        language: 4,
+      };
+
+      const clusterBuckets: Tag[][] = Array.from({ length: numClusters }, () => []);
+      for (const tag of data.tags) {
+        const cluster = categoryToCluster[tag.category] ?? 0;
+        clusterBuckets[cluster].push(tag);
+      }
+
+      for (const bucket of clusterBuckets) {
+        bucket.sort((a, b) => b.count - a.count);
+      }
 
       const placed: PlacedTag[] = [];
-      let aboveCount = 0;
-      let belowCount = 0;
+      let globalIdx = 0;
 
-      for (let i = 0; i < sorted.length; i++) {
-        const tag = sorted[i];
-        const norm = tag.count / maxCount;
-        const cluster = Math.floor(i / Math.ceil(sorted.length / numClusters));
-        const clusterBase = cluster * clusterWidth;
-        const itemsInCluster = Math.ceil(sorted.length / numClusters);
-        const idxInCluster = i % itemsInCluster;
+      for (let c = 0; c < numClusters; c++) {
+        const bucket = clusterBuckets[c];
+        const clusterBase = c * clusterWidth;
+        let aboveCount = 0;
+        let belowCount = 0;
 
-        const side = (aboveCount <= belowCount) ? -1 : 1;
-        if (side === -1) aboveCount++; else belowCount++;
+        for (let i = 0; i < bucket.length; i++) {
+          const tag = bucket[i];
+          const norm = tag.count / maxCount;
 
-        const stemLen = 30 + norm * 120 + (idxInCluster % 5) * 25;
-        const xSpread = clusterWidth * 0.85;
-        const xOffset = (idxInCluster / itemsInCluster) * xSpread;
-        const jitter = (Math.random() - 0.5) * 20;
+          const side = (aboveCount <= belowCount) ? -1 : 1;
+          if (side === -1) aboveCount++; else belowCount++;
 
-        const x = clusterBase + clusterWidth * 0.08 + xOffset + jitter;
-        const stemY = spineY + side * stemLen;
+          const stemLen = 30 + norm * 120 + (i % 5) * 22;
+          const xSpread = clusterWidth * 0.82;
+          const xOffset = bucket.length > 1 ? (i / (bucket.length - 1)) * xSpread : xSpread * 0.5;
+          const jitter = (Math.random() - 0.5) * 15;
 
-        placed.push({
-          ...tag,
-          x: Math.max(40, Math.min(W - 40, x)),
-          baseY: spineY,
-          stemY,
-          side,
-          size: 9 + norm * 9,
-          opacity: 0.3 + norm * 0.7,
-          phase: i * 0.7 + Math.random() * 2,
-          drift: (Math.random() - 0.5) * 0.3,
-          cluster,
-        });
+          const x = clusterBase + clusterWidth * 0.09 + xOffset + jitter;
+          const stemY = spineY + side * stemLen;
+
+          placed.push({
+            ...tag,
+            x: Math.max(40, Math.min(W - 40, x)),
+            baseY: spineY,
+            stemY,
+            side,
+            size: 9 + norm * 9,
+            opacity: 0.3 + norm * 0.7,
+            phase: globalIdx * 0.7 + Math.random() * 2,
+            drift: (Math.random() - 0.5) * 0.3,
+            cluster: c,
+          });
+          globalIdx++;
+        }
       }
       tagsRef.current = placed;
     };
@@ -145,9 +165,9 @@ export default function VizResearch() {
         ctx.stroke();
       }
 
-      const numSections = 4;
+      const numSections = 5;
       const sectionW = W / numSections;
-      const sectionLabels = ["PROJECTS", "CONTRIBUTORS", "MILESTONES", "LEADS"];
+      const sectionLabels = ["PROJECTS", "CONTRIBUTORS", "MILESTONES", "LEADS", "LANGUAGES"];
       ctx.setLineDash([4, 6]);
       ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
       ctx.lineWidth = 1;
