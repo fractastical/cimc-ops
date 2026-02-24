@@ -33,26 +33,180 @@ interface PlacedTag {
   maxDate: number | null;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  project: "#dc2828",
-  person: "#ffffff",
-  milestone: "#999999",
-  lead: "#dc5050",
-  language: "#50c8ff",
-  commit_keyword: "#b4ff78",
+interface ColorTheme {
+  name: string;
+  key: string;
+  bg: string;
+  categories: Record<string, string>;
+  categoriesDim: Record<string, string>;
+  armStroke: string;
+  centerGlow: string;
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  accent: string;
+  accentDim: string;
+  tooltipBg: string;
+}
+
+const THEMES: ColorTheme[] = [
+  {
+    name: "INFRARED",
+    key: "infrared",
+    bg: "rgba(0, 0, 0, 0.82)",
+    categories: {
+      project: "#dc2828",
+      person: "#ffffff",
+      milestone: "#999999",
+      lead: "#dc5050",
+      language: "#50c8ff",
+      commit_keyword: "#b4ff78",
+    },
+    categoriesDim: {
+      project: "rgba(220, 40, 40, 0.55)",
+      person: "rgba(255, 255, 255, 0.3)",
+      milestone: "rgba(153, 153, 153, 0.3)",
+      lead: "rgba(220, 80, 80, 0.35)",
+      language: "rgba(80, 200, 255, 0.45)",
+      commit_keyword: "rgba(180, 255, 120, 0.4)",
+    },
+    armStroke: "rgba(220, 40, 40, 1)",
+    centerGlow: "#dc2828",
+    textPrimary: "rgba(255, 255, 255, 0.18)",
+    textSecondary: "rgba(255, 255, 255, 0.1)",
+    textMuted: "rgba(255, 255, 255, 0.06)",
+    accent: "rgba(220, 40, 40, 0.35)",
+    accentDim: "rgba(220, 40, 40, 0.12)",
+    tooltipBg: "rgba(0, 0, 0, 0.92)",
+  },
+  {
+    name: "GREYSCALE",
+    key: "greyscale",
+    bg: "rgba(0, 0, 0, 0.82)",
+    categories: {
+      project: "#e0e0e0",
+      person: "#b0b0b0",
+      milestone: "#707070",
+      lead: "#c8c8c8",
+      language: "#909090",
+      commit_keyword: "#d8d8d8",
+    },
+    categoriesDim: {
+      project: "rgba(224, 224, 224, 0.45)",
+      person: "rgba(176, 176, 176, 0.3)",
+      milestone: "rgba(112, 112, 112, 0.25)",
+      lead: "rgba(200, 200, 200, 0.3)",
+      language: "rgba(144, 144, 144, 0.3)",
+      commit_keyword: "rgba(216, 216, 216, 0.35)",
+    },
+    armStroke: "rgba(180, 180, 180, 1)",
+    centerGlow: "#cccccc",
+    textPrimary: "rgba(255, 255, 255, 0.2)",
+    textSecondary: "rgba(255, 255, 255, 0.1)",
+    textMuted: "rgba(255, 255, 255, 0.06)",
+    accent: "rgba(180, 180, 180, 0.35)",
+    accentDim: "rgba(180, 180, 180, 0.12)",
+    tooltipBg: "rgba(10, 10, 10, 0.94)",
+  },
+  {
+    name: "EMBER",
+    key: "ember",
+    bg: "rgba(8, 2, 0, 0.82)",
+    categories: {
+      project: "#ff4422",
+      person: "#ff9966",
+      milestone: "#cc6644",
+      lead: "#ff6644",
+      language: "#ffaa77",
+      commit_keyword: "#ffcc88",
+    },
+    categoriesDim: {
+      project: "rgba(255, 68, 34, 0.5)",
+      person: "rgba(255, 153, 102, 0.35)",
+      milestone: "rgba(204, 102, 68, 0.3)",
+      lead: "rgba(255, 102, 68, 0.35)",
+      language: "rgba(255, 170, 119, 0.35)",
+      commit_keyword: "rgba(255, 204, 136, 0.35)",
+    },
+    armStroke: "rgba(255, 80, 30, 1)",
+    centerGlow: "#ff4422",
+    textPrimary: "rgba(255, 200, 160, 0.2)",
+    textSecondary: "rgba(255, 180, 140, 0.12)",
+    textMuted: "rgba(255, 160, 120, 0.06)",
+    accent: "rgba(255, 80, 30, 0.35)",
+    accentDim: "rgba(255, 80, 30, 0.12)",
+    tooltipBg: "rgba(15, 5, 0, 0.94)",
+  },
+  {
+    name: "FROST",
+    key: "frost",
+    bg: "rgba(0, 2, 8, 0.82)",
+    categories: {
+      project: "#ffffff",
+      person: "#c0d8ff",
+      milestone: "#8899bb",
+      lead: "#ddeeff",
+      language: "#aabbdd",
+      commit_keyword: "#eef4ff",
+    },
+    categoriesDim: {
+      project: "rgba(255, 255, 255, 0.45)",
+      person: "rgba(192, 216, 255, 0.3)",
+      milestone: "rgba(136, 153, 187, 0.25)",
+      lead: "rgba(221, 238, 255, 0.3)",
+      language: "rgba(170, 187, 221, 0.3)",
+      commit_keyword: "rgba(238, 244, 255, 0.35)",
+    },
+    armStroke: "rgba(200, 220, 255, 1)",
+    centerGlow: "#c0d8ff",
+    textPrimary: "rgba(200, 220, 255, 0.2)",
+    textSecondary: "rgba(180, 200, 240, 0.1)",
+    textMuted: "rgba(160, 180, 220, 0.06)",
+    accent: "rgba(180, 210, 255, 0.35)",
+    accentDim: "rgba(180, 210, 255, 0.12)",
+    tooltipBg: "rgba(5, 8, 18, 0.94)",
+  },
+  {
+    name: "CRIMSON",
+    key: "crimson",
+    bg: "rgba(5, 0, 0, 0.82)",
+    categories: {
+      project: "#ff1a1a",
+      person: "#ff6666",
+      milestone: "#aa3333",
+      lead: "#ff4444",
+      language: "#ff8888",
+      commit_keyword: "#ffaaaa",
+    },
+    categoriesDim: {
+      project: "rgba(255, 26, 26, 0.5)",
+      person: "rgba(255, 102, 102, 0.3)",
+      milestone: "rgba(170, 51, 51, 0.25)",
+      lead: "rgba(255, 68, 68, 0.35)",
+      language: "rgba(255, 136, 136, 0.3)",
+      commit_keyword: "rgba(255, 170, 170, 0.3)",
+    },
+    armStroke: "rgba(255, 40, 40, 1)",
+    centerGlow: "#ff2222",
+    textPrimary: "rgba(255, 180, 180, 0.2)",
+    textSecondary: "rgba(255, 150, 150, 0.12)",
+    textMuted: "rgba(255, 120, 120, 0.06)",
+    accent: "rgba(255, 40, 40, 0.35)",
+    accentDim: "rgba(255, 40, 40, 0.12)",
+    tooltipBg: "rgba(15, 2, 2, 0.94)",
+  },
+];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  project: "projects",
+  person: "people",
+  milestone: "milestones",
+  lead: "leads",
+  language: "languages",
+  commit_keyword: "keywords",
 };
 
-const CATEGORY_COLORS_DIM: Record<string, string> = {
-  project: "rgba(220, 40, 40, 0.55)",
-  person: "rgba(255, 255, 255, 0.3)",
-  milestone: "rgba(153, 153, 153, 0.3)",
-  lead: "rgba(220, 80, 80, 0.35)",
-  language: "rgba(80, 200, 255, 0.45)",
-  commit_keyword: "rgba(180, 255, 120, 0.4)",
-};
-
-const MODES = ["ORBITAL", "HELIX", "PULSE", "GALAXY"] as const;
-type VizMode = typeof MODES[number];
+const CATEGORY_ORDER = ["project", "person", "milestone", "lead", "language", "commit_keyword"];
 
 function formatDateShort(ts: number): string {
   const d = new Date(ts);
@@ -67,56 +221,83 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function parseModeFromSearch(search: string): VizMode {
+function parseThemeFromSearch(search: string): number {
   const params = new URLSearchParams(search);
-  const m = (params.get("mode") || "").toUpperCase();
-  if (MODES.includes(m as VizMode)) return m as VizMode;
-  return "ORBITAL";
+  const t = (params.get("theme") || "").toLowerCase();
+  const idx = THEMES.findIndex(th => th.key === t);
+  return idx >= 0 ? idx : 0;
 }
+
+function parseZoomFromSearch(search: string): number {
+  const params = new URLSearchParams(search);
+  const z = parseFloat(params.get("zoom") || "");
+  if (isFinite(z) && z >= 0.3 && z <= 5) return z;
+  return 1;
+}
+
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = 5;
 
 export default function VizResearch() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<VizData | null>(null);
   const search = useSearch();
-  const initialMode = parseModeFromSearch(search);
-  const [mode, setMode] = useState<VizMode>(initialMode);
+  const initialTheme = parseThemeFromSearch(search);
+  const initialZoom = parseZoomFromSearch(search);
+  const [themeIdx, setThemeIdx] = useState(initialTheme);
   const animRef = useRef(0);
   const tRef = useRef(0);
   const tagsRef = useRef<PlacedTag[]>([]);
   const mouseRef = useRef({ x: -1, y: -1 });
-  const modeRef = useRef<VizMode>(initialMode);
-  const transitionRef = useRef(1);
-  const prevModeRef = useRef<VizMode>(initialMode);
+  const themeRef = useRef(initialTheme);
+  const zoomRef = useRef(initialZoom);
+  const zoomTargetRef = useRef(initialZoom);
+  const panRef = useRef({ x: 0, y: 0 });
+  const dragRef = useRef<{ dragging: boolean; lastX: number; lastY: number }>({ dragging: false, lastX: 0, lastY: 0 });
 
   useEffect(() => {
     fetch("/api/viz/research").then(r => r.json()).then(setData).catch(console.error);
   }, []);
 
-  const switchMode = useCallback((target: VizMode) => {
-    if (target === modeRef.current) return;
-    prevModeRef.current = modeRef.current;
-    modeRef.current = target;
-    transitionRef.current = 0;
-    setMode(target);
+  const updateUrl = useCallback((tIdx: number, zoom: number) => {
     const url = new URL(window.location.href);
-    url.searchParams.set("mode", target.toLowerCase());
+    url.searchParams.set("theme", THEMES[tIdx].key);
+    if (Math.abs(zoom - 1) > 0.05) {
+      url.searchParams.set("zoom", zoom.toFixed(2));
+    } else {
+      url.searchParams.delete("zoom");
+    }
     window.history.replaceState({}, "", url.toString());
   }, []);
 
-  const cycleMode = useCallback(() => {
-    const idx = MODES.indexOf(modeRef.current);
-    switchMode(MODES[(idx + 1) % MODES.length]);
-  }, [switchMode]);
+  const switchTheme = useCallback((idx: number) => {
+    themeRef.current = idx;
+    setThemeIdx(idx);
+    updateUrl(idx, zoomTargetRef.current);
+  }, [updateUrl]);
+
+  const cycleTheme = useCallback(() => {
+    switchTheme((themeRef.current + 1) % THEMES.length);
+  }, [switchTheme]);
+
+  const setZoomLevel = useCallback((z: number) => {
+    const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+    zoomTargetRef.current = clamped;
+    updateUrl(themeRef.current, clamped);
+  }, [updateUrl]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === " " || e.key === "Tab") { e.preventDefault(); cycleMode(); }
+      if (e.key === " " || e.key === "Tab") { e.preventDefault(); cycleTheme(); }
       const num = parseInt(e.key);
-      if (num >= 1 && num <= MODES.length) { e.preventDefault(); switchMode(MODES[num - 1]); }
+      if (num >= 1 && num <= THEMES.length) { e.preventDefault(); switchTheme(num - 1); }
+      if (e.key === "+" || e.key === "=") { e.preventDefault(); setZoomLevel(zoomTargetRef.current * 1.25); }
+      if (e.key === "-" || e.key === "_") { e.preventDefault(); setZoomLevel(zoomTargetRef.current / 1.25); }
+      if (e.key === "0") { e.preventDefault(); setZoomLevel(1); panRef.current = { x: 0, y: 0 }; }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cycleMode, switchMode]);
+  }, [cycleTheme, switchTheme, setZoomLevel]);
 
   useEffect(() => {
     if (!data?.tags?.length || !canvasRef.current) return;
@@ -133,29 +314,28 @@ export default function VizResearch() {
       const W = canvas.width, H = canvas.height;
       const maxCount = Math.max(...data.tags.map(t => t.count), 1);
       const cx = W / 2, cy = H / 2;
-      const categoryOrder = ["project", "person", "milestone", "lead", "language", "commit_keyword"];
       const categoryBuckets: Record<string, Tag[]> = {};
-      for (const cat of categoryOrder) categoryBuckets[cat] = [];
+      for (const cat of CATEGORY_ORDER) categoryBuckets[cat] = [];
       for (const tag of data.tags) {
         if (categoryBuckets[tag.category]) categoryBuckets[tag.category].push(tag);
       }
 
       const placed: PlacedTag[] = [];
       let globalIdx = 0;
-      for (const cat of categoryOrder) {
+      for (const cat of CATEGORY_ORDER) {
         const bucket = categoryBuckets[cat];
         bucket.sort((a, b) => b.count - a.count);
-        const catIdx = categoryOrder.indexOf(cat);
+        const catIdx = CATEGORY_ORDER.indexOf(cat);
         for (let bi = 0; bi < bucket.length; bi++) {
           const tag = bucket[bi];
           const norm = tag.count / maxCount;
-          const sectorAngle = (catIdx / categoryOrder.length) * Math.PI * 2 + (bi / Math.max(bucket.length, 1)) * (Math.PI * 2 / categoryOrder.length);
+          const sectorAngle = (catIdx / CATEGORY_ORDER.length) * Math.PI * 2 + (bi / Math.max(bucket.length, 1)) * (Math.PI * 2 / CATEGORY_ORDER.length);
           const orbitR = 50 + (1 - norm) * Math.min(cx, cy) * 0.55 + bi * 7;
           placed.push({
             word: tag.word, count: tag.count, category: tag.category,
             radius: 2 + norm * 4.5,
             opacity: 0.3 + norm * 0.7,
-            phase: globalIdx * 0.7 + Math.random() * 2,
+            phase: globalIdx * 0.7 + Math.sin(globalIdx * 1.337) * 2,
             norm, catIndex: catIdx,
             angle: sectorAngle, orbitR,
             meanDate: tag.meanDate, minDate: tag.minDate, maxDate: tag.maxDate,
@@ -168,164 +348,116 @@ export default function VizResearch() {
 
     resize();
     window.addEventListener("resize", resize);
-    const onMove = (e: MouseEvent) => { mouseRef.current = { x: e.clientX, y: e.clientY }; };
-    const onLeave = () => { mouseRef.current = { x: -1, y: -1 }; };
+
+    const onMove = (e: MouseEvent) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+      if (dragRef.current.dragging) {
+        const dx = e.clientX - dragRef.current.lastX;
+        const dy = e.clientY - dragRef.current.lastY;
+        panRef.current.x += dx;
+        panRef.current.y += dy;
+        dragRef.current.lastX = e.clientX;
+        dragRef.current.lastY = e.clientY;
+      }
+    };
+    const onLeave = () => {
+      mouseRef.current = { x: -1, y: -1 };
+      dragRef.current.dragging = false;
+    };
+    const onDown = (e: MouseEvent) => {
+      if (e.button === 0) {
+        dragRef.current = { dragging: true, lastX: e.clientX, lastY: e.clientY };
+      }
+    };
+    const onUp = () => { dragRef.current.dragging = false; };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomTargetRef.current * factor));
+      zoomTargetRef.current = newZoom;
+      updateUrl(themeRef.current, newZoom);
+    };
+
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("mouseleave", onLeave);
+    canvas.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
 
-    const getPos = (tag: PlacedTag, m: VizMode, t: number, W: number, H: number): { x: number; y: number } => {
+    const getPos = (tag: PlacedTag, t: number, W: number, H: number): { x: number; y: number } => {
       const cx = W / 2, cy = H / 2;
-      const maxR = Math.min(cx, cy) * 0.85;
-
-      switch (m) {
-        case "ORBITAL": {
-          const speed = 0.06 + (1 - tag.norm) * 0.12;
-          const a = tag.angle + t * speed;
-          const wobble = Math.sin(t * 0.25 + tag.phase) * 3;
-          return {
-            x: cx + Math.cos(a) * (tag.orbitR + wobble),
-            y: cy + Math.sin(a) * (tag.orbitR + wobble) * 0.6,
-          };
-        }
-        case "HELIX": {
-          const speed = 0.04 + (1 - tag.norm) * 0.08;
-          const a = tag.angle + t * speed;
-          const yBase = cy + Math.sin(a * 0.5 + tag.phase) * maxR * 0.35;
-          const xSpread = Math.cos(a) * tag.orbitR * 0.7;
-          const zDepth = Math.sin(a) * 0.5 + 0.5;
-          return {
-            x: cx + xSpread,
-            y: yBase + Math.cos(a * 2 + tag.phase) * 20 * zDepth,
-          };
-        }
-        case "PULSE": {
-          const baseR = tag.orbitR * 0.8;
-          const pulseWave = Math.sin(t * 0.3 - baseR * 0.01) * 15;
-          const a = tag.angle + Math.sin(t * 0.1 + tag.phase) * 0.15;
-          const r = baseR + pulseWave;
-          return {
-            x: cx + Math.cos(a) * r,
-            y: cy + Math.sin(a) * r * 0.65,
-          };
-        }
-        case "GALAXY": {
-          const armOffset = tag.catIndex * (Math.PI * 2 / 6);
-          const distFromCenter = tag.orbitR * 0.7;
-          const spiralAngle = armOffset + distFromCenter * 0.012 + t * 0.03;
-          const wobble = Math.sin(t * 0.2 + tag.phase) * 5;
-          const spreadY = Math.sin(tag.phase * 3.7) * 12;
-          return {
-            x: cx + Math.cos(spiralAngle) * (distFromCenter + wobble),
-            y: cy + Math.sin(spiralAngle) * (distFromCenter + wobble) * 0.45 + spreadY * Math.sin(t * 0.15 + tag.phase),
-          };
-        }
-      }
+      const armOffset = tag.catIndex * (Math.PI * 2 / 6);
+      const distFromCenter = tag.orbitR * 0.7;
+      const spiralAngle = armOffset + distFromCenter * 0.012 + t * 0.03;
+      const wobble = Math.sin(t * 0.2 + tag.phase) * 5;
+      const spreadY = Math.sin(tag.phase * 3.7) * 12;
+      return {
+        x: cx + Math.cos(spiralAngle) * (distFromCenter + wobble),
+        y: cy + Math.sin(spiralAngle) * (distFromCenter + wobble) * 0.45 + spreadY * Math.sin(t * 0.15 + tag.phase),
+      };
     };
 
     const draw = () => {
       const W = canvas.width, H = canvas.height, t = tRef.current;
       const tags = tagsRef.current;
       const cx = W / 2, cy = H / 2;
-      const curMode = modeRef.current;
+      const theme = THEMES[themeRef.current];
 
-      transitionRef.current = Math.min(transitionRef.current + 0.02, 1);
-      const tween = transitionRef.current;
-      const eased = tween < 1 ? 1 - Math.pow(1 - tween, 3) : 1;
+      zoomRef.current += (zoomTargetRef.current - zoomRef.current) * 0.08;
+      const zoom = zoomRef.current;
 
       ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
       ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.82)";
+      ctx.fillStyle = theme.bg;
       ctx.fillRect(0, 0, W, H);
 
-      if (curMode === "ORBITAL" || (tween < 1 && prevModeRef.current === "ORBITAL")) {
-        const alpha = curMode === "ORBITAL" ? eased : (1 - eased);
-        ctx.globalAlpha = alpha * 0.06;
-        ctx.strokeStyle = "rgba(220, 40, 40, 1)";
-        ctx.lineWidth = 0.5;
-        const maxR = Math.min(cx, cy) * 0.85;
-        for (let r = 50; r < maxR; r += 35) {
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, r, r * 0.6, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
+      ctx.save();
+      ctx.translate(cx + panRef.current.x, cy + panRef.current.y);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-cx, -cy);
 
-      if (curMode === "PULSE" || (tween < 1 && prevModeRef.current === "PULSE")) {
-        const alpha = curMode === "PULSE" ? eased : (1 - eased);
-        ctx.globalAlpha = alpha * 0.04;
-        ctx.strokeStyle = "rgba(220, 40, 40, 1)";
-        ctx.lineWidth = 0.5;
-        const maxR = Math.min(cx, cy) * 0.85;
-        for (let r = 30; r < maxR; r += 25) {
-          const pulseR = r + Math.sin(t * 0.3 - r * 0.01) * 15;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, pulseR, pulseR * 0.65, 0, 0, Math.PI * 2);
-          ctx.stroke();
+      ctx.globalAlpha = 0.03;
+      ctx.strokeStyle = theme.armStroke;
+      ctx.lineWidth = 0.3;
+      for (let arm = 0; arm < 6; arm++) {
+        ctx.beginPath();
+        const armOff = arm * (Math.PI * 2 / 6);
+        for (let d = 10; d < Math.min(cx, cy) * 0.7; d += 2) {
+          const angle = armOff + d * 0.012 + t * 0.03;
+          const px = cx + Math.cos(angle) * d;
+          const py = cy + Math.sin(angle) * d * 0.45;
+          if (d === 10) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
-        ctx.globalAlpha = 1;
+        ctx.stroke();
       }
+      ctx.globalAlpha = 1;
 
-      if (curMode === "GALAXY" || (tween < 1 && prevModeRef.current === "GALAXY")) {
-        const alpha = curMode === "GALAXY" ? eased : (1 - eased);
-        ctx.globalAlpha = alpha * 0.03;
-        ctx.strokeStyle = "rgba(220, 40, 40, 1)";
-        ctx.lineWidth = 0.3;
-        for (let arm = 0; arm < 6; arm++) {
-          ctx.beginPath();
-          const armOff = arm * (Math.PI * 2 / 6);
-          for (let d = 10; d < Math.min(cx, cy) * 0.7; d += 2) {
-            const angle = armOff + d * 0.012 + t * 0.03;
-            const px = cx + Math.cos(angle) * d;
-            const py = cy + Math.sin(angle) * d * 0.45;
-            if (d === 10) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-          }
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
-
-      if (curMode === "HELIX" || (tween < 1 && prevModeRef.current === "HELIX")) {
-        const alpha = curMode === "HELIX" ? eased : (1 - eased);
-        ctx.globalAlpha = alpha * 0.05;
-        ctx.strokeStyle = "rgba(220, 40, 40, 1)";
-        ctx.lineWidth = 0.5;
-        const maxR = Math.min(cx, cy) * 0.85;
-        for (const strand of [0, Math.PI]) {
-          ctx.beginPath();
-          for (let xx = -maxR; xx < maxR; xx += 3) {
-            const a = (xx / maxR) * Math.PI * 3 + t * 0.04 + strand;
-            const yy = cy + Math.sin(a) * maxR * 0.35;
-            const px = cx + xx;
-            if (xx === -maxR) ctx.moveTo(px, yy); else ctx.lineTo(px, yy);
-          }
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
-
-      ctx.fillStyle = hexToRgba(CATEGORY_COLORS.project, 0.5);
-      ctx.shadowColor = CATEGORY_COLORS.project;
+      ctx.fillStyle = hexToRgba(theme.centerGlow, 0.5);
+      ctx.shadowColor = theme.centerGlow;
       ctx.shadowBlur = 8;
       ctx.beginPath();
       ctx.arc(cx, cy, 3, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      const mx = mouseRef.current.x, my = mouseRef.current.y;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const scaleY = H / rect.height;
+      const rawMx = mouseRef.current.x, rawMy = mouseRef.current.y;
+      let mx = -1, my = -1;
+      if (rawMx > 0) {
+        const canvasX = (rawMx - rect.left) * scaleX;
+        const canvasY = (rawMy - rect.top) * scaleY;
+        mx = (canvasX - cx - panRef.current.x) / zoom + cx;
+        my = (canvasY - cy - panRef.current.y) / zoom + cy;
+      }
+
       let hovered: PlacedTag | null = null;
       let hoveredDist = Infinity;
       const positions: { tag: PlacedTag; px: number; py: number }[] = [];
 
       for (const tag of tags) {
-        let pos: { x: number; y: number };
-        if (tween < 1) {
-          const from = getPos(tag, prevModeRef.current, t, W, H);
-          const to = getPos(tag, curMode, t, W, H);
-          pos = { x: from.x + (to.x - from.x) * eased, y: from.y + (to.y - from.y) * eased };
-        } else {
-          pos = getPos(tag, curMode, t, W, H);
-        }
+        const pos = getPos(tag, t, W, H);
         positions.push({ tag, px: pos.x, py: pos.y });
       }
 
@@ -337,7 +469,7 @@ export default function VizResearch() {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 60) {
             const la = (1 - dist / 60) * 0.06;
-            ctx.strokeStyle = hexToRgba(CATEGORY_COLORS[a.tag.category] || "#ffffff", la);
+            ctx.strokeStyle = hexToRgba(theme.categories[a.tag.category] || "#ffffff", la);
             ctx.lineWidth = 0.3;
             ctx.beginPath();
             ctx.moveTo(a.px, a.py);
@@ -348,7 +480,7 @@ export default function VizResearch() {
       }
 
       for (const { tag, px, py } of positions) {
-        const color = CATEGORY_COLORS_DIM[tag.category] || "rgba(255,255,255,0.3)";
+        const color = theme.categoriesDim[tag.category] || "rgba(255,255,255,0.3)";
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(px, py, tag.radius, 0, Math.PI * 2);
@@ -357,7 +489,8 @@ export default function VizResearch() {
         if (mx > 0) {
           const dx = px - mx, dy = py - my;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < Math.max(tag.radius + 20, 28) && dist < hoveredDist) {
+          const hitR = Math.max(tag.radius + 20 / zoom, 28 / zoom);
+          if (dist < hitR && dist < hoveredDist) {
             hovered = tag;
             hoveredDist = dist;
           }
@@ -366,7 +499,7 @@ export default function VizResearch() {
 
       if (hovered) {
         const hp = positions.find(p => p.tag === hovered)!;
-        const fullColor = CATEGORY_COLORS[hovered.category] || "#ffffff";
+        const fullColor = theme.categories[hovered.category] || "#ffffff";
 
         ctx.shadowColor = fullColor;
         ctx.shadowBlur = 14;
@@ -376,35 +509,41 @@ export default function VizResearch() {
         ctx.fill();
         ctx.shadowBlur = 0;
 
+        const invScale = 1 / zoom;
         const aboveCenter = hp.py < cy;
         const labelDir = aboveCenter ? -1 : 1;
-        const labelY = hp.py + labelDir * (hovered.radius + 16);
+        const labelY = hp.py + labelDir * (hovered.radius + 16 * invScale);
+
+        ctx.save();
+        ctx.translate(hp.px, labelY);
+        ctx.scale(invScale, invScale);
+
         ctx.font = 'bold 11px "JetBrains Mono", monospace';
         ctx.textAlign = "center";
         ctx.textBaseline = aboveCenter ? "bottom" : "top";
         ctx.fillStyle = fullColor;
-        ctx.fillText(hovered.word, hp.px, labelY);
+        ctx.fillText(hovered.word, 0, 0);
 
         const tooltipW = 240;
         const tooltipH = 56;
-        let tx = hp.px - tooltipW / 2;
-        let ty = aboveCenter ? labelY - 16 - tooltipH : labelY + 16;
-        tx = Math.max(10, Math.min(W - tooltipW - 10, tx));
-        ty = Math.max(10, Math.min(H - tooltipH - 10, ty));
+        const tooltipDir = aboveCenter ? -1 : 1;
+        const ty = tooltipDir * 16;
+        const tx = -tooltipW / 2;
 
-        ctx.fillStyle = "rgba(0, 0, 0, 0.92)";
+        ctx.fillStyle = theme.tooltipBg;
         ctx.strokeStyle = hexToRgba(fullColor, 0.25);
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.roundRect(tx, ty, tooltipW, tooltipH, 4);
+        ctx.roundRect(tx, aboveCenter ? ty - tooltipH : ty, tooltipW, tooltipH, 4);
         ctx.fill();
         ctx.stroke();
 
+        const tooltipTop = aboveCenter ? ty - tooltipH : ty;
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
         ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
         ctx.font = '9px "JetBrains Mono", monospace';
-        ctx.fillText(`${hovered.category} · ${hovered.count} events`, tx + 10, ty + 10);
+        ctx.fillText(`${hovered.category} · ${hovered.count} events`, tx + 10, tooltipTop + 10);
 
         if (hovered.meanDate) {
           let dateInfo = `mean: ${formatDateShort(hovered.meanDate)}`;
@@ -412,69 +551,91 @@ export default function VizResearch() {
             dateInfo += `  (${formatDateShort(hovered.minDate)} – ${formatDateShort(hovered.maxDate)})`;
           }
           ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-          ctx.fillText(dateInfo, tx + 10, ty + 28);
+          ctx.fillText(dateInfo, tx + 10, tooltipTop + 28);
         }
+        ctx.restore();
       }
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+      ctx.restore();
+
+      ctx.fillStyle = theme.textPrimary;
       ctx.font = 'bold 12px "JetBrains Mono", monospace';
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.fillText(data.title, 20, 16);
       ctx.font = '9px "JetBrains Mono", monospace';
-      ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.fillStyle = theme.textSecondary;
       ctx.fillText(data.subtitle, 20, 34);
 
       const legendY = 54;
-      const legendCats = [
-        { label: "projects", color: CATEGORY_COLORS.project },
-        { label: "people", color: CATEGORY_COLORS.person },
-        { label: "milestones", color: CATEGORY_COLORS.milestone },
-        { label: "leads", color: CATEGORY_COLORS.lead },
-        { label: "languages", color: CATEGORY_COLORS.language },
-        { label: "keywords", color: CATEGORY_COLORS.commit_keyword },
-      ];
       let lx = 20;
       ctx.font = '8px "JetBrains Mono", monospace';
       ctx.textBaseline = "middle";
-      for (const lc of legendCats) {
-        ctx.fillStyle = lc.color;
+      for (const cat of CATEGORY_ORDER) {
+        ctx.fillStyle = theme.categories[cat];
         ctx.beginPath();
         ctx.arc(lx + 4, legendY, 3, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
         ctx.textAlign = "left";
-        ctx.fillText(lc.label, lx + 12, legendY);
-        lx += ctx.measureText(lc.label).width + 22;
+        const label = CATEGORY_LABELS[cat] || cat;
+        ctx.fillText(label, lx + 12, legendY);
+        lx += ctx.measureText(label).width + 22;
       }
 
-      const modeBarY = H - 38;
+      const barY = H - 38;
       ctx.font = '9px "JetBrains Mono", monospace';
       ctx.textAlign = "center";
-      const btnW = 90;
-      const totalBtnW = MODES.length * btnW;
+      const btnW = 80;
+      const totalBtnW = THEMES.length * btnW;
       const startX = cx - totalBtnW / 2;
-      for (let i = 0; i < MODES.length; i++) {
+      for (let i = 0; i < THEMES.length; i++) {
         const bx = startX + i * btnW + btnW / 2;
-        const isActive = MODES[i] === curMode;
+        const isActive = i === themeRef.current;
         if (isActive) {
-          ctx.fillStyle = "rgba(220, 40, 40, 0.12)";
+          ctx.fillStyle = theme.accentDim;
           ctx.beginPath();
-          ctx.roundRect(bx - 38, modeBarY - 10, 76, 20, 3);
+          ctx.roundRect(bx - 34, barY - 10, 68, 20, 3);
           ctx.fill();
-          ctx.strokeStyle = "rgba(220, 40, 40, 0.35)";
+          ctx.strokeStyle = theme.accent;
           ctx.lineWidth = 1;
           ctx.stroke();
         }
         ctx.fillStyle = isActive ? "rgba(255, 255, 255, 0.8)" : "rgba(255, 255, 255, 0.2)";
         ctx.textBaseline = "middle";
-        ctx.fillText(`${i + 1} ${MODES[i]}`, bx, modeBarY);
+        ctx.fillText(`${i + 1} ${THEMES[i].name}`, bx, barY);
       }
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+      const zoomPct = Math.round(zoom * 100);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.textAlign = "right";
+      ctx.textBaseline = "top";
+      ctx.fillText(`${zoomPct}%`, W - 20, 16);
+
+      const zoomBtnY = 36;
+      const zoomBtns = [
+        { label: "+", action: 1.25 },
+        { label: "−", action: 0.8 },
+        { label: "⟲", action: 0 },
+      ];
+      for (let i = 0; i < zoomBtns.length; i++) {
+        const by = zoomBtnY + i * 24;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.beginPath();
+        ctx.roundRect(W - 36, by, 20, 18, 3);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(zoomBtns[i].label, W - 26, by + 9);
+      }
+
+      ctx.fillStyle = theme.textMuted;
       ctx.font = '8px "JetBrains Mono", monospace';
       ctx.textAlign = "center";
-      ctx.fillText("1-4 or SPACE to switch · hover for details", cx, H - 12);
+      ctx.textBaseline = "bottom";
+      ctx.fillText("1-5 or SPACE to switch theme · scroll to zoom · drag to pan · 0 to reset", cx, H - 12);
 
       tRef.current += 0.016;
       animRef.current = requestAnimationFrame(draw);
@@ -485,9 +646,12 @@ export default function VizResearch() {
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("mouseleave", onLeave);
+      canvas.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      canvas.removeEventListener("wheel", onWheel);
       cancelAnimationFrame(animRef.current);
     };
-  }, [data]);
+  }, [data, updateUrl]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -499,22 +663,33 @@ export default function VizResearch() {
     const clickY = (e.clientY - rect.top) * scaleY;
     const W = canvas.width, H = canvas.height;
     const cxC = W / 2;
-    const modeBarY = H - 38;
-    const btnW = 90;
-    const totalBtnW = MODES.length * btnW;
-    const startX = cxC - totalBtnW / 2;
 
-    for (let i = 0; i < MODES.length; i++) {
+    const barY = H - 38;
+    const btnW = 80;
+    const totalBtnW = THEMES.length * btnW;
+    const startX = cxC - totalBtnW / 2;
+    for (let i = 0; i < THEMES.length; i++) {
       const bx = startX + i * btnW + btnW / 2;
-      if (clickX >= bx - 38 && clickX <= bx + 38 && clickY >= modeBarY - 10 && clickY <= modeBarY + 10) {
-        switchMode(MODES[i]);
+      if (clickX >= bx - 34 && clickX <= bx + 34 && clickY >= barY - 10 && clickY <= barY + 10) {
+        switchTheme(i);
         return;
       }
     }
-  }, [switchMode]);
+
+    const zoomBtnY = 36;
+    for (let i = 0; i < 3; i++) {
+      const by = zoomBtnY + i * 24;
+      if (clickX >= W - 36 && clickX <= W - 16 && clickY >= by && clickY <= by + 18) {
+        if (i === 0) setZoomLevel(zoomTargetRef.current * 1.25);
+        else if (i === 1) setZoomLevel(zoomTargetRef.current * 0.8);
+        else { setZoomLevel(1); panRef.current = { x: 0, y: 0 }; }
+        return;
+      }
+    }
+  }, [switchTheme, setZoomLevel]);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000", cursor: "crosshair" }} data-testid="viz-research-container">
+    <div style={{ position: "fixed", inset: 0, background: "#000", cursor: dragRef.current?.dragging ? "grabbing" : "crosshair" }} data-testid="viz-research-container">
       <canvas ref={canvasRef} style={{ display: "block" }} data-testid="viz-research-canvas" onClick={handleCanvasClick} />
       <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.1)", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 3 }}>
         CIMC RESEARCH
