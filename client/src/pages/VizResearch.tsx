@@ -8,6 +8,7 @@ interface Tag {
   minDate: number | null;
   maxDate: number | null;
   meanDate: number | null;
+  description: string | null;
 }
 
 interface VizData {
@@ -31,6 +32,7 @@ interface PlacedTag {
   meanDate: number | null;
   minDate: number | null;
   maxDate: number | null;
+  description: string | null;
 }
 
 interface ColorTheme {
@@ -61,6 +63,7 @@ const THEMES: ColorTheme[] = [
       lead: "#dc5050",
       language: "#50c8ff",
       commit_keyword: "#b4ff78",
+      repo: "#ffaa22",
     },
     categoriesDim: {
       project: "rgba(220, 40, 40, 0.55)",
@@ -69,6 +72,7 @@ const THEMES: ColorTheme[] = [
       lead: "rgba(220, 80, 80, 0.35)",
       language: "rgba(80, 200, 255, 0.45)",
       commit_keyword: "rgba(180, 255, 120, 0.4)",
+      repo: "rgba(255, 170, 34, 0.5)",
     },
     armStroke: "rgba(220, 40, 40, 1)",
     centerGlow: "#dc2828",
@@ -90,6 +94,7 @@ const THEMES: ColorTheme[] = [
       lead: "#c8c8c8",
       language: "#909090",
       commit_keyword: "#d8d8d8",
+      repo: "#aaaaaa",
     },
     categoriesDim: {
       project: "rgba(224, 224, 224, 0.45)",
@@ -98,6 +103,7 @@ const THEMES: ColorTheme[] = [
       lead: "rgba(200, 200, 200, 0.3)",
       language: "rgba(144, 144, 144, 0.3)",
       commit_keyword: "rgba(216, 216, 216, 0.35)",
+      repo: "rgba(170, 170, 170, 0.4)",
     },
     armStroke: "rgba(180, 180, 180, 1)",
     centerGlow: "#cccccc",
@@ -119,6 +125,7 @@ const THEMES: ColorTheme[] = [
       lead: "#ff6644",
       language: "#ffaa77",
       commit_keyword: "#ffcc88",
+      repo: "#ff8833",
     },
     categoriesDim: {
       project: "rgba(255, 68, 34, 0.5)",
@@ -127,6 +134,7 @@ const THEMES: ColorTheme[] = [
       lead: "rgba(255, 102, 68, 0.35)",
       language: "rgba(255, 170, 119, 0.35)",
       commit_keyword: "rgba(255, 204, 136, 0.35)",
+      repo: "rgba(255, 136, 51, 0.45)",
     },
     armStroke: "rgba(255, 80, 30, 1)",
     centerGlow: "#ff4422",
@@ -148,6 +156,7 @@ const THEMES: ColorTheme[] = [
       lead: "#ddeeff",
       language: "#aabbdd",
       commit_keyword: "#eef4ff",
+      repo: "#88aadd",
     },
     categoriesDim: {
       project: "rgba(255, 255, 255, 0.45)",
@@ -156,6 +165,7 @@ const THEMES: ColorTheme[] = [
       lead: "rgba(221, 238, 255, 0.3)",
       language: "rgba(170, 187, 221, 0.3)",
       commit_keyword: "rgba(238, 244, 255, 0.35)",
+      repo: "rgba(136, 170, 221, 0.4)",
     },
     armStroke: "rgba(200, 220, 255, 1)",
     centerGlow: "#c0d8ff",
@@ -177,6 +187,7 @@ const THEMES: ColorTheme[] = [
       lead: "#ff4444",
       language: "#ff8888",
       commit_keyword: "#ffaaaa",
+      repo: "#ff5555",
     },
     categoriesDim: {
       project: "rgba(255, 26, 26, 0.5)",
@@ -185,6 +196,7 @@ const THEMES: ColorTheme[] = [
       lead: "rgba(255, 68, 68, 0.35)",
       language: "rgba(255, 136, 136, 0.3)",
       commit_keyword: "rgba(255, 170, 170, 0.3)",
+      repo: "rgba(255, 85, 85, 0.45)",
     },
     armStroke: "rgba(255, 40, 40, 1)",
     centerGlow: "#ff2222",
@@ -204,9 +216,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   lead: "leads",
   language: "languages",
   commit_keyword: "keywords",
+  repo: "repos",
 };
 
-const CATEGORY_ORDER = ["project", "person", "milestone", "lead", "language", "commit_keyword"];
+const CATEGORY_ORDER = ["project", "person", "milestone", "lead", "language", "commit_keyword", "repo"];
 
 function formatDateShort(ts: number): string {
   const d = new Date(ts);
@@ -338,7 +351,7 @@ export default function VizResearch() {
             phase: globalIdx * 0.7 + Math.sin(globalIdx * 1.337) * 2,
             norm, catIndex: catIdx,
             angle: sectorAngle, orbitR,
-            meanDate: tag.meanDate, minDate: tag.minDate, maxDate: tag.maxDate,
+            meanDate: tag.meanDate, minDate: tag.minDate, maxDate: tag.maxDate, description: tag.description,
           });
           globalIdx++;
         }
@@ -386,7 +399,7 @@ export default function VizResearch() {
 
     const getPos = (tag: PlacedTag, t: number, W: number, H: number): { x: number; y: number } => {
       const cx = W / 2, cy = H / 2;
-      const armOffset = tag.catIndex * (Math.PI * 2 / 6);
+      const armOffset = tag.catIndex * (Math.PI * 2 / 7);
       const distFromCenter = tag.orbitR * 0.7;
       const spiralAngle = armOffset + distFromCenter * 0.012 + t * 0.03;
       const wobble = Math.sin(t * 0.2 + tag.phase) * 5;
@@ -419,9 +432,9 @@ export default function VizResearch() {
       ctx.globalAlpha = 0.03;
       ctx.strokeStyle = theme.armStroke;
       ctx.lineWidth = 0.3;
-      for (let arm = 0; arm < 6; arm++) {
+      for (let arm = 0; arm < 7; arm++) {
         ctx.beginPath();
-        const armOff = arm * (Math.PI * 2 / 6);
+        const armOff = arm * (Math.PI * 2 / 7);
         for (let d = 10; d < Math.min(cx, cy) * 0.7; d += 2) {
           const angle = armOff + d * 0.012 + t * 0.03;
           const px = cx + Math.cos(angle) * d;
@@ -524,8 +537,9 @@ export default function VizResearch() {
         ctx.fillStyle = fullColor;
         ctx.fillText(hovered.word, 0, 0);
 
-        const tooltipW = 240;
-        const tooltipH = 56;
+        const tooltipW = 260;
+        const hasDesc = hovered.description && hovered.description.length > 0;
+        const tooltipH = hasDesc ? 72 : 56;
         const tooltipDir = aboveCenter ? -1 : 1;
         const ty = tooltipDir * 16;
         const tx = -tooltipW / 2;
@@ -543,7 +557,16 @@ export default function VizResearch() {
         ctx.textBaseline = "top";
         ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
         ctx.font = '9px "JetBrains Mono", monospace';
-        ctx.fillText(`${hovered.category} · ${hovered.count} events`, tx + 10, tooltipTop + 10);
+        const countLabel = hovered.category === "repo" ? `${hovered.count} commits` : `${hovered.count} events`;
+        ctx.fillText(`${hovered.category} · ${countLabel}`, tx + 10, tooltipTop + 10);
+
+        let nextY = tooltipTop + 28;
+        if (hasDesc) {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+          const truncDesc = hovered.description!.length > 40 ? hovered.description!.substring(0, 40) + "…" : hovered.description!;
+          ctx.fillText(truncDesc, tx + 10, nextY);
+          nextY += 16;
+        }
 
         if (hovered.meanDate) {
           let dateInfo = `mean: ${formatDateShort(hovered.meanDate)}`;
@@ -551,7 +574,7 @@ export default function VizResearch() {
             dateInfo += `  (${formatDateShort(hovered.minDate)} – ${formatDateShort(hovered.maxDate)})`;
           }
           ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-          ctx.fillText(dateInfo, tx + 10, tooltipTop + 28);
+          ctx.fillText(dateInfo, tx + 10, nextY);
         }
         ctx.restore();
       }

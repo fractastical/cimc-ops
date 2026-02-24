@@ -2468,6 +2468,7 @@ export async function registerRoutes(
         count: number;
         category: string;
         dates: number[];
+        description?: string;
       }
       const freq: Record<string, TagEntry> = {};
 
@@ -2550,6 +2551,29 @@ export async function registerRoutes(
         freq[lang] = { count: scaled, category: "language", dates: langDates[lang] || [] };
       }
 
+      const repoActivityCounts: Record<string, number> = {};
+      for (const act of allActivity) {
+        if (act.eventType === "push" || act.eventType === "commit") {
+          repoActivityCounts[act.repositoryId] = (repoActivityCounts[act.repositoryId] || 0) + 1;
+        }
+      }
+      for (const repo of repos) {
+        if (!repo.isActive) continue;
+        const label = repo.name;
+        const activityCount = repoActivityCounts[repo.id] || 0;
+        const scaled = Math.min(Math.max(activityCount, 1), 30);
+        const dates: number[] = [];
+        const createdTs = new Date(repo.createdAt).getTime();
+        dates.push(createdTs);
+        if (repo.updatedAt) dates.push(new Date(repo.updatedAt).getTime());
+        freq[label] = {
+          count: scaled,
+          category: "repo",
+          dates,
+          description: repo.description || undefined,
+        };
+      }
+
       const stopWords = new Set([
         "the", "and", "for", "from", "with", "this", "that", "into", "not",
         "are", "was", "were", "been", "have", "has", "had", "but", "all",
@@ -2609,10 +2633,10 @@ export async function registerRoutes(
           const minDate = sorted.length > 0 ? sorted[0] : null;
           const maxDate = sorted.length > 0 ? sorted[sorted.length - 1] : null;
           const meanDate = sorted.length > 0 ? Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length) : null;
-          return { word, count: entry.count, category: entry.category, minDate, maxDate, meanDate };
+          return { word, count: entry.count, category: entry.category, minDate, maxDate, meanDate, description: entry.description || null };
         })
         .sort((a, b) => b.count - a.count)
-        .slice(0, 80);
+        .slice(0, 100);
 
       const allDates = tags.filter(t => t.meanDate).map(t => t.meanDate!);
       const globalMinDate = allDates.length > 0 ? Math.min(...allDates) : Date.now() - 90 * 86400000;
