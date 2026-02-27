@@ -207,6 +207,130 @@ const THEMES: ColorTheme[] = [
     accentDim: "rgba(255, 40, 40, 0.12)",
     tooltipBg: "rgba(15, 2, 2, 0.94)",
   },
+  {
+    name: "AURORA",
+    key: "aurora",
+    bg: "rgba(0, 4, 8, 0.82)",
+    categories: {
+      project: "#00ffaa",
+      person: "#88ffdd",
+      milestone: "#44aa88",
+      lead: "#66ffcc",
+      language: "#22ddaa",
+      commit_keyword: "#aaffee",
+      repo: "#55eebb",
+    },
+    categoriesDim: {
+      project: "rgba(0, 255, 170, 0.5)",
+      person: "rgba(136, 255, 221, 0.3)",
+      milestone: "rgba(68, 170, 136, 0.25)",
+      lead: "rgba(102, 255, 204, 0.3)",
+      language: "rgba(34, 221, 170, 0.35)",
+      commit_keyword: "rgba(170, 255, 238, 0.3)",
+      repo: "rgba(85, 238, 187, 0.4)",
+    },
+    armStroke: "rgba(0, 255, 170, 1)",
+    centerGlow: "#00ffaa",
+    textPrimary: "rgba(170, 255, 230, 0.2)",
+    textSecondary: "rgba(140, 230, 200, 0.1)",
+    textMuted: "rgba(100, 200, 170, 0.06)",
+    accent: "rgba(0, 255, 170, 0.35)",
+    accentDim: "rgba(0, 255, 170, 0.12)",
+    tooltipBg: "rgba(2, 10, 8, 0.94)",
+  },
+  {
+    name: "VIOLET",
+    key: "violet",
+    bg: "rgba(4, 0, 8, 0.82)",
+    categories: {
+      project: "#cc66ff",
+      person: "#eeccff",
+      milestone: "#8844aa",
+      lead: "#dd88ff",
+      language: "#aa77dd",
+      commit_keyword: "#ddaaff",
+      repo: "#bb66ee",
+    },
+    categoriesDim: {
+      project: "rgba(204, 102, 255, 0.5)",
+      person: "rgba(238, 204, 255, 0.3)",
+      milestone: "rgba(136, 68, 170, 0.25)",
+      lead: "rgba(221, 136, 255, 0.3)",
+      language: "rgba(170, 119, 221, 0.35)",
+      commit_keyword: "rgba(221, 170, 255, 0.3)",
+      repo: "rgba(187, 102, 238, 0.4)",
+    },
+    armStroke: "rgba(180, 100, 255, 1)",
+    centerGlow: "#bb66ff",
+    textPrimary: "rgba(220, 190, 255, 0.2)",
+    textSecondary: "rgba(200, 170, 240, 0.1)",
+    textMuted: "rgba(180, 150, 220, 0.06)",
+    accent: "rgba(180, 100, 255, 0.35)",
+    accentDim: "rgba(180, 100, 255, 0.12)",
+    tooltipBg: "rgba(10, 4, 18, 0.94)",
+  },
+  {
+    name: "GOLD",
+    key: "gold",
+    bg: "rgba(6, 4, 0, 0.82)",
+    categories: {
+      project: "#ffcc00",
+      person: "#ffdd66",
+      milestone: "#aa8822",
+      lead: "#ffdd44",
+      language: "#eebb33",
+      commit_keyword: "#ffee88",
+      repo: "#ddaa11",
+    },
+    categoriesDim: {
+      project: "rgba(255, 204, 0, 0.5)",
+      person: "rgba(255, 221, 102, 0.3)",
+      milestone: "rgba(170, 136, 34, 0.25)",
+      lead: "rgba(255, 221, 68, 0.3)",
+      language: "rgba(238, 187, 51, 0.35)",
+      commit_keyword: "rgba(255, 238, 136, 0.3)",
+      repo: "rgba(221, 170, 17, 0.45)",
+    },
+    armStroke: "rgba(255, 200, 40, 1)",
+    centerGlow: "#ffcc00",
+    textPrimary: "rgba(255, 230, 160, 0.2)",
+    textSecondary: "rgba(240, 210, 140, 0.1)",
+    textMuted: "rgba(220, 190, 120, 0.06)",
+    accent: "rgba(255, 200, 40, 0.35)",
+    accentDim: "rgba(255, 200, 40, 0.12)",
+    tooltipBg: "rgba(14, 10, 2, 0.94)",
+  },
+  {
+    name: "OCEAN",
+    key: "ocean",
+    bg: "rgba(0, 2, 6, 0.82)",
+    categories: {
+      project: "#0088ff",
+      person: "#66bbff",
+      milestone: "#336699",
+      lead: "#44aaff",
+      language: "#55ccff",
+      commit_keyword: "#88ddff",
+      repo: "#3399dd",
+    },
+    categoriesDim: {
+      project: "rgba(0, 136, 255, 0.5)",
+      person: "rgba(102, 187, 255, 0.3)",
+      milestone: "rgba(51, 102, 153, 0.25)",
+      lead: "rgba(68, 170, 255, 0.3)",
+      language: "rgba(85, 204, 255, 0.35)",
+      commit_keyword: "rgba(136, 221, 255, 0.3)",
+      repo: "rgba(51, 153, 221, 0.4)",
+    },
+    armStroke: "rgba(0, 140, 255, 1)",
+    centerGlow: "#0088ff",
+    textPrimary: "rgba(160, 210, 255, 0.2)",
+    textSecondary: "rgba(140, 190, 240, 0.1)",
+    textMuted: "rgba(120, 170, 220, 0.06)",
+    accent: "rgba(0, 140, 255, 0.35)",
+    accentDim: "rgba(0, 140, 255, 0.12)",
+    tooltipBg: "rgba(2, 6, 16, 0.94)",
+  },
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -607,18 +731,19 @@ export default function VizResearch() {
       }
 
       const barY = H - 38;
-      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.font = '8px "JetBrains Mono", monospace';
       ctx.textAlign = "center";
-      const btnW = 80;
+      const btnW = Math.min(72, (W - 40) / THEMES.length);
       const totalBtnW = THEMES.length * btnW;
       const startX = cx - totalBtnW / 2;
       for (let i = 0; i < THEMES.length; i++) {
         const bx = startX + i * btnW + btnW / 2;
         const isActive = i === themeRef.current;
+        const halfW = btnW / 2 - 4;
         if (isActive) {
           ctx.fillStyle = theme.accentDim;
           ctx.beginPath();
-          ctx.roundRect(bx - 34, barY - 10, 68, 20, 3);
+          ctx.roundRect(bx - halfW, barY - 10, halfW * 2, 20, 3);
           ctx.fill();
           ctx.strokeStyle = theme.accent;
           ctx.lineWidth = 1;
@@ -658,7 +783,7 @@ export default function VizResearch() {
       ctx.font = '8px "JetBrains Mono", monospace';
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.fillText("1-5 or SPACE to switch theme · scroll to zoom · drag to pan · 0 to reset", cx, H - 12);
+      ctx.fillText("1-9 or SPACE to switch theme · scroll to zoom · drag to pan · 0 to reset", cx, H - 12);
 
       tRef.current += 0.016;
       animRef.current = requestAnimationFrame(draw);
@@ -688,12 +813,13 @@ export default function VizResearch() {
     const cxC = W / 2;
 
     const barY = H - 38;
-    const btnW = 80;
+    const btnW = Math.min(72, (W - 40) / THEMES.length);
     const totalBtnW = THEMES.length * btnW;
     const startX = cxC - totalBtnW / 2;
     for (let i = 0; i < THEMES.length; i++) {
       const bx = startX + i * btnW + btnW / 2;
-      if (clickX >= bx - 34 && clickX <= bx + 34 && clickY >= barY - 10 && clickY <= barY + 10) {
+      const halfW = btnW / 2 - 4;
+      if (clickX >= bx - halfW && clickX <= bx + halfW && clickY >= barY - 10 && clickY <= barY + 10) {
         switchTheme(i);
         return;
       }
