@@ -608,8 +608,26 @@ export class SchedulerService {
         }
         await new Promise(resolve => setTimeout(resolve, 600));
       }
+
+      const testItems = [{
+        projectName: "Sample Project (Test Verification)",
+        description: `This is an automated test email sent alongside ${emailsSent} real milestone reminders. If you received this, the email system is working correctly.`,
+        submissionUrl: `${baseUrl}/submit-milestone/test/test`,
+      }];
+      const testResult = await emailService.sendConsolidatedMilestoneReminderEmail(
+        "jdietz@gmail.com",
+        "Joel",
+        monthLabel,
+        testItems
+      );
+      if (testResult.success) {
+        emailsSent++;
+        console.log(`Sent test verification email to jdietz@gmail.com`);
+      } else {
+        console.error(`Failed to send test email to jdietz@gmail.com: ${testResult.error}`);
+      }
       
-      console.log(`Milestone reminders sent: ${emailsSent} emails to ${leadMilestones.size} team leads, ${emailsFailed} failed`);
+      console.log(`Milestone reminders sent: ${emailsSent} emails to ${leadMilestones.size} team leads + 1 test, ${emailsFailed} failed`);
       
       if (emailsSent > 0) {
         await storage.createSlackMessage({
