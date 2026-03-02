@@ -560,10 +560,10 @@ export class SchedulerService {
       const projects = await storage.getResearchProjects();
       const projectMap = new Map(projects.map(p => [p.id, p]));
       
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-        : process.env.REPLIT_DOMAINS
-          ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+      const baseUrl = process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+        : process.env.REPLIT_DEV_DOMAIN
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
           : "http://localhost:5000";
       
       const leadMilestones = new Map<string, { lead: typeof activeTeamLeads[0]; items: { projectName: string; description: string; submissionUrl: string }[] }>();
