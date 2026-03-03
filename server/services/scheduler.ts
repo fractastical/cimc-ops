@@ -560,11 +560,12 @@ export class SchedulerService {
       const projects = await storage.getResearchProjects();
       const projectMap = new Map(projects.map(p => [p.id, p]));
       
-      const baseUrl = process.env.REPLIT_DOMAINS
-        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
-        : process.env.REPLIT_DEV_DOMAIN
-          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-          : "http://localhost:5000";
+      const allDomains = (process.env.REPLIT_DOMAINS || "").split(",").filter(Boolean);
+      const prodDomain = allDomains.find(d => d.includes(".replit.app"));
+      const baseUrl = prodDomain
+        ? `https://${prodDomain}`
+        : "https://research-ops-mission-control.replit.app";
+      console.log(`Milestone email links using base URL: ${baseUrl}`);
       
       const leadMilestones = new Map<string, { lead: typeof activeTeamLeads[0]; items: { projectName: string; description: string; submissionUrl: string }[] }>();
       
