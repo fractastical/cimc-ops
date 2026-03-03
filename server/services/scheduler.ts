@@ -604,29 +604,47 @@ export class SchedulerService {
         }
       }
 
-      const firstMilestone = currentMilestones[0];
-      const firstProject = firstMilestone ? projectMap.get(firstMilestone.projectId) : null;
-      const testSubmissionUrl = firstMilestone
-        ? `${baseUrl}/submit-milestone/${firstMilestone.id}`
-        : `${baseUrl}/milestones`;
-      const testItems = [{
-        projectName: firstProject ? firstProject.name : "Sample Project",
-        description: testOnly
-          ? `This is a TEST email. ${currentMilestones.length} milestone(s) exist for ${monthLabel}. The link below goes to a real milestone submission form.`
-          : `This is an automated test email sent alongside ${emailsSent} real milestone reminders. If you received this, the email system is working correctly.`,
-        submissionUrl: testSubmissionUrl,
-      }];
-      const testResult = await emailService.sendConsolidatedMilestoneReminderEmail(
-        "jdietz@gmail.com",
-        "Joel",
-        monthLabel,
-        testItems
-      );
-      if (testResult.success) {
-        emailsSent++;
-        console.log(`Sent test verification email to jdietz@gmail.com`);
-      } else {
-        console.error(`Failed to send test email to jdietz@gmail.com: ${testResult.error}`);
+      const jdietzEntry = leadMilestones.get("jdietz@gmail.com");
+      if (testOnly && jdietzEntry) {
+        const result = await emailService.sendConsolidatedMilestoneReminderEmail(
+          "jdietz@gmail.com",
+          jdietzEntry.lead.name,
+          monthLabel,
+          jdietzEntry.items
+        );
+        if (result.success) {
+          emailsSent++;
+          console.log(`Sent test email to jdietz@gmail.com with ${jdietzEntry.items.length} real milestone(s)`);
+        } else {
+          console.error(`Failed to send test email to jdietz@gmail.com: ${result.error}`);
+        }
+      } else if (!testOnly) {
+        const testMilestone = currentMilestones.find(m => {
+          const proj = projectMap.get(m.projectId);
+          return proj?.name?.toLowerCase().includes("test");
+        }) || currentMilestones[0];
+        const testProject = testMilestone ? projectMap.get(testMilestone.projectId) : null;
+        const testLead = activeTeamLeads.find(l => l.email.toLowerCase() === "jdietz@gmail.com" && l.projectId === testMilestone?.projectId);
+        const testSubmissionUrl = testMilestone
+          ? `${baseUrl}/submit-milestone/${testMilestone.id}${testLead ? `/${testLead.id}` : ""}`
+          : `${baseUrl}/milestones`;
+        const testItems = [{
+          projectName: testProject?.name || "Sample Project",
+          description: `This is an automated test email sent alongside ${emailsSent} real milestone reminders. If you received this, the email system is working correctly.`,
+          submissionUrl: testSubmissionUrl,
+        }];
+        const testResult = await emailService.sendConsolidatedMilestoneReminderEmail(
+          "jdietz@gmail.com",
+          "Joel",
+          monthLabel,
+          testItems
+        );
+        if (testResult.success) {
+          emailsSent++;
+          console.log(`Sent test verification email to jdietz@gmail.com`);
+        } else {
+          console.error(`Failed to send test email to jdietz@gmail.com: ${testResult.error}`);
+        }
       }
       
       console.log(`Milestone reminders sent: ${emailsSent} emails${testOnly ? " (test only)" : ` to ${leadMilestones.size} team leads + 1 test`}, ${emailsFailed} failed`);
