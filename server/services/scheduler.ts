@@ -538,21 +538,17 @@ export class SchedulerService {
     });
   }
 
-  async sendMonthlyMilestoneReminders() {
+  async sendMonthlyMilestoneReminders(options?: { testOnly?: boolean }) {
+    const testOnly = options?.testOnly ?? false;
     const now = new Date();
     const currentMonth = format(now, "yyyy-MM");
     const monthLabel = format(now, "MMMM yyyy");
     
-    console.log(`Sending monthly milestone reminders for ${currentMonth}...`);
+    console.log(`Sending monthly milestone reminders for ${currentMonth}${testOnly ? " (TEST ONLY - jdietz@gmail.com)" : ""}...`);
     
     try {
       const allMilestones = await storage.getMilestones();
       const currentMilestones = allMilestones.filter(m => m.month === currentMonth);
-      
-      if (currentMilestones.length === 0) {
-        console.log("No milestones for current month");
-        return;
-      }
       
       const teamLeads = await storage.getTeamLeads();
       const activeTeamLeads = teamLeads.filter(l => l.isActive);
@@ -587,29 +583,38 @@ export class SchedulerService {
       let emailsSent = 0;
       let emailsFailed = 0;
       
-      for (const entry of Array.from(leadMilestones.values())) {
-        const { lead, items } = entry;
-        const result = await emailService.sendConsolidatedMilestoneReminderEmail(
-          lead.email,
-          lead.name,
-          monthLabel,
-          items
-        );
-        
-        if (result.success) {
-          emailsSent++;
-          console.log(`Sent consolidated reminder to ${lead.email} (${items.length} milestone(s))`);
-        } else {
-          emailsFailed++;
-          console.error(`Failed to send to ${lead.email}: ${result.error}`);
+      if (!testOnly) {
+        for (const entry of Array.from(leadMilestones.values())) {
+          const { lead, items } = entry;
+          const result = await emailService.sendConsolidatedMilestoneReminderEmail(
+            lead.email,
+            lead.name,
+            monthLabel,
+            items
+          );
+          
+          if (result.success) {
+            emailsSent++;
+            console.log(`Sent consolidated reminder to ${lead.email} (${items.length} milestone(s))`);
+          } else {
+            emailsFailed++;
+            console.error(`Failed to send to ${lead.email}: ${result.error}`);
+          }
+          await new Promise(resolve => setTimeout(resolve, 600));
         }
-        await new Promise(resolve => setTimeout(resolve, 600));
       }
 
+      const firstMilestone = currentMilestones[0];
+      const firstProject = firstMilestone ? projectMap.get(firstMilestone.projectId) : null;
+      const testSubmissionUrl = firstMilestone
+        ? `${baseUrl}/submit-milestone/${firstMilestone.id}`
+        : `${baseUrl}/milestones`;
       const testItems = [{
-        projectName: "Sample Project (Test Verification)",
-        description: `This is an automated test email sent alongside ${emailsSent} real milestone reminders. If you received this, the email system is working correctly.`,
-        submissionUrl: `${baseUrl}/submit-milestone/test/test`,
+        projectName: firstProject ? firstProject.name : "Sample Project",
+        description: testOnly
+          ? `This is a TEST email. ${currentMilestones.length} milestone(s) exist for ${monthLabel}. The link below goes to a real milestone submission form.`
+          : `This is an automated test email sent alongside ${emailsSent} real milestone reminders. If you received this, the email system is working correctly.`,
+        submissionUrl: testSubmissionUrl,
       }];
       const testResult = await emailService.sendConsolidatedMilestoneReminderEmail(
         "jdietz@gmail.com",
@@ -624,7 +629,7 @@ export class SchedulerService {
         console.error(`Failed to send test email to jdietz@gmail.com: ${testResult.error}`);
       }
       
-      console.log(`Milestone reminders sent: ${emailsSent} emails to ${leadMilestones.size} team leads + 1 test, ${emailsFailed} failed`);
+      console.log(`Milestone reminders sent: ${emailsSent} emails${testOnly ? " (test only)" : ` to ${leadMilestones.size} team leads + 1 test`}, ${emailsFailed} failed`);
       
       if (emailsSent > 0) {
         await storage.createSlackMessage({
@@ -640,8 +645,8 @@ export class SchedulerService {
   }
 
   // Manual trigger for testing milestone reminders
-  async triggerMilestoneReminders() {
-    await this.sendMonthlyMilestoneReminders();
+  async triggerMilestoneReminders(options?: { testOnly?: boolean }) {
+    await this.sendMonthlyMilestoneReminders(options);
   }
 
   async syncGoogleDrive() {

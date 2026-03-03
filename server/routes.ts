@@ -2272,8 +2272,9 @@ export async function registerRoutes(
   // ============ Manual Trigger for Milestone Reminders (Testing) ============
   app.post("/api/milestones/send-reminders", async (req, res) => {
     try {
-      await schedulerService.triggerMilestoneReminders();
-      res.json({ success: true, message: "Milestone reminders sent" });
+      const testOnly = req.query.testOnly === "true" || req.body?.testOnly === true;
+      await schedulerService.triggerMilestoneReminders({ testOnly });
+      res.json({ success: true, message: testOnly ? "Test reminder sent to jdietz@gmail.com only" : "Milestone reminders sent" });
     } catch (error) {
       console.error("Error sending milestone reminders:", error);
       res.status(500).json({ error: "Failed to send milestone reminders" });
