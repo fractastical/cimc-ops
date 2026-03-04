@@ -13,9 +13,7 @@ export class ReportService {
     const endDate = new Date();
     const startDate = subDays(endDate, days);
     const dateRange = `${format(startDate, "MMM d, yyyy")} - ${format(endDate, "MMM d, yyyy")}`;
-    const periodLabel = months === 1 ? "Monthly" : `${months}-Month`;
-
-    doc.fontSize(24).font("Helvetica-Bold").text(`${periodLabel} Research Operations Report`, { align: "center" });
+    doc.fontSize(24).font("Helvetica-Bold").text("Monthly Research Operations Report", { align: "center" });
     doc.fontSize(12).font("Helvetica").text(dateRange, { align: "center" });
     doc.moveDown(2);
 
@@ -140,6 +138,12 @@ export class ReportService {
       return;
     }
 
+    doc.fontSize(12).font("Helvetica");
+    doc.text(`Total Milestones: ${relevantMilestones.length}`);
+    const totalSubs = submissions.filter(s => relevantMilestones.some(m => m.id === s.milestoneId)).length;
+    doc.text(`Total Submissions: ${totalSubs}`);
+    doc.moveDown();
+
     const byMonth = new Map<string, typeof relevantMilestones>();
     for (const m of relevantMilestones) {
       const list = byMonth.get(m.month) || [];
@@ -152,22 +156,23 @@ export class ReportService {
       if (!monthMilestones) continue;
 
       doc.fontSize(14).font("Helvetica-Bold").text(format(new Date(month + "-01"), "MMMM yyyy"));
-      doc.moveDown(0.5);
+      doc.fontSize(10).font("Helvetica");
 
       for (const milestone of monthMilestones) {
         const project = projectMap.get(milestone.projectId);
         const subs = submissions.filter(s => s.milestoneId === milestone.id);
+        const statusLabel = subs.length > 0 ? `${subs.length} submission(s)` : "No submissions";
 
-        doc.fontSize(12).font("Helvetica-Bold").text(project?.name || "Unknown Project");
-        doc.fontSize(10).font("Helvetica");
+        doc.font("Helvetica-Bold").text(project?.name || "Unknown Project");
+        doc.font("Helvetica");
         const desc = milestone.description.slice(0, 200) + (milestone.description.length > 200 ? "..." : "");
-        doc.text(`Goal: ${desc}`);
-        doc.text(`Submissions: ${subs.length}`);
+        doc.text(`  Goal: ${desc}`, { indent: 10 });
+        doc.text(`  Status: ${statusLabel}`, { indent: 10 });
 
         for (const sub of subs) {
           doc.text(`  • ${sub.teamLeadEmail}: ${sub.progressSummary?.slice(0, 120) || "No summary"}`, { indent: 10 });
           if (sub.challenges) {
-            doc.text(`    Challenges: ${sub.challenges.slice(0, 100)}`, { indent: 15 });
+            doc.text(`    Challenges: ${sub.challenges.slice(0, 100)}`, { indent: 20 });
           }
         }
         doc.moveDown(0.5);
