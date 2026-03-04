@@ -30,7 +30,8 @@ import {
 } from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
-import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, X, Plus, Download, Pencil, Check, ExternalLink, BookOpen, Database, FileText, Merge, Trash2 } from "lucide-react";
+import { RefreshCw, Upload, Calendar, User, ChevronDown, ChevronRight, Lightbulb, Link2, X, Plus, Download, Pencil, Check, ExternalLink, BookOpen, Database, FileText, Merge, Trash2, FileDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MilestoneProgressGrid } from "@/components/dashboard/MilestoneProgressGrid";
 import { format, parseISO } from "date-fns";
 import ReactMarkdown from "react-markdown";
@@ -1000,14 +1001,33 @@ export default function Research() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => window.open("/api/reports/monthly-pdf", "_blank")}
-            data-testid="button-export-pdf"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export PDF
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" data-testid="button-export-pdf">
+                <Download className="h-4 w-4 mr-2" />
+                Export PDF
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => window.open("/api/reports/monthly-pdf?months=1", "_blank")} data-testid="export-1-month">
+                <FileDown className="h-4 w-4 mr-2" />
+                Last 1 Month
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.open("/api/reports/monthly-pdf?months=3", "_blank")} data-testid="export-3-month">
+                <FileDown className="h-4 w-4 mr-2" />
+                Last 3 Months
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.open("/api/reports/monthly-pdf?months=6", "_blank")} data-testid="export-6-month">
+                <FileDown className="h-4 w-4 mr-2" />
+                Last 6 Months
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.open("/api/reports/monthly-pdf?months=12", "_blank")} data-testid="export-12-month">
+                <FileDown className="h-4 w-4 mr-2" />
+                Last 12 Months
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button 
             variant="outline" 
             onClick={() => setShowMerge(!showMerge)}

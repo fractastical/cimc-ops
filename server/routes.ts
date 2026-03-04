@@ -2027,10 +2027,12 @@ export async function registerRoutes(
   // ============ Monthly PDF Report ============
   app.get("/api/reports/monthly-pdf", async (req, res) => {
     try {
+      const months = Math.min(12, Math.max(1, parseInt(req.query.months as string) || 1));
       const { reportService } = await import("./services/report");
-      const pdf = await reportService.generateMonthlyPDF();
+      const pdf = await reportService.generateMonthlyPDF(months);
+      const label = months === 1 ? "monthly" : `${months}-month`;
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", "attachment; filename=monthly-report.pdf");
+      res.setHeader("Content-Disposition", `attachment; filename=${label}-report.pdf`);
       res.send(pdf);
     } catch (error) {
       console.error("Error generating PDF report:", error);

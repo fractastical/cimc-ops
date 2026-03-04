@@ -3,30 +3,31 @@ import { storage } from "../storage";
 import { format, subDays } from "date-fns";
 
 export class ReportService {
-  async generateMonthlyPDF(): Promise<Buffer> {
+  async generateMonthlyPDF(months: number = 1): Promise<Buffer> {
     const doc = new PDFDocument({ margin: 50 });
     const chunks: Buffer[] = [];
 
     doc.on("data", (chunk) => chunks.push(chunk));
 
+    const days = months * 30;
     const endDate = new Date();
-    const startDate = subDays(endDate, 30);
+    const startDate = subDays(endDate, days);
     const dateRange = `${format(startDate, "MMM d, yyyy")} - ${format(endDate, "MMM d, yyyy")}`;
+    const periodLabel = months === 1 ? "Monthly" : `${months}-Month`;
 
-    // Header
-    doc.fontSize(24).font("Helvetica-Bold").text("Monthly Research Operations Report", { align: "center" });
+    doc.fontSize(24).font("Helvetica-Bold").text(`${periodLabel} Research Operations Report`, { align: "center" });
     doc.fontSize(12).font("Helvetica").text(dateRange, { align: "center" });
     doc.moveDown(2);
 
-    // Papers Pipeline Section
     await this.addPapersSection(doc);
     doc.addPage();
 
-    // Repository Activity Section
-    await this.addRepositorySection(doc, startDate);
+    await this.addRepositorySection(doc, startDate, days);
     doc.addPage();
 
-    // Research Projects Section
+    await this.addMilestoneSection(doc, months);
+    doc.addPage();
+
     await this.addResearchSection(doc);
 
     doc.end();
@@ -75,16 +76,16 @@ export class ReportService {
     }
   }
 
-  private async addRepositorySection(doc: PDFKit.PDFDocument, startDate: Date) {
+  private async addRepositorySection(doc: PDFKit.PDFDocument, startDate: Date, days: number = 30) {
     doc.fontSize(18).font("Helvetica-Bold").text("Repository Activity", { underline: true });
     doc.moveDown();
 
     const repos = await storage.getRepositories();
-    const activity = await storage.getRecentActivity(30);
+    const activity = await storage.getRecentActivity(days);
 
     doc.fontSize(12).font("Helvetica");
     doc.text(`Total Repositories: ${repos.length}`);
-    doc.text(`Total Activity Events (30 days): ${activity.length}`);
+    doc.text(`Total Activity Events (${days} days): ${activity.length}`);
     doc.moveDown();
 
     // Group activity by repo
@@ -114,6 +115,65 @@ export class ReportService {
     // Commits summary
     const commits = activity.filter((a) => a.eventType === "commit" || a.eventType === "push");
     doc.text(`Total Commits: ${commits.length}`);
+  }
+
+  private async addMilestoneSection(doc: PDFKit.PDFDocument, months: number) {
+    doc.fontSize(18).font("Helvetica-Bold").text("Milestone Progress", { underline: true });
+    doc.moveDown();
+
+    const now = new Date();
+    const milestones = await storage.getMilestones();
+    const projects = await storage.getResearchProjects();
+    const projectMap = new Map(projects.map(p => [p.id, p]));
+    const submissions = await storage.getMilestoneSubmissions();
+
+    const targetMonths: string[] = [];
+    for (let i = 0; i < months; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      targetMonths.push(format(d, "yyyy-MM"));
+    }
+
+    const relevantMilestones = milestones.filter(m => targetMonths.includes(m.month));
+
+    if (relevantMilestones.length === 0) {
+      doc.fontSize(12).font("Helvetica").text("No milestones for the selected period.");
+      return;
+    }
+
+    const byMonth = new Map<string, typeof relevantMilestones>();
+    for (const m of relevantMilestones) {
+      const list = byMonth.get(m.month) || [];
+      list.push(m);
+      byMonth.set(m.month, list);
+    }
+
+    for (const month of targetMonths.sort().reverse()) {
+      const monthMilestones = byMonth.get(month);
+      if (!monthMilestones) continue;
+
+      doc.fontSize(14).font("Helvetica-Bold").text(format(new Date(month + "-01"), "MMMM yyyy"));
+      doc.moveDown(0.5);
+
+      for (const milestone of monthMilestones) {
+        const project = projectMap.get(milestone.projectId);
+        const subs = submissions.filter(s => s.milestoneId === milestone.id);
+
+        doc.fontSize(12).font("Helvetica-Bold").text(project?.name || "Unknown Project");
+        doc.fontSize(10).font("Helvetica");
+        const desc = milestone.description.slice(0, 200) + (milestone.description.length > 200 ? "..." : "");
+        doc.text(`Goal: ${desc}`);
+        doc.text(`Submissions: ${subs.length}`);
+
+        for (const sub of subs) {
+          doc.text(`  • ${sub.teamLeadEmail}: ${sub.progressSummary?.slice(0, 120) || "No summary"}`, { indent: 10 });
+          if (sub.challenges) {
+            doc.text(`    Challenges: ${sub.challenges.slice(0, 100)}`, { indent: 15 });
+          }
+        }
+        doc.moveDown(0.5);
+      }
+      doc.moveDown();
+    }
   }
 
   private async addResearchSection(doc: PDFKit.PDFDocument) {
