@@ -372,6 +372,11 @@ function parseZoomFromSearch(search: string): number {
   return 1;
 }
 
+function parseEmbedFromSearch(search: string): boolean {
+  const params = new URLSearchParams(search);
+  return params.get("embed") === "true" || params.get("embed") === "1";
+}
+
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 5;
 
@@ -381,6 +386,8 @@ export default function VizResearch() {
   const search = useSearch();
   const initialTheme = parseThemeFromSearch(search);
   const initialZoom = parseZoomFromSearch(search);
+  const isEmbed = parseEmbedFromSearch(search);
+  const embedRef = useRef(isEmbed);
   const [themeIdx, setThemeIdx] = useState(initialTheme);
   const animRef = useRef(0);
   const tRef = useRef(0);
@@ -424,6 +431,7 @@ export default function VizResearch() {
   }, [updateUrl]);
 
   useEffect(() => {
+    if (embedRef.current) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === " " || e.key === "Tab") { e.preventDefault(); cycleTheme(); }
       const num = parseInt(e.key);
@@ -705,85 +713,89 @@ export default function VizResearch() {
 
       ctx.restore();
 
-      ctx.fillStyle = theme.textPrimary;
-      ctx.font = 'bold 12px "JetBrains Mono", monospace';
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
-      ctx.fillText(data.title, 20, 16);
-      ctx.font = '9px "JetBrains Mono", monospace';
-      ctx.fillStyle = theme.textSecondary;
-      ctx.fillText(data.subtitle, 20, 34);
+      const embed = embedRef.current;
 
-      const legendY = 54;
-      let lx = 20;
-      ctx.font = '8px "JetBrains Mono", monospace';
-      ctx.textBaseline = "middle";
-      for (const cat of CATEGORY_ORDER) {
-        ctx.fillStyle = theme.categories[cat];
-        ctx.beginPath();
-        ctx.arc(lx + 4, legendY, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+      if (!embed) {
+        ctx.fillStyle = theme.textPrimary;
+        ctx.font = 'bold 12px "JetBrains Mono", monospace';
         ctx.textAlign = "left";
-        const label = CATEGORY_LABELS[cat] || cat;
-        ctx.fillText(label, lx + 12, legendY);
-        lx += ctx.measureText(label).width + 22;
-      }
+        ctx.textBaseline = "top";
+        ctx.fillText(data.title, 20, 16);
+        ctx.font = '9px "JetBrains Mono", monospace';
+        ctx.fillStyle = theme.textSecondary;
+        ctx.fillText(data.subtitle, 20, 34);
 
-      const barY = H - 38;
-      ctx.font = '8px "JetBrains Mono", monospace';
-      ctx.textAlign = "center";
-      const btnW = Math.min(72, (W - 40) / THEMES.length);
-      const totalBtnW = THEMES.length * btnW;
-      const startX = cx - totalBtnW / 2;
-      for (let i = 0; i < THEMES.length; i++) {
-        const bx = startX + i * btnW + btnW / 2;
-        const isActive = i === themeRef.current;
-        const halfW = btnW / 2 - 4;
-        if (isActive) {
-          ctx.fillStyle = theme.accentDim;
+        const legendY = 54;
+        let lx = 20;
+        ctx.font = '8px "JetBrains Mono", monospace';
+        ctx.textBaseline = "middle";
+        for (const cat of CATEGORY_ORDER) {
+          ctx.fillStyle = theme.categories[cat];
           ctx.beginPath();
-          ctx.roundRect(bx - halfW, barY - 10, halfW * 2, 20, 3);
+          ctx.arc(lx + 4, legendY, 3, 0, Math.PI * 2);
           ctx.fill();
-          ctx.strokeStyle = theme.accent;
-          ctx.lineWidth = 1;
-          ctx.stroke();
+          ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+          ctx.textAlign = "left";
+          const label = CATEGORY_LABELS[cat] || cat;
+          ctx.fillText(label, lx + 12, legendY);
+          lx += ctx.measureText(label).width + 22;
         }
-        ctx.fillStyle = isActive ? "rgba(255, 255, 255, 0.8)" : "rgba(255, 255, 255, 0.2)";
-        ctx.textBaseline = "middle";
-        ctx.fillText(`${i + 1} ${THEMES[i].name}`, bx, barY);
-      }
 
-      const zoomPct = Math.round(zoom * 100);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-      ctx.font = '9px "JetBrains Mono", monospace';
-      ctx.textAlign = "right";
-      ctx.textBaseline = "top";
-      ctx.fillText(`${zoomPct}%`, W - 20, 16);
-
-      const zoomBtnY = 36;
-      const zoomBtns = [
-        { label: "+", action: 1.25 },
-        { label: "−", action: 0.8 },
-        { label: "⟲", action: 0 },
-      ];
-      for (let i = 0; i < zoomBtns.length; i++) {
-        const by = zoomBtnY + i * 24;
-        ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
-        ctx.beginPath();
-        ctx.roundRect(W - 36, by, 20, 18, 3);
-        ctx.fill();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        const barY = H - 38;
+        ctx.font = '8px "JetBrains Mono", monospace';
         ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(zoomBtns[i].label, W - 26, by + 9);
-      }
+        const btnW = Math.min(72, (W - 40) / THEMES.length);
+        const totalBtnW = THEMES.length * btnW;
+        const startX = cx - totalBtnW / 2;
+        for (let i = 0; i < THEMES.length; i++) {
+          const bx = startX + i * btnW + btnW / 2;
+          const isActive = i === themeRef.current;
+          const halfW = btnW / 2 - 4;
+          if (isActive) {
+            ctx.fillStyle = theme.accentDim;
+            ctx.beginPath();
+            ctx.roundRect(bx - halfW, barY - 10, halfW * 2, 20, 3);
+            ctx.fill();
+            ctx.strokeStyle = theme.accent;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+          ctx.fillStyle = isActive ? "rgba(255, 255, 255, 0.8)" : "rgba(255, 255, 255, 0.2)";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`${i + 1} ${THEMES[i].name}`, bx, barY);
+        }
 
-      ctx.fillStyle = theme.textMuted;
-      ctx.font = '8px "JetBrains Mono", monospace';
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.fillText("1-9 or SPACE to switch theme · scroll to zoom · drag to pan · 0 to reset", cx, H - 12);
+        const zoomPct = Math.round(zoom * 100);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.font = '9px "JetBrains Mono", monospace';
+        ctx.textAlign = "right";
+        ctx.textBaseline = "top";
+        ctx.fillText(`${zoomPct}%`, W - 20, 16);
+
+        const zoomBtnY = 36;
+        const zoomBtns = [
+          { label: "+", action: 1.25 },
+          { label: "−", action: 0.8 },
+          { label: "⟲", action: 0 },
+        ];
+        for (let i = 0; i < zoomBtns.length; i++) {
+          const by = zoomBtnY + i * 24;
+          ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+          ctx.beginPath();
+          ctx.roundRect(W - 36, by, 20, 18, 3);
+          ctx.fill();
+          ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(zoomBtns[i].label, W - 26, by + 9);
+        }
+
+        ctx.fillStyle = theme.textMuted;
+        ctx.font = '8px "JetBrains Mono", monospace';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillText("1-9 or SPACE to switch theme · scroll to zoom · drag to pan · 0 to reset", cx, H - 12);
+      }
 
       tRef.current += 0.016;
       animRef.current = requestAnimationFrame(draw);
@@ -839,10 +851,12 @@ export default function VizResearch() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", cursor: dragRef.current?.dragging ? "grabbing" : "crosshair" }} data-testid="viz-research-container">
-      <canvas ref={canvasRef} style={{ display: "block" }} data-testid="viz-research-canvas" onClick={handleCanvasClick} />
-      <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.1)", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 3 }}>
-        CIMC RESEARCH
-      </div>
+      <canvas ref={canvasRef} style={{ display: "block" }} data-testid="viz-research-canvas" onClick={isEmbed ? undefined : handleCanvasClick} />
+      {!isEmbed && (
+        <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.1)", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 3 }}>
+          CIMC RESEARCH
+        </div>
+      )}
     </div>
   );
 }

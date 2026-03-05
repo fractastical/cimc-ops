@@ -2560,11 +2560,13 @@ export async function registerRoutes(
           repoActivityCounts[act.repositoryId] = (repoActivityCounts[act.repositoryId] || 0) + 1;
         }
       }
+      const maxRepoActivity = Math.max(1, ...Object.values(repoActivityCounts));
       for (const repo of repos) {
         if (!repo.isActive) continue;
         const label = repo.name;
         const activityCount = repoActivityCounts[repo.id] || 0;
-        const scaled = Math.min(Math.max(activityCount, 1), 30);
+        const normalized = activityCount / maxRepoActivity;
+        const scaled = Math.max(1, Math.round(normalized * 30));
         const dates: number[] = [];
         const createdTs = new Date(repo.createdAt).getTime();
         dates.push(createdTs);
