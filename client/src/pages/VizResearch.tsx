@@ -9,6 +9,9 @@ interface Tag {
   maxDate: number | null;
   meanDate: number | null;
   description: string | null;
+  stars?: number;
+  forks?: number;
+  activityCount?: number;
 }
 
 interface VizData {
@@ -33,6 +36,9 @@ interface PlacedTag {
   minDate: number | null;
   maxDate: number | null;
   description: string | null;
+  stars?: number;
+  forks?: number;
+  activityCount?: number;
 }
 
 interface ColorTheme {
@@ -484,6 +490,7 @@ export default function VizResearch() {
             norm, catIndex: catIdx,
             angle: sectorAngle, orbitR,
             meanDate: tag.meanDate, minDate: tag.minDate, maxDate: tag.maxDate, description: tag.description,
+            stars: tag.stars, forks: tag.forks, activityCount: tag.activityCount,
           });
           globalIdx++;
         }
@@ -671,7 +678,13 @@ export default function VizResearch() {
 
         const tooltipW = 260;
         const hasDesc = hovered.description && hovered.description.length > 0;
-        const tooltipH = hasDesc ? 72 : 56;
+        const isRepo = hovered.category === "repo";
+        const hasRepoStats = isRepo && (hovered.stars !== undefined || hovered.forks !== undefined);
+        let tooltipLines = 2;
+        if (hasDesc) tooltipLines++;
+        if (hasRepoStats) tooltipLines++;
+        if (hovered.meanDate || hovered.minDate) tooltipLines++;
+        const tooltipH = 16 + tooltipLines * 14;
         const tooltipDir = aboveCenter ? -1 : 1;
         const ty = tooltipDir * 16;
         const tx = -tooltipW / 2;
@@ -689,7 +702,13 @@ export default function VizResearch() {
         ctx.textBaseline = "top";
         ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
         ctx.font = '9px "JetBrains Mono", monospace';
-        const countLabel = hovered.category === "repo" ? `${hovered.count} commits` : `${hovered.count} events`;
+        let countLabel: string;
+        if (isRepo) {
+          const actCount = hovered.activityCount ?? hovered.count;
+          countLabel = `${actCount} commits`;
+        } else {
+          countLabel = `${hovered.count} events`;
+        }
         ctx.fillText(`${hovered.category} · ${countLabel}`, tx + 10, tooltipTop + 10);
 
         let nextY = tooltipTop + 28;
@@ -697,10 +716,20 @@ export default function VizResearch() {
           ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
           const truncDesc = hovered.description!.length > 40 ? hovered.description!.substring(0, 40) + "…" : hovered.description!;
           ctx.fillText(truncDesc, tx + 10, nextY);
-          nextY += 16;
+          nextY += 14;
         }
 
-        if (hovered.meanDate) {
+        if (hasRepoStats) {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+          const statsLine = `★ ${hovered.stars ?? 0} stars · ${hovered.forks ?? 0} forks`;
+          ctx.fillText(statsLine, tx + 10, nextY);
+          nextY += 14;
+        }
+
+        if (isRepo && hovered.minDate) {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+          ctx.fillText(`created: ${formatDateShort(hovered.minDate)}`, tx + 10, nextY);
+        } else if (hovered.meanDate) {
           let dateInfo = `mean: ${formatDateShort(hovered.meanDate)}`;
           if (hovered.minDate && hovered.maxDate && hovered.minDate !== hovered.maxDate) {
             dateInfo += `  (${formatDateShort(hovered.minDate)} – ${formatDateShort(hovered.maxDate)})`;

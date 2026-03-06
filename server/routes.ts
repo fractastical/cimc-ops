@@ -2472,6 +2472,9 @@ export async function registerRoutes(
         category: string;
         dates: number[];
         description?: string;
+        stars?: number;
+        forks?: number;
+        activityCount?: number;
       }
       const freq: Record<string, TagEntry> = {};
 
@@ -2576,6 +2579,9 @@ export async function registerRoutes(
           category: "repo",
           dates,
           description: repo.description || undefined,
+          stars: repo.stars || 0,
+          forks: repo.forks || 0,
+          activityCount,
         };
       }
 
@@ -2638,7 +2644,11 @@ export async function registerRoutes(
           const minDate = sorted.length > 0 ? sorted[0] : null;
           const maxDate = sorted.length > 0 ? sorted[sorted.length - 1] : null;
           const meanDate = sorted.length > 0 ? Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length) : null;
-          return { word, count: entry.count, category: entry.category, minDate, maxDate, meanDate, description: entry.description || null };
+          const tag: any = { word, count: entry.count, category: entry.category, minDate, maxDate, meanDate, description: entry.description || null };
+          if (entry.stars !== undefined) tag.stars = entry.stars;
+          if (entry.forks !== undefined) tag.forks = entry.forks;
+          if (entry.activityCount !== undefined) tag.activityCount = entry.activityCount;
+          return tag;
         })
         .sort((a, b) => b.count - a.count)
         .slice(0, 100);
