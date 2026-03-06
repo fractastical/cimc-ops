@@ -38,10 +38,18 @@ export default function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10" />
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <iframe
+        src="/viz/research?theme=crimson&embed=true"
+        className="absolute inset-0 w-full h-full border-0"
+        style={{ opacity: 0.4, pointerEvents: "none" }}
+        tabIndex={-1}
+        aria-hidden="true"
+        data-testid="viz-background"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/70" />
       
-      <Card className="w-full max-w-md glass-panel border-primary/20 relative z-10">
+      <Card className="w-full max-w-md glass-panel border-primary/20 relative z-10" style={{ backgroundColor: "hsl(222 47% 11% / 0.85)", backdropFilter: "blur(12px)" }}>
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/30">
             <Lock className="h-8 w-8 text-primary" />

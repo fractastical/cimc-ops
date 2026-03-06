@@ -368,7 +368,8 @@ function parseThemeFromSearch(search: string): number {
   const params = new URLSearchParams(search);
   const t = (params.get("theme") || "").toLowerCase();
   const idx = THEMES.findIndex(th => th.key === t);
-  return idx >= 0 ? idx : 0;
+  const crimsonIdx = THEMES.findIndex(th => th.key === "crimson");
+  return idx >= 0 ? idx : (crimsonIdx >= 0 ? crimsonIdx : 0);
 }
 
 function parseZoomFromSearch(search: string): number {
@@ -632,9 +633,10 @@ export default function VizResearch() {
       }
 
       for (const { tag, px, py } of positions) {
-        if (tag.category === "repo" && tag.stars && tag.stars > 0) {
-          const haloRadius = tag.radius + 3 + Math.min(tag.stars, 10) * 1.5;
-          const haloAlpha = Math.min(0.15 + tag.stars * 0.06, 0.55);
+        const haloScore = (tag.stars || 0) + (tag.forks || 0);
+        if (tag.category === "repo" && haloScore > 0) {
+          const haloRadius = tag.radius + 3 + Math.min(haloScore, 15) * 1.5;
+          const haloAlpha = Math.min(0.15 + haloScore * 0.05, 0.55);
           const fullColor = theme.categories[tag.category] || "#ffffff";
           const grad = ctx.createRadialGradient(px, py, tag.radius, px, py, haloRadius);
           grad.addColorStop(0, hexToRgba(fullColor, haloAlpha));
