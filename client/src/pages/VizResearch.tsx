@@ -632,6 +632,20 @@ export default function VizResearch() {
       }
 
       for (const { tag, px, py } of positions) {
+        if (tag.category === "repo" && tag.stars && tag.stars > 0) {
+          const haloRadius = tag.radius + 3 + Math.min(tag.stars, 10) * 1.5;
+          const haloAlpha = Math.min(0.15 + tag.stars * 0.06, 0.55);
+          const fullColor = theme.categories[tag.category] || "#ffffff";
+          const grad = ctx.createRadialGradient(px, py, tag.radius, px, py, haloRadius);
+          grad.addColorStop(0, hexToRgba(fullColor, haloAlpha));
+          grad.addColorStop(0.5, hexToRgba(fullColor, haloAlpha * 0.4));
+          grad.addColorStop(1, hexToRgba(fullColor, 0));
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(px, py, haloRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
         const color = theme.categoriesDim[tag.category] || "rgba(255,255,255,0.3)";
         ctx.fillStyle = color;
         ctx.beginPath();
