@@ -17,6 +17,7 @@ import Grants from "@/pages/Grants";
 import Login from "@/pages/Login";
 import LoginDenied from "@/pages/LoginDenied";
 import Landing from "@/pages/Landing";
+import GrantApply from "@/pages/GrantApply";
 import VizGithub from "@/pages/VizGithub";
 import VizResearch from "@/pages/VizResearch";
 import VizComms from "@/pages/VizComms";
@@ -97,6 +98,7 @@ function App() {
         <Toaster />
         <Switch>
           <Route path="/" component={Landing} />
+          <Route path="/apply" component={GrantApply} />
           <Route path="/login" component={() => <AuthenticatedApp />} />
           <Route path="/login-denied" component={LoginDenied} />
           <Route path="/submit-milestone/:milestoneId/:leadId?" component={MilestoneSubmit} />
