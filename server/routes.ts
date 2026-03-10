@@ -1475,6 +1475,16 @@ export async function registerRoutes(
         &lt;iframe src="${baseUrl}/embed/charts/all-activity" width="100%" height="500" frameborder="0"&gt;&lt;/iframe&gt;
       </div>
     </div>
+
+    <div class="card">
+      <h2>Milestone Status</h2>
+      <p>Current milestone progress for all active research projects, showing completion percentage and submission status</p>
+      <div class="endpoint">${baseUrl}/embed/charts/milestones</div>
+      <a href="/embed/charts/milestones" target="_blank" class="preview-link">→ Preview chart</a>
+      <div class="embed-code">
+        &lt;iframe src="${baseUrl}/embed/charts/milestones" width="100%" height="500" frameborder="0"&gt;&lt;/iframe&gt;
+      </div>
+    </div>
   </div>
 </body>
 </html>`;
@@ -2022,6 +2032,90 @@ export async function registerRoutes(
 </body>
 </html>`;
     res.type('html').send(html);
+  });
+
+  // Milestone Status Embed
+  app.get("/embed/charts/milestones", async (req, res) => {
+    try {
+      const projects = await storage.getResearchProjects();
+      const activeProjects = projects.filter(p => p.status === "active");
+
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+      const projectData: { name: string; month: string; milestone: string; completion: number; submitted: boolean; leadName: string }[] = [];
+
+      for (const project of activeProjects) {
+        const milestones = await storage.getMilestones(project.id);
+        const currentMilestone = milestones.find(m => m.month === currentMonth);
+        if (!currentMilestone) continue;
+
+        const submissions = await storage.getMilestoneSubmissions(currentMilestone.id);
+        const latestSubmission = submissions.length > 0 ? submissions[submissions.length - 1] : null;
+
+        projectData.push({
+          name: project.name,
+          month: currentMonth,
+          milestone: (currentMilestone.description || "").substring(0, 120),
+          completion: latestSubmission?.completionPercentage ?? 0,
+          submitted: submissions.length > 0,
+          leadName: latestSubmission?.teamLeadName || "",
+        });
+      }
+
+      projectData.sort((a, b) => b.completion - a.completion);
+
+      const rows = projectData.map(p => {
+        const barColor = p.completion >= 75 ? "#10b981" : p.completion >= 40 ? "#f59e0b" : p.completion > 0 ? "#3b82f6" : "#475569";
+        const statusBadge = p.submitted
+          ? `<span style="color:#10b981;font-size:11px;">&#10003; Submitted</span>`
+          : `<span style="color:#94a3b8;font-size:11px;">Awaiting</span>`;
+        const desc = p.milestone ? `<div style="color:#94a3b8;font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:350px;">${p.milestone.replace(/</g, "&lt;")}</div>` : "";
+        return `
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(148,163,184,0.1);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:13px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name.replace(/</g, "&lt;")}</div>
+              ${desc}
+            </div>
+            <div style="width:160px;flex-shrink:0;">
+              <div style="background:#1e293b;border-radius:6px;height:18px;overflow:hidden;position:relative;">
+                <div style="background:${barColor};height:100%;width:${p.completion}%;border-radius:6px;transition:width 0.5s;"></div>
+                <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#e2e8f0;font-weight:600;">${p.completion}%</span>
+              </div>
+            </div>
+            <div style="width:80px;flex-shrink:0;text-align:right;">${statusBadge}</div>
+          </div>`;
+      }).join("");
+
+      const monthLabel = new Date(currentMonth + "-01").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Milestone Status - CIMC.AI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: transparent; padding: 1rem; color: #e2e8f0; }
+    .header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+    .header h2 { font-size: 14px; font-weight: 700; color: #e2e8f0; }
+    .header .month { font-size: 12px; color: #10b981; font-weight: 600; }
+    .empty { color: #94a3b8; text-align: center; padding: 2rem; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Milestone Progress</h2>
+    <span class="month">${monthLabel}</span>
+  </div>
+  ${rows.length > 0 ? rows : '<div class="empty">No milestones set for this month</div>'}
+</body>
+</html>`;
+      res.type("html").send(html);
+    } catch (err: any) {
+      res.status(500).send(`<div style="color:#ef4444;padding:2rem;">Failed to load milestones: ${err.message}</div>`);
+    }
   });
 
   // ============ Monthly PDF Report ============
