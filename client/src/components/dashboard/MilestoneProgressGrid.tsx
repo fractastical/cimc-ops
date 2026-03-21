@@ -143,7 +143,7 @@ export function MilestoneProgressGrid({
                       {projectMilestones.map(milestone => {
                         const { status, submission } = getMilestoneStatus(milestone, submissions, filteredMilestones);
                         const config = statusConfig[status];
-                        const descriptionPreview = milestone.description.split('\n')[0].slice(0, 200);
+                        const descriptionPreview = milestoneDescriptionPreview(milestone.description, 200);
 
                         return (
                           <div 
