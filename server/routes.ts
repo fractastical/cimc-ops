@@ -2237,7 +2237,10 @@ export async function registerRoutes(
           projectName,
           parsed.data.teamLeadName,
           milestoneMonth,
-          parsed.data.progressSummary
+          parsed.data.progressSummary,
+          parsed.data.completionPercentage ?? undefined,
+          parsed.data.challenges ?? undefined,
+          parsed.data.nextSteps ?? undefined
         );
       }
       
