@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { BarChart3, CheckCircle, Clock } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import type { Milestone, MilestoneSubmission, ResearchProject } from "@/lib/api";
+import { milestoneDescriptionPreview } from "@/components/MilestoneDescription";
 
 type CellStatus = "finished" | "in-progress" | "to-do" | "no-submission" | "no-milestone";
 

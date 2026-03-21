@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { MilestoneProgressGrid } from "@/components/dashboard/MilestoneProgressGrid";
+import { MilestoneDescription } from "@/components/MilestoneDescription";
 import { 
   Plus, 
   Trash2, 
@@ -416,7 +417,7 @@ export default function Milestones() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm">{milestone.description}</p>
+                      <MilestoneDescription description={milestone.description} />
                     )}
                   </CardContent>
                 </Card>
@@ -610,7 +611,7 @@ export default function Milestones() {
                         </Badge>
                       </div>
                     </div>
-                    <CardDescription className="text-xs">{milestone.description}</CardDescription>
+                    <MilestoneDescription description={milestone.description} compact className="text-muted-foreground mt-1" />
                   </CardHeader>
                   <CardContent>
                     {projectLeads.length === 0 ? (
