@@ -8,6 +8,7 @@ import {
   FlaskConical, 
   Target,
   Settings, 
+  SlidersHorizontal,
   Menu, 
   X,
   Bell,
@@ -76,6 +77,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { icon: Banknote, label: "Grants", path: "/grants" },
     { icon: Bot, label: "Slackbot", path: "/slackbot" },
     { icon: Settings, label: "Admin", path: "/admin" },
+    { icon: SlidersHorizontal, label: "Settings", path: "/settings" },
   ];
 
   return (
