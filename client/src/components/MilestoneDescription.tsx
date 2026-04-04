@@ -4,7 +4,7 @@ interface Props {
   compact?: boolean;
 }
 
-function parseNumberedItems(text: string): string[] {
+export function parseNumberedItems(text: string): string[] {
   if (!text) return [];
   const trimmed = text.trim();
 
@@ -16,7 +16,7 @@ function parseNumberedItems(text: string): string[] {
 
   const inlineParts = trimmed.split(/(?<=\S)\s+\d+[).]\s+/).map(s => s.trim()).filter(Boolean);
   if (inlineParts.length >= 2) {
-    return inlineParts;
+    return inlineParts.map(part => part.replace(/^\d+[).]\s+/, "").trim()).filter(Boolean);
   }
 
   return [trimmed];

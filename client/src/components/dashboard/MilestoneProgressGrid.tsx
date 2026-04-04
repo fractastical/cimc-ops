@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { BarChart3, CheckCircle, Clock } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import type { Milestone, MilestoneSubmission, ResearchProject } from "@/lib/api";
-import { milestoneDescriptionPreview } from "@/components/MilestoneDescription";
+import { parseNumberedItems } from "@/components/MilestoneDescription";
 
 type CellStatus = "finished" | "in-progress" | "to-do" | "no-submission" | "no-milestone";
 
@@ -143,48 +143,63 @@ export function MilestoneProgressGrid({
                       {projectMilestones.map(milestone => {
                         const { status, submission } = getMilestoneStatus(milestone, submissions, filteredMilestones);
                         const config = statusConfig[status];
-                        const descriptionPreview = milestoneDescriptionPreview(milestone.description, 200);
+                        const items = parseNumberedItems(milestone.description);
+                        const tooltipText = `${project.name} — ${format(parseISO(milestone.month + "-01"), "MMMM yyyy")}\n${config.label}\n${milestone.description.slice(0, 120)}${submission ? `\nSubmitted: ${format(new Date(submission.submittedAt), "MMM d")}` : ''}`;
 
                         return (
-                          <div 
-                            key={milestone.id} 
-                            className="flex items-start gap-1 mb-1"
+                          <div
+                            key={milestone.id}
+                            className="mb-1"
                             data-testid={`progress-milestone-${milestone.id}`}
                           >
-                            <div className="w-96 shrink-0 pr-2">
-                              <div className="text-xs text-muted-foreground leading-snug" title={milestone.description}>
-                                <span className="font-mono text-primary/70">
-                                  {format(parseISO(milestone.month + "-01"), "MMM")}:
-                                </span>{" "}
-                                {descriptionPreview}
-                              </div>
-                            </div>
-                            {allMonths.map(month => {
-                              const isThisMonth = month === milestone.month;
-                              if (!isThisMonth) {
-                                return (
-                                  <div key={month} className="w-12 h-7 flex items-center justify-center">
-                                    <div className="w-px h-3 bg-border/20" />
+                            {items.map((item, itemIndex) => (
+                              <div
+                                key={itemIndex}
+                                className="flex items-start gap-1 min-h-[1.75rem]"
+                              >
+                                <div className="w-96 shrink-0 pr-2">
+                                  <div className="text-xs text-muted-foreground leading-snug" title={milestone.description}>
+                                    <span className="font-mono text-primary/70">
+                                      {format(parseISO(milestone.month + "-01"), "MMM")}:{" "}
+                                    </span>
+                                    {items.length > 1 ? (
+                                      <span>
+                                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-primary/20 text-primary font-bold font-mono text-[9px] mr-1 leading-none align-text-top">{itemIndex + 1}</span>
+                                        {item}
+                                      </span>
+                                    ) : item}
                                   </div>
-                                );
-                              }
-
-                              const tooltipText = `${project.name} — ${format(parseISO(month + "-01"), "MMMM yyyy")}\n${config.label}\n${milestone.description.slice(0, 120)}${submission ? `\nSubmitted: ${format(new Date(submission.submittedAt), "MMM d")}` : ''}`;
-
-                              return (
-                                <div
-                                  key={month}
-                                  className={`w-12 h-7 rounded-md border ${config.border} ${config.bg} transition-all hover:scale-110 cursor-default flex items-center justify-center`}
-                                  title={tooltipText}
-                                  data-testid={`progress-milestone-cell-${milestone.id}-${month}`}
-                                >
-                                  {status === "finished" && <CheckCircle className="h-3 w-3 text-white/80" />}
-                                  {status === "in-progress" && <Clock className="h-3 w-3 text-white/80" />}
-                                  {status === "to-do" && <div className="w-1.5 h-1.5 rounded-sm bg-muted-foreground/40" />}
-                                  {status === "no-submission" && <div className="w-1.5 h-1.5 rounded-sm border border-dashed border-muted-foreground/30" />}
                                 </div>
-                              );
-                            })}
+                                {allMonths.map(month => {
+                                  const isThisMonth = month === milestone.month;
+                                  if (!isThisMonth) {
+                                    return (
+                                      <div key={month} className="w-12 flex items-center justify-center min-h-[1.75rem]">
+                                        {itemIndex === 0 && <div className="w-px h-3 bg-border/20" />}
+                                      </div>
+                                    );
+                                  }
+
+                                  if (itemIndex > 0) {
+                                    return <div key={month} className="w-12 min-h-[1.75rem]" />;
+                                  }
+
+                                  return (
+                                    <div
+                                      key={month}
+                                      className={`w-12 h-7 rounded-md border ${config.border} ${config.bg} transition-all hover:scale-110 cursor-default flex items-center justify-center`}
+                                      title={tooltipText}
+                                      data-testid={`progress-milestone-cell-${milestone.id}-${month}`}
+                                    >
+                                      {status === "finished" && <CheckCircle className="h-3 w-3 text-white/80" />}
+                                      {status === "in-progress" && <Clock className="h-3 w-3 text-white/80" />}
+                                      {status === "to-do" && <div className="w-1.5 h-1.5 rounded-sm bg-muted-foreground/40" />}
+                                      {status === "no-submission" && <div className="w-1.5 h-1.5 rounded-sm border border-dashed border-muted-foreground/30" />}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ))}
                           </div>
                         );
                       })}
