@@ -1,7 +1,7 @@
 import { storage } from "../storage";
 import { slackService } from "./slack";
 import { githubService } from "./github";
-import { emailService } from "./email";
+import { emailService, WeeklyAnalyticsData } from "./email";
 import { gdriveService } from "./gdrive";
 import { parseTranscript } from "./transcript-parser";
 import { splitGranteeNames } from "../utils";
@@ -369,6 +369,14 @@ export class SchedulerService {
     };
 
     await slackService.sendCombinedWeeklySummary(summary);
+
+    // Also send weekly analytics email
+    try {
+      await emailService.sendWeeklyAnalyticsEmail(summary as WeeklyAnalyticsData);
+      console.log("Weekly analytics email sent");
+    } catch (emailError) {
+      console.error("Failed to send weekly analytics email:", emailError);
+    }
 
     // Log to database with more detail
     const repoNames = activeRepos.slice(0, 3).map(r => r.repo).join(", ");

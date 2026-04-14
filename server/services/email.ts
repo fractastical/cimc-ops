@@ -331,10 +331,160 @@ export async function sendMicrograntNotification(
   });
 }
 
+export interface WeeklyAnalyticsData {
+  periodLabel: string;
+  totalCommits: number;
+  totalPRs: number;
+  activeRepos: number;
+  repoActivity: Array<{ repo: string; commits: number; prs: number; prAuthors?: string[] }>;
+  totalResearchUpdates: number;
+  projectsWithUpdates: number;
+  projectUpdates: Array<{ name: string; updateCount: number }>;
+  totalPapers: number;
+  papersByStage: { before: number; mid: number; after: number };
+  contributors: string[];
+}
+
+const WEEKLY_ANALYTICS_RECIPIENTS = [
+  "emily@cimc.ai",
+  "erik@cimc.ai",
+  "joel@cimc.ai",
+];
+
+export async function sendWeeklyAnalyticsEmail(
+  data: WeeklyAnalyticsData
+): Promise<{ success: boolean; error?: string }> {
+  const repoRows = data.repoActivity.slice(0, 10).map((r, i) => {
+    const bar = Math.round((r.commits / Math.max(data.totalCommits, 1)) * 100);
+    const barColor = i === 0 ? "#10b981" : i < 3 ? "#3b82f6" : "#94a3b8";
+    return `
+    <tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:10px 12px;font-size:13px;font-weight:600;color:#0f172a;font-family:monospace;">${escHtml(r.repo)}</td>
+      <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:right;">${r.commits}</td>
+      <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:right;">${r.prs}</td>
+      <td style="padding:10px 12px;min-width:80px;">
+        <div style="background:#f1f5f9;border-radius:4px;height:8px;width:100%;overflow:hidden;">
+          <div style="background:${barColor};height:8px;width:${Math.max(bar, 4)}%;border-radius:4px;"></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const projectRows = data.projectUpdates.slice(0, 8).map(p => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;">
+      <span style="font-size:13px;color:#374151;flex:1;padding-right:12px;">${escHtml(p.name)}</span>
+      <span style="font-size:12px;font-weight:700;background:#eff6ff;color:#2563eb;border-radius:12px;padding:2px 10px;">${p.updateCount} update${p.updateCount !== 1 ? "s" : ""}</span>
+    </div>`).join('');
+
+  const totalPapers = data.totalPapers;
+  const beforePct = totalPapers ? Math.round((data.papersByStage.before / totalPapers) * 100) : 0;
+  const midPct = totalPapers ? Math.round((data.papersByStage.mid / totalPapers) * 100) : 0;
+  const afterPct = totalPapers ? Math.round((data.papersByStage.after / totalPapers) * 100) : 0;
+
+  const content = `
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:22px;font-weight:800;">Weekly Analytics Report</h2>
+    <p style="margin:0 0 28px;color:#64748b;font-size:14px;">${escHtml(data.periodLabel)}</p>
+
+    <!-- Stat pills -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:28px;">
+      <div style="flex:1;min-width:120px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#10b981;">${data.totalCommits}</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#16a34a;margin-top:2px;">Commits</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#2563eb;">${data.totalPRs}</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#1d4ed8;margin-top:2px;">Pull Requests</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#7c3aed;">${data.activeRepos}</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6d28d9;margin-top:2px;">Active Repos</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#ea580c;">${data.totalResearchUpdates}</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#c2410c;margin-top:2px;">Research Updates</div>
+      </div>
+    </div>
+
+    <!-- Code Activity -->
+    <div style="margin-bottom:28px;">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#10b981;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #10b981;">
+        Code Activity
+      </div>
+      ${data.repoActivity.length > 0 ? `
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;text-align:left;">Repository</th>
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;text-align:right;">Pushes</th>
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;text-align:right;">PRs</th>
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;">Activity</th>
+          </tr>
+        </thead>
+        <tbody>${repoRows}</tbody>
+      </table>` : `<p style="color:#94a3b8;font-size:14px;margin:0;">No code activity this week.</p>`}
+    </div>
+
+    <!-- Research Activity -->
+    <div style="margin-bottom:28px;">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#7c3aed;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #7c3aed;">
+        Research Activity — ${data.projectsWithUpdates} project${data.projectsWithUpdates !== 1 ? "s" : ""} updated
+      </div>
+      ${data.projectUpdates.length > 0 ? projectRows : `<p style="color:#94a3b8;font-size:14px;margin:0;">No research updates this week.</p>`}
+      ${data.projectUpdates.length > 8 ? `<p style="margin:10px 0 0;font-size:12px;color:#94a3b8;">...and ${data.projectUpdates.length - 8} more projects</p>` : ""}
+    </div>
+
+    <!-- Papers Pipeline -->
+    <div style="margin-bottom:28px;">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#ea580c;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #ea580c;">
+        Papers Pipeline — ${totalPapers} total
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:100px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#0f172a;">${data.papersByStage.before}</div>
+          <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">Pre-submission</div>
+          <div style="font-size:11px;color:#94a3b8;">${beforePct}%</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#0f172a;">${data.papersByStage.mid}</div>
+          <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">Under Review</div>
+          <div style="font-size:11px;color:#94a3b8;">${midPct}%</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#10b981;">${data.papersByStage.after}</div>
+          <div style="font-size:11px;color:#16a34a;font-weight:600;margin-top:2px;">Published</div>
+          <div style="font-size:11px;color:#94a3b8;">${afterPct}%</div>
+        </div>
+      </div>
+    </div>
+
+    ${data.contributors.length > 0 ? `
+    <div style="margin-bottom:28px;">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;margin-bottom:10px;">Top Contributors</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${data.contributors.map((c, i) => `<span style="background:${i === 0 ? "#f0fdf4" : "#f8fafc"};border:1px solid ${i === 0 ? "#bbf7d0" : "#e2e8f0"};border-radius:20px;padding:4px 14px;font-size:13px;color:${i === 0 ? "#16a34a" : "#374151"};font-weight:${i === 0 ? "700" : "400"};">${escHtml(c)}</span>`).join("")}
+      </div>
+    </div>` : ""}
+
+    <div style="text-align:center;margin-top:8px;">
+      <a href="https://cimcops.org/dashboard" style="display:inline-block;background:#0f172a;color:#ffffff;padding:13px 28px;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px;">
+        Open Mission Control →
+      </a>
+    </div>
+  `;
+
+  return sendEmail({
+    to: WEEKLY_ANALYTICS_RECIPIENTS,
+    subject: `Weekly Research Ops — ${data.periodLabel}`,
+    html: emailWrapper(content),
+    text: `Weekly Analytics Report\n${data.periodLabel}\n\nCommits: ${data.totalCommits} | PRs: ${data.totalPRs} | Active Repos: ${data.activeRepos} | Research Updates: ${data.totalResearchUpdates}\n\nView full report at https://cimcops.org/dashboard`,
+  });
+}
+
 export const emailService = {
   sendEmail,
   sendMilestoneReminderEmail,
   sendConsolidatedMilestoneReminderEmail,
   sendMilestoneSubmissionNotification,
   sendMicrograntNotification,
+  sendWeeklyAnalyticsEmail,
 };

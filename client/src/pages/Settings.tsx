@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, syncOrganization, addRepositoryByName, sendRepoSummary, sendResearchSummary, type TimeFrame } from "@/lib/api";
+import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, sendWeeklyAnalyticsEmail, syncOrganization, addRepositoryByName, sendRepoSummary, sendResearchSummary, type TimeFrame } from "@/lib/api";
 import { toast } from "sonner";
 import { Save, RefreshCw, Send, GitBranch, Plus, Trash2, Rocket, Microscope } from "lucide-react";
 
@@ -101,6 +101,16 @@ export default function Settings() {
     },
     onError: () => {
       toast.error("Failed to send weekly summary. Check your Slack webhook configuration.");
+    },
+  });
+
+  const weeklyAnalyticsEmailMutation = useMutation({
+    mutationFn: sendWeeklyAnalyticsEmail,
+    onSuccess: () => {
+      toast.success("Weekly analytics email sent to Emily, Erik, and Joel");
+    },
+    onError: () => {
+      toast.error("Failed to send weekly analytics email");
     },
   });
 
@@ -440,7 +450,19 @@ export default function Settings() {
                     className="mt-6"
                   >
                     <Send className="h-3 w-3 mr-2" />
-                    {weeklySummaryMutation.isPending ? "Sending..." : "Send Now"}
+                    {weeklySummaryMutation.isPending ? "Sending..." : "Send Slack"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => weeklyAnalyticsEmailMutation.mutate()}
+                    disabled={weeklyAnalyticsEmailMutation.isPending}
+                    className="mt-6"
+                    data-testid="button-send-weekly-analytics-email"
+                  >
+                    <Send className="h-3 w-3 mr-2" />
+                    {weeklyAnalyticsEmailMutation.isPending ? "Sending..." : "Send Analytics Email"}
                   </Button>
                 </div>
               )}

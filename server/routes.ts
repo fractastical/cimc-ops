@@ -599,6 +599,16 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/email/send-weekly-analytics", async (req, res) => {
+    try {
+      await schedulerService.sendWeeklySummary();
+      res.json({ success: true, message: "Weekly analytics email sent to Emily, Erik, and Joel" });
+    } catch (error) {
+      console.error("Error sending weekly analytics email:", error);
+      res.status(500).json({ error: "Failed to send weekly analytics email" });
+    }
+  });
+
   // Flexible summary endpoints
   app.post("/api/slack/send-repo-summary/:timeframe", async (req, res) => {
     try {

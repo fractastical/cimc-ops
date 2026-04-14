@@ -176,6 +176,13 @@ export async function sendWeeklySummary(): Promise<void> {
   if (!res.ok) throw new Error("Failed to send summary");
 }
 
+export async function sendWeeklyAnalyticsEmail(): Promise<void> {
+  const res = await fetch("/api/email/send-weekly-analytics", {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to send weekly analytics email");
+}
+
 export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly";
 
 export async function sendRepoSummary(timeframe: TimeFrame): Promise<void> {
