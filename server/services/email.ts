@@ -331,6 +331,17 @@ export async function sendMicrograntNotification(
   });
 }
 
+export interface NeurocomputeAnalytics {
+  totalNodes: number;
+  activeNodes24h: number;
+  onlineNow: number;
+  totalTokens: number;
+  totalPixelsPlaced: number;
+  computeSeconds: number;
+  newContributors: number;
+  periodLabel: string;
+}
+
 export interface WeeklyAnalyticsData {
   periodLabel: string;
   totalCommits: number;
@@ -343,6 +354,7 @@ export interface WeeklyAnalyticsData {
   totalPapers: number;
   papersByStage: { before: number; mid: number; after: number };
   contributors: string[];
+  neurocompute?: NeurocomputeAnalytics;
 }
 
 const WEEKLY_ANALYTICS_RECIPIENTS = [
@@ -456,6 +468,45 @@ export async function sendWeeklyAnalyticsEmail(
         </div>
       </div>
     </div>
+
+    ${data.neurocompute ? `
+    <div style="margin-bottom:28px;">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#0ea5e9;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #0ea5e9;">
+        Neurocompute Network <span style="font-size:11px;font-weight:400;color:#94a3b8;text-transform:none;letter-spacing:0;">neurocompute.me</span>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+        <div style="flex:1;min-width:100px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#0284c7;">${data.neurocompute.totalNodes}</div>
+          <div style="font-size:11px;color:#0369a1;font-weight:600;margin-top:2px;">Total Nodes</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:${data.neurocompute.onlineNow > 0 ? '#f0fdf4' : '#f8fafc'};border:1px solid ${data.neurocompute.onlineNow > 0 ? '#bbf7d0' : '#e2e8f0'};border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:${data.neurocompute.onlineNow > 0 ? '#10b981' : '#94a3b8'};">${data.neurocompute.onlineNow}</div>
+          <div style="font-size:11px;color:${data.neurocompute.onlineNow > 0 ? '#16a34a' : '#94a3b8'};font-weight:600;margin-top:2px;">Online Now</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#0f172a;">${data.neurocompute.activeNodes24h}</div>
+          <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">Active (24h)</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#7c3aed;">${data.neurocompute.newContributors}</div>
+          <div style="font-size:11px;color:#6d28d9;font-weight:600;margin-top:2px;">Contributors</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;margin-bottom:4px;">Total Tokens</div>
+          <div style="font-size:18px;font-weight:800;color:#0f172a;">${data.neurocompute.totalTokens.toLocaleString()}</div>
+        </div>
+        <div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;margin-bottom:4px;">Compute Time</div>
+          <div style="font-size:18px;font-weight:800;color:#0f172a;">${Math.round(data.neurocompute.computeSeconds / 3600).toLocaleString()}h</div>
+        </div>
+        <div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;margin-bottom:4px;">Pixels Placed</div>
+          <div style="font-size:18px;font-weight:800;color:#0f172a;">${data.neurocompute.totalPixelsPlaced.toLocaleString()}</div>
+        </div>
+      </div>
+    </div>` : ""}
 
     ${data.contributors.length > 0 ? `
     <div style="margin-bottom:28px;">

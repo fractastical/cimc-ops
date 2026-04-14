@@ -370,9 +370,31 @@ export class SchedulerService {
 
     await slackService.sendCombinedWeeklySummary(summary);
 
-    // Also send weekly analytics email
+    // Also send weekly analytics email, optionally enriched with Neurocompute data
     try {
-      await emailService.sendWeeklyAnalyticsEmail(summary as WeeklyAnalyticsData);
+      let neurocompute: WeeklyAnalyticsData["neurocompute"] | undefined;
+      try {
+        const ncRes = await fetch("https://neurocompute.me/api/admin/analytics?secret=EIAC0-HELLONAVI&days=7");
+        if (ncRes.ok) {
+          const ncData = await ncRes.json() as any;
+          neurocompute = {
+            totalNodes: ncData.live?.totalNodes ?? 0,
+            activeNodes24h: ncData.live?.activeNodes24h ?? 0,
+            onlineNow: ncData.live?.onlineNow ?? 0,
+            totalTokens: ncData.live?.totalTokens ?? 0,
+            totalPixelsPlaced: ncData.live?.totalPixelsPlaced ?? 0,
+            computeSeconds: ncData.live?.computeSeconds ?? 0,
+            newContributors: ncData.period?.newContributors ?? 0,
+            periodLabel: ncData.period?.label ?? "",
+          };
+          console.log("Neurocompute analytics fetched:", neurocompute.totalNodes, "nodes");
+        }
+      } catch (ncError) {
+        console.warn("Could not fetch Neurocompute analytics:", ncError);
+      }
+
+      const emailData: WeeklyAnalyticsData = { ...(summary as WeeklyAnalyticsData), neurocompute };
+      await emailService.sendWeeklyAnalyticsEmail(emailData);
       console.log("Weekly analytics email sent");
     } catch (emailError) {
       console.error("Failed to send weekly analytics email:", emailError);
