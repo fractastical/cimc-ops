@@ -2573,13 +2573,14 @@ export async function registerRoutes(
       const activityLog = await storage.getRecentActivity(365);
       const repos = await storage.getActiveRepositories();
       const repoMap: Record<string, string> = {};
-      for (const r of repos) repoMap[r.id] = r.name;
+      const repoFullNameMap: Record<string, string> = {};
+      for (const r of repos) { repoMap[r.id] = r.name; repoFullNameMap[r.id] = r.fullName; }
 
-      const freq: Record<string, { count: number; category: string }> = {};
+      const freq: Record<string, { count: number; category: string; repoUrl?: string }> = {};
       for (const a of activityLog) {
         const repoName = a.repositoryId ? (repoMap[a.repositoryId] || "") : "";
         if (repoName) {
-          if (!freq[repoName]) freq[repoName] = { count: 0, category: "repo" };
+          if (!freq[repoName]) freq[repoName] = { count: 0, category: "repo", repoUrl: repoFullNameMap[a.repositoryId] || "" };
           freq[repoName].count++;
         }
         const author = a.author || "";
@@ -2594,7 +2595,7 @@ export async function registerRoutes(
         }
       }
       const tags = Object.entries(freq)
-        .map(([word, { count, category }]) => ({ word, count, category }))
+        .map(([word, { count, category, repoUrl }]) => ({ word, count, category, repoUrl }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 60);
       res.json({ title: "GITHUB ACTIVITY", subtitle: `${activityLog.length} events tracked`, tags });
@@ -2624,6 +2625,7 @@ export async function registerRoutes(
         stars?: number;
         forks?: number;
         activityCount?: number;
+        repoUrl?: string;
       }
       const freq: Record<string, TagEntry> = {};
 
@@ -2731,6 +2733,7 @@ export async function registerRoutes(
           stars: repo.stars || 0,
           forks: repo.forks || 0,
           activityCount,
+          repoUrl: repo.fullName,
         };
       }
 

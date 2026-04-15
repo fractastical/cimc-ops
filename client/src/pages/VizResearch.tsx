@@ -12,6 +12,7 @@ interface Tag {
   stars?: number;
   forks?: number;
   activityCount?: number;
+  repoUrl?: string;
 }
 
 interface VizData {
@@ -39,6 +40,7 @@ interface PlacedTag {
   stars?: number;
   forks?: number;
   activityCount?: number;
+  repoUrl?: string;
 }
 
 interface ColorTheme {
@@ -492,6 +494,7 @@ export default function VizResearch() {
             angle: sectorAngle, orbitR,
             meanDate: tag.meanDate, minDate: tag.minDate, maxDate: tag.maxDate, description: tag.description,
             stars: tag.stars, forks: tag.forks, activityCount: tag.activityCount,
+            repoUrl: tag.repoUrl,
           });
           globalIdx++;
         }
@@ -501,6 +504,9 @@ export default function VizResearch() {
 
     resize();
     window.addEventListener("resize", resize);
+
+    // Track mousedown pos to distinguish click from drag
+    const mouseDownPos = { x: 0, y: 0 };
 
     const onMove = (e: MouseEvent) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
@@ -516,13 +522,49 @@ export default function VizResearch() {
     const onLeave = () => {
       mouseRef.current = { x: -1, y: -1 };
       dragRef.current.dragging = false;
+      canvas.style.cursor = "default";
     };
     const onDown = (e: MouseEvent) => {
       if (e.button === 0) {
+        mouseDownPos.x = e.clientX;
+        mouseDownPos.y = e.clientY;
         dragRef.current = { dragging: true, lastX: e.clientX, lastY: e.clientY };
       }
     };
-    const onUp = () => { dragRef.current.dragging = false; };
+    const onUp = (e: MouseEvent) => {
+      dragRef.current.dragging = false;
+      // Treat as a click if mouse barely moved (< 5px)
+      const dx = e.clientX - mouseDownPos.x;
+      const dy = e.clientY - mouseDownPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 5) {
+        // Find the hovered tag at click position
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const W = canvas.width, H = canvas.height;
+        const cx = W / 2, cy = H / 2;
+        const zoom = zoomRef.current;
+        const canvasX = (e.clientX - rect.left) * scaleX;
+        const canvasY = (e.clientY - rect.top) * scaleY;
+        const worldX = (canvasX - cx - panRef.current.x) / zoom + cx;
+        const worldY = (canvasY - cy - panRef.current.y) / zoom + cy;
+        const tags = tagsRef.current;
+        const positions = tags.map(t => ({ tag: t, ...getPos(t, tRef.current, W, H) }));
+        let clicked: PlacedTag | null = null;
+        let closestDist = Infinity;
+        for (const p of positions) {
+          const dist = Math.sqrt((worldX - p.x) ** 2 + (worldY - p.y) ** 2);
+          const hitR = Math.max(p.tag.radius + 6, 12);
+          if (dist < hitR && dist < closestDist) {
+            clicked = p.tag;
+            closestDist = dist;
+          }
+        }
+        if (clicked?.category === "repo" && clicked.repoUrl) {
+          window.open(`https://github.com/${clicked.repoUrl}`, "_blank", "noopener,noreferrer");
+        }
+      }
+    };
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
@@ -665,6 +707,11 @@ export default function VizResearch() {
         }
       }
 
+      // Update cursor: pointer for clickable repo nodes, default otherwise
+      if (!dragRef.current.dragging) {
+        canvas.style.cursor = (hovered?.category === "repo" && hovered?.repoUrl) ? "pointer" : "default";
+      }
+
       if (hovered) {
         const hp = positions.find(p => p.tag === hovered)!;
         const fullColor = theme.categories[hovered.category] || "#ffffff";
@@ -696,10 +743,12 @@ export default function VizResearch() {
         const hasDesc = hovered.description && hovered.description.length > 0;
         const isRepo = hovered.category === "repo";
         const hasRepoStats = isRepo && (hovered.stars !== undefined || hovered.forks !== undefined);
+        const hasRepoUrl = isRepo && !!hovered.repoUrl;
         let tooltipLines = 2;
         if (hasDesc) tooltipLines++;
         if (hasRepoStats) tooltipLines++;
         if (hovered.meanDate || hovered.minDate) tooltipLines++;
+        if (hasRepoUrl) tooltipLines++;
         const tooltipH = 16 + tooltipLines * 14;
         const tooltipDir = aboveCenter ? -1 : 1;
         const ty = tooltipDir * 16;
@@ -745,6 +794,7 @@ export default function VizResearch() {
         if (isRepo && hovered.minDate) {
           ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
           ctx.fillText(`created: ${formatDateShort(hovered.minDate)}`, tx + 10, nextY);
+          nextY += 14;
         } else if (hovered.meanDate) {
           let dateInfo = `mean: ${formatDateShort(hovered.meanDate)}`;
           if (hovered.minDate && hovered.maxDate && hovered.minDate !== hovered.maxDate) {
@@ -752,6 +802,12 @@ export default function VizResearch() {
           }
           ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
           ctx.fillText(dateInfo, tx + 10, nextY);
+          nextY += 14;
+        }
+        if (hasRepoUrl) {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+          ctx.font = '8px "JetBrains Mono", monospace';
+          ctx.fillText(`↗ click to open on GitHub`, tx + 10, nextY);
         }
         ctx.restore();
       }
