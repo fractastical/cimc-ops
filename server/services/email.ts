@@ -357,15 +357,13 @@ export interface WeeklyAnalyticsData {
   neurocompute?: NeurocomputeAnalytics;
 }
 
-const WEEKLY_ANALYTICS_RECIPIENTS = [
-  "emily@cimc.ai",
-  "erik@cimc.ai",
-  "joel@cimc.ai",
-];
-
 export async function sendWeeklyAnalyticsEmail(
-  data: WeeklyAnalyticsData
+  data: WeeklyAnalyticsData,
+  recipients?: string[]
 ): Promise<{ success: boolean; error?: string }> {
+  const to = recipients && recipients.length > 0
+    ? recipients
+    : ["emily@cimc.ai", "erik@cimc.ai", "joel@cimc.ai"];
   const repoRows = data.repoActivity.slice(0, 10).map((r, i) => {
     const bar = Math.round((r.commits / Math.max(data.totalCommits, 1)) * 100);
     const barColor = i === 0 ? "#10b981" : i < 3 ? "#3b82f6" : "#94a3b8";
@@ -524,7 +522,7 @@ export async function sendWeeklyAnalyticsEmail(
   `;
 
   return sendEmail({
-    to: WEEKLY_ANALYTICS_RECIPIENTS,
+    to,
     subject: `Weekly Research Ops — ${data.periodLabel}`,
     html: emailWrapper(content),
     text: `Weekly Analytics Report\n${data.periodLabel}\n\nCommits: ${data.totalCommits} | PRs: ${data.totalPRs} | Active Repos: ${data.activeRepos} | Research Updates: ${data.totalResearchUpdates}\n\nView full report at https://cimcops.org/dashboard`,

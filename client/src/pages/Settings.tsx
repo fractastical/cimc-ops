@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, sendWeeklyAnalyticsEmail, syncOrganization, addRepositoryByName, sendRepoSummary, sendResearchSummary, type TimeFrame } from "@/lib/api";
+import { getSettings, updateSettings, sendDailySummary, sendWeeklySummary, sendWeeklyAnalyticsEmail, syncOrganization, addRepositoryByName, sendRepoSummary, sendResearchSummary, backfillActivity, type TimeFrame } from "@/lib/api";
 import { toast } from "sonner";
 import { Save, RefreshCw, Send, GitBranch, Plus, Trash2, Rocket, Microscope } from "lucide-react";
 
@@ -40,6 +40,7 @@ export default function Settings() {
     weeklySummaryDay: "monday",
     weeklySummaryTime: "09:00",
     monthlyReminderTime: "09:00",
+    weeklyAnalyticsEmails: "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai",
   });
 
   const [milestoneQuestions, setMilestoneQuestions] = useState<{ label: string; required: boolean }[]>([
@@ -64,6 +65,7 @@ export default function Settings() {
         weeklySummaryDay: settings.weeklySummaryDay,
         weeklySummaryTime: settings.weeklySummaryTime,
         monthlyReminderTime: settings.monthlyReminderTime || "09:00",
+        weeklyAnalyticsEmails: settings.weeklyAnalyticsEmails || "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai",
       });
       if (settings.milestoneQuestions && Array.isArray(settings.milestoneQuestions)) {
         setMilestoneQuestions(settings.milestoneQuestions);
@@ -107,7 +109,9 @@ export default function Settings() {
   const weeklyAnalyticsEmailMutation = useMutation({
     mutationFn: sendWeeklyAnalyticsEmail,
     onSuccess: () => {
-      toast.success("Weekly analytics email sent to Emily, Erik, and Joel");
+      const recipients = formData.weeklyAnalyticsEmails
+        .split(",").map(e => e.trim()).filter(Boolean);
+      toast.success(`Weekly analytics email sent to ${recipients.length} recipient${recipients.length !== 1 ? "s" : ""}`);
     },
     onError: () => {
       toast.error("Failed to send weekly analytics email");
@@ -158,6 +162,17 @@ export default function Settings() {
     },
     onError: () => {
       toast.error("Failed to send research summary. Check your Slack webhook configuration.");
+    },
+  });
+
+  const backfillMutation = useMutation({
+    mutationFn: () => backfillActivity(90),
+    onSuccess: (data) => {
+      toast.success(`Backfill complete: ${data.added} new day-entries across ${data.repos} repos (${data.skipped} already present)`);
+      queryClient.invalidateQueries({ queryKey: ["repositories"] });
+    },
+    onError: () => {
+      toast.error("Backfill failed. Check GitHub token configuration.");
     },
   });
 
@@ -324,6 +339,37 @@ export default function Settings() {
                 Add any public or private repository by full name (requires appropriate token permissions)
               </p>
             </div>
+
+            <div className="space-y-2 pt-4 border-t border-border/50">
+              <Label className="font-mono text-sm">Activity Backfill</Label>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => backfillMutation.mutate()}
+                  disabled={backfillMutation.isPending}
+                  data-testid="button-backfill-activity"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${backfillMutation.isPending ? "animate-spin" : ""}`} />
+                  {backfillMutation.isPending ? "Backfilling..." : "Backfill 90 Days"}
+                </Button>
+                {settings?.lastGithubSyncAt && (
+                  <span className={`text-xs font-mono flex items-center gap-1 ${
+                    (Date.now() - new Date(settings.lastGithubSyncAt).getTime()) < 13 * 60 * 60 * 1000
+                      ? "text-primary" : "text-destructive"
+                  }`}>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
+                    Last sync: {new Date(settings.lastGithubSyncAt).toLocaleString()}
+                  </span>
+                )}
+                {!settings?.lastGithubSyncAt && (
+                  <span className="text-xs text-muted-foreground">No sync recorded yet</span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Fetches up to 90 days of commit history across all tracked repos. Safe to re-run — skips days already recorded.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -464,6 +510,21 @@ export default function Settings() {
                     <Send className="h-3 w-3 mr-2" />
                     {weeklyAnalyticsEmailMutation.isPending ? "Sending..." : "Send Analytics Email"}
                   </Button>
+                </div>
+              )}
+              {formData.enableWeeklySummary && (
+                <div className="pt-2 pl-4 border-l-2 border-primary/30 space-y-2">
+                  <Label className="font-mono text-xs text-muted-foreground">Analytics Email Recipients</Label>
+                  <Input
+                    data-testid="input-analytics-emails"
+                    placeholder="emily@cimc.ai,erik@cimc.ai"
+                    value={formData.weeklyAnalyticsEmails}
+                    onChange={(e) => setFormData({ ...formData, weeklyAnalyticsEmails: e.target.value })}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Comma-separated list of email addresses that receive the weekly analytics report.
+                  </p>
                 </div>
               )}
             </div>

@@ -30,6 +30,8 @@ export interface IntegrationSettings {
   weeklySummaryTime: string;
   monthlyReminderTime: string;
   milestoneQuestions: { label: string; required: boolean }[] | null;
+  weeklyAnalyticsEmails: string;
+  lastGithubSyncAt: string | null;
   updatedAt: string;
 }
 
@@ -181,6 +183,21 @@ export async function sendWeeklyAnalyticsEmail(): Promise<void> {
     method: "POST",
   });
   if (!res.ok) throw new Error("Failed to send weekly analytics email");
+}
+
+export async function backfillActivity(days: number = 90): Promise<{ added: number; skipped: number; repos: number }> {
+  const res = await fetch(`/api/github/backfill?days=${days}`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to backfill activity");
+  return res.json();
+}
+
+export async function getNeurocomputeStats(): Promise<{
+  live: { totalNodes: number; activeNodes24h: number; onlineNow: number; totalTokens: number; computeSeconds: number; totalPixelsPlaced: number };
+  period: { newContributors: number; label: string };
+}> {
+  const res = await fetch("/api/external/neurocompute");
+  if (!res.ok) throw new Error("Failed to fetch neurocompute stats");
+  return res.json();
 }
 
 export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly";

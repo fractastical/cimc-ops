@@ -3,9 +3,9 @@ import { ResearchBoard } from "@/components/dashboard/ResearchBoard";
 import { MonthlyActivityChart } from "@/components/dashboard/MonthlyActivityChart";
 import { MilestoneProgressGrid } from "@/components/dashboard/MilestoneProgressGrid";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getRepositories, getResearchProjects, getResearchUpdates, sendDailySummary, sendWeeklySummary, sendRepoSummary, sendResearchSummary, getMilestones, getMilestoneSubmissions, TimeFrame } from "@/lib/api";
+import { getRepositories, getResearchProjects, getResearchUpdates, sendDailySummary, sendWeeklySummary, sendRepoSummary, sendResearchSummary, getMilestones, getMilestoneSubmissions, getNeurocomputeStats, getSettings, TimeFrame } from "@/lib/api";
 import { motion } from "framer-motion";
-import { RefreshCw, Calendar, CalendarDays, Rocket, Microscope } from "lucide-react";
+import { RefreshCw, Calendar, CalendarDays, Rocket, Microscope, Cpu, Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -36,6 +36,19 @@ export default function Home() {
   const { data: milestoneSubmissions = [] } = useQuery({
     queryKey: ["milestoneSubmissions"],
     queryFn: () => getMilestoneSubmissions(),
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: getSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: neurocompute, isError: ncError } = useQuery({
+    queryKey: ["neurocompute"],
+    queryFn: getNeurocomputeStats,
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
   });
 
   const dailyMutation = useMutation({
@@ -145,6 +158,71 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sync health + Neurocompute stats bar */}
+      {(settings?.lastGithubSyncAt || neurocompute) && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3"
+        >
+          {settings?.lastGithubSyncAt && (() => {
+            const ago = Date.now() - new Date(settings.lastGithubSyncAt!).getTime();
+            const hours = Math.floor(ago / (1000 * 60 * 60));
+            const mins = Math.floor((ago % (1000 * 60 * 60)) / (1000 * 60));
+            const healthy = ago < 13 * 60 * 60 * 1000;
+            return (
+              <Card className={`glass-panel col-span-2 border-${healthy ? "primary" : "destructive"}/30`} data-testid="card-github-sync-health">
+                <CardContent className="p-3 flex items-center gap-2">
+                  <Activity className={`h-4 w-4 flex-shrink-0 ${healthy ? "text-primary" : "text-destructive"}`} />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground font-mono">GitHub Sync</p>
+                    <p className={`text-sm font-mono font-medium truncate ${healthy ? "text-primary" : "text-destructive"}`}>
+                      {hours > 0 ? `${hours}h ` : ""}{mins}m ago
+                    </p>
+                  </div>
+                  <span className={`ml-auto text-xs px-1.5 py-0.5 rounded font-mono ${healthy ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                    {healthy ? "OK" : "STALE"}
+                  </span>
+                </CardContent>
+              </Card>
+            );
+          })()}
+          {neurocompute && !ncError && (
+            <>
+              <Card className="glass-panel border-primary/20" data-testid="card-nc-nodes">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground font-mono">NC Nodes</p>
+                  <p className="text-xl font-bold font-mono text-foreground">{neurocompute.live.totalNodes.toLocaleString()}</p>
+                  <p className="text-xs text-primary font-mono">{neurocompute.live.onlineNow} online now</p>
+                </CardContent>
+              </Card>
+              <Card className="glass-panel border-primary/20" data-testid="card-nc-tokens">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground font-mono">NC Tokens</p>
+                  <p className="text-xl font-bold font-mono text-foreground">{(neurocompute.live.totalTokens / 1000000).toFixed(1)}M</p>
+                  <p className="text-xs text-muted-foreground font-mono">lifetime</p>
+                </CardContent>
+              </Card>
+              <Card className="glass-panel border-primary/20" data-testid="card-nc-compute">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground font-mono">NC Compute</p>
+                  <p className="text-xl font-bold font-mono text-foreground">{(neurocompute.live.computeSeconds / 3600).toFixed(0)}h</p>
+                  <p className="text-xs text-muted-foreground font-mono">total compute</p>
+                </CardContent>
+              </Card>
+              <Card className="glass-panel border-primary/20" data-testid="card-nc-contributors">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground font-mono">NC New</p>
+                  <p className="text-xl font-bold font-mono text-foreground">{neurocompute.period.newContributors}</p>
+                  <p className="text-xs text-muted-foreground font-mono">contributors (7d)</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </motion.div>
+      )}
 
       {/* 1. Milestone Progress Chart */}
       <motion.div

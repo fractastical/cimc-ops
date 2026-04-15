@@ -78,6 +78,7 @@ export class SchedulerService {
         }
       }
       this.lastSyncTime = new Date();
+      await storage.updateGithubSyncTimestamp(this.lastSyncTime);
       console.log("GitHub sync completed at", this.lastSyncTime.toISOString());
     } catch (error) {
       console.error("GitHub sync failed:", error);
@@ -394,8 +395,12 @@ export class SchedulerService {
       }
 
       const emailData: WeeklyAnalyticsData = { ...(summary as WeeklyAnalyticsData), neurocompute };
-      await emailService.sendWeeklyAnalyticsEmail(emailData);
-      console.log("Weekly analytics email sent");
+      const analyticsSettings = await storage.getIntegrationSettings();
+      const analyticsRecipients = analyticsSettings?.weeklyAnalyticsEmails
+        ? analyticsSettings.weeklyAnalyticsEmails.split(",").map(e => e.trim()).filter(Boolean)
+        : [];
+      await emailService.sendWeeklyAnalyticsEmail(emailData, analyticsRecipients);
+      console.log(`Weekly analytics email sent to ${analyticsRecipients.length} recipients`);
     } catch (emailError) {
       console.error("Failed to send weekly analytics email:", emailError);
     }

@@ -76,6 +76,7 @@ export interface IStorage {
   getIntegrationSettings(): Promise<IntegrationSettings | undefined>;
   upsertIntegrationSettings(settings: InsertIntegrationSettings): Promise<IntegrationSettings>;
   updateSchedulerTimestamp(type: "daily" | "weekly" | "monthly", timestamp: Date): Promise<void>;
+  updateGithubSyncTimestamp(timestamp: Date): Promise<void>;
 
   // Repositories
   getRepositories(): Promise<Repository[]>;
@@ -283,6 +284,15 @@ export class DatabaseStorage implements IStorage {
         .set({ lastMonthlySentAt: timestamp })
         .where(eq(integrationSettings.id, existing.id));
     }
+  }
+
+  async updateGithubSyncTimestamp(timestamp: Date): Promise<void> {
+    const existing = await this.getIntegrationSettings();
+    if (!existing) return;
+    await db
+      .update(integrationSettings)
+      .set({ lastGithubSyncAt: timestamp })
+      .where(eq(integrationSettings.id, existing.id));
   }
 
   // Repositories

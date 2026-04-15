@@ -49,6 +49,8 @@ export const integrationSettings = pgTable("integration_settings", {
   gdriveFolderName: text("gdrive_folder_name"),
   gdriveAutoSync: boolean("gdrive_auto_sync").default(false).notNull(),
   lastGdriveSyncAt: timestamp("last_gdrive_sync_at"),
+  lastGithubSyncAt: timestamp("last_github_sync_at"),
+  weeklyAnalyticsEmails: text("weekly_analytics_emails").default("emily@cimc.ai,erik@cimc.ai,joel@cimc.ai").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

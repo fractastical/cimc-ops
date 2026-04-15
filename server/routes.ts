@@ -602,10 +602,52 @@ export async function registerRoutes(
   app.post("/api/email/send-weekly-analytics", async (req, res) => {
     try {
       await schedulerService.sendWeeklySummary();
-      res.json({ success: true, message: "Weekly analytics email sent to Emily, Erik, and Joel" });
+      const settings = await storage.getIntegrationSettings();
+      const recipients = settings?.weeklyAnalyticsEmails || "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai";
+      res.json({ success: true, message: `Weekly analytics email sent to: ${recipients}` });
     } catch (error) {
       console.error("Error sending weekly analytics email:", error);
       res.status(500).json({ error: "Failed to send weekly analytics email" });
+    }
+  });
+
+  // GitHub backfill - fetch up to 90 days of missing commit history
+  app.post("/api/github/backfill", async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 90;
+      const result = await githubService.backfillActivity(days);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Error backfilling GitHub activity:", error);
+      res.status(500).json({ error: "Failed to backfill activity" });
+    }
+  });
+
+  // GitHub sync health status
+  app.get("/api/github/sync-status", async (req, res) => {
+    try {
+      const settings = await storage.getIntegrationSettings();
+      res.json({
+        lastSyncAt: settings?.lastGithubSyncAt || null,
+        healthy: settings?.lastGithubSyncAt
+          ? (Date.now() - new Date(settings.lastGithubSyncAt).getTime()) < 13 * 60 * 60 * 1000
+          : false,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get sync status" });
+    }
+  });
+
+  // Neurocompute.me live stats proxy
+  app.get("/api/external/neurocompute", async (req, res) => {
+    try {
+      const ncRes = await fetch("https://neurocompute.me/api/admin/analytics?secret=EIAC0-HELLONAVI&days=7");
+      if (!ncRes.ok) throw new Error(`Neurocompute API returned ${ncRes.status}`);
+      const data = await ncRes.json();
+      res.json(data);
+    } catch (error) {
+      console.error("Neurocompute fetch error:", error);
+      res.status(502).json({ error: "Could not reach neurocompute.me" });
     }
   });
 

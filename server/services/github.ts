@@ -856,6 +856,83 @@ export class GitHubService {
     console.log(`Papers sync complete: ${result.synced} new, ${result.updated} updated`);
     return result;
   }
+
+  async backfillActivity(sinceDays: number = 90): Promise<{ added: number; skipped: number; repos: number }> {
+    await this.initialize();
+    if (!this.token) throw new Error("GitHub token not configured");
+
+    const allRepos = await storage.getActiveRepositories();
+    let totalAdded = 0;
+    let totalSkipped = 0;
+
+    const since = new Date();
+    since.setDate(since.getDate() - sinceDays);
+
+    for (const repo of allRepos) {
+      const [owner, name] = repo.fullName.split("/");
+      let page = 1;
+      let added = 0;
+      let skipped = 0;
+
+      // Fetch commits page by page
+      while (page <= 10) {
+        const resp = await fetch(
+          `https://api.github.com/repos/${owner}/${name}/commits?since=${since.toISOString()}&per_page=100&page=${page}`,
+          { headers: { Authorization: `Bearer ${this.token}`, Accept: "application/vnd.github.v3+json" } }
+        );
+        if (!resp.ok) break;
+        const commits: any[] = await resp.json();
+        if (!Array.isArray(commits) || commits.length === 0) break;
+
+        // Group by date
+        const dailyCommits = new Map<string, { count: number; authors: Set<string>; longestMessage: string }>();
+        for (const commit of commits) {
+          const date = commit.commit.author.date.split("T")[0];
+          const author = commit.author?.login || commit.commit.author.name || "Unknown";
+          const msg = commit.commit.message || "";
+          const isReplit = author.toLowerCase().includes("replit") || msg.includes("Replit-Commit-") || author === "Deployment";
+          if (isReplit) continue;
+          if (!dailyCommits.has(date)) dailyCommits.set(date, { count: 0, authors: new Set(), longestMessage: "" });
+          const day = dailyCommits.get(date)!;
+          day.count++;
+          day.authors.add(author);
+          if (msg.length > day.longestMessage.length && !msg.includes("Replit-Commit-")) day.longestMessage = msg;
+        }
+
+        for (const [date, data] of dailyCommits) {
+          // Check if we already have an entry for this repo+date
+          const existing = await storage.getActivityByRepositorySince(repo.id, new Date(date));
+          const alreadyHas = existing.some(e => {
+            const eDate = (e.activityDate || e.createdAt).toISOString().split("T")[0];
+            return eDate === date && e.eventType === "push";
+          });
+          if (alreadyHas) { skipped++; continue; }
+
+          const authors = Array.from(data.authors);
+          const message = data.longestMessage || `${data.count} commit${data.count !== 1 ? "s" : ""} by ${authors.length} contributor${authors.length !== 1 ? "s" : ""}`;
+          await storage.createActivityLog({
+            repositoryId: repo.id,
+            eventType: "push",
+            author: authors[0] || "Unknown",
+            message,
+            url: `https://github.com/${repo.fullName}/commits`,
+            metadata: { commits: data.count, authors, date, longestMessage: data.longestMessage },
+            activityDate: new Date(date),
+          } as any);
+          added++;
+        }
+
+        if (commits.length < 100) break;
+        page++;
+      }
+
+      totalAdded += added;
+      totalSkipped += skipped;
+      console.log(`Backfill ${repo.fullName}: +${added} days, ${skipped} already present`);
+    }
+
+    return { added: totalAdded, skipped: totalSkipped, repos: allRepos.length };
+  }
 }
 
 export const githubService = new GitHubService();

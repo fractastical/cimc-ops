@@ -73,6 +73,13 @@ Preferred communication style: Simple, everyday language.
 - Activity logging for commits, issues, and pull requests
 - Papers Pipeline: Fetches paper status from CIMC-ai/paper-pipeline JSON files
 - Automatic sync every 6 hours in production, plus on startup
+- `lastGithubSyncAt` persisted to DB; health indicator on dashboard (green/red if >13h)
+- Activity backfill: `githubService.backfillActivity(days)` fetches up to 90 days of commit history with deduplication. Route: `POST /api/github/backfill?days=90`
+
+**Neurocompute.me Integration**:
+- Live stats proxy at `GET /api/external/neurocompute` — forwards to `neurocompute.me/api/admin/analytics`
+- Stats displayed on dashboard: total nodes, online now, lifetime tokens, compute hours, new contributors (7d)
+- Also included in weekly analytics email
 
 **Slack Integration**:
 - Incoming webhooks for posting messages to Slack channels
@@ -94,6 +101,7 @@ Preferred communication style: Simple, everyday language.
 - Milestone reminder emails sent to team leads with submission form links
 - Admin notification emails when milestone submissions are received
 - Automatic credential management via Replit connectors
+- Weekly analytics email recipients configurable via Settings UI (`weeklyAnalyticsEmails` field in `integration_settings`)
 
 **Development Tools**:
 - Replit-specific Vite plugins for development banner and cartographer
