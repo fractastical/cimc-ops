@@ -32,6 +32,7 @@ export interface IntegrationSettings {
   milestoneQuestions: { label: string; required: boolean }[] | null;
   weeklyAnalyticsEmails: string;
   lastGithubSyncAt: string | null;
+  enableMonthlyReminder: boolean;
   updatedAt: string;
 }
 

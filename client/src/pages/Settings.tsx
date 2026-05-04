@@ -40,6 +40,7 @@ export default function Settings() {
     weeklySummaryDay: "monday",
     weeklySummaryTime: "09:00",
     monthlyReminderTime: "09:00",
+    enableMonthlyReminder: false,
     weeklyAnalyticsEmails: "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai",
   });
 
@@ -65,6 +66,7 @@ export default function Settings() {
         weeklySummaryDay: settings.weeklySummaryDay,
         weeklySummaryTime: settings.weeklySummaryTime,
         monthlyReminderTime: settings.monthlyReminderTime || "09:00",
+        enableMonthlyReminder: settings.enableMonthlyReminder ?? false,
         weeklyAnalyticsEmails: settings.weeklyAnalyticsEmails || "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai",
       });
       if (settings.milestoneQuestions && Array.isArray(settings.milestoneQuestions)) {
@@ -531,12 +533,21 @@ export default function Settings() {
 
             {/* Monthly Milestone Reminder */}
             <div className="space-y-4">
-              <div className="space-y-0.5">
-                <Label className="font-mono text-sm">Monthly Milestone Reminder</Label>
-                <p className="text-xs text-muted-foreground">
-                  Sends milestone check-in emails to team leads on the last Thursday of each month.
-                  Each team lead gets one consolidated email listing all their project milestones.
-                </p>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="font-mono text-sm">Monthly Milestone Reminder</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Sends milestone check-in emails to team leads on the last Thursday of each month.
+                    Each team lead gets one consolidated email listing all their project milestones.
+                  </p>
+                </div>
+                <Switch
+                  data-testid="switch-monthly-reminder"
+                  checked={formData.enableMonthlyReminder}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, enableMonthlyReminder: checked })
+                  }
+                />
               </div>
               <div className="flex items-center gap-4 pl-4 border-l-2 border-primary/30">
                 <div className="space-y-2">

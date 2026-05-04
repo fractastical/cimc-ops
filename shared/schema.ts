@@ -51,6 +51,7 @@ export const integrationSettings = pgTable("integration_settings", {
   lastGdriveSyncAt: timestamp("last_gdrive_sync_at"),
   lastGithubSyncAt: timestamp("last_github_sync_at"),
   weeklyAnalyticsEmails: text("weekly_analytics_emails").default("emily@cimc.ai,erik@cimc.ai,joel@cimc.ai").notNull(),
+  enableMonthlyReminder: boolean("enable_monthly_reminder").default(false).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
