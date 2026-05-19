@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Copy, Check, ExternalLink } from "lucide-react";
+import { Trash2, Plus, Copy, Check, Rocket, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 interface ExternalApp {
@@ -166,7 +167,22 @@ report_daily_stats({
 })`;
 
   return (
-    <div className="space-y-6 p-6 max-w-4xl">
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border/20 bg-background/60 backdrop-blur-md sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Rocket className="h-5 w-5 text-primary" />
+            <span className="font-mono text-base font-bold">CIMC<span className="text-primary">.AI</span></span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">/ App Integration Guide</span>
+          </div>
+          <Link href="/" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
+            <ArrowLeft className="h-3 w-3" />
+            Back
+          </Link>
+        </div>
+      </header>
+
+    <div className="space-y-6 p-6 max-w-4xl mx-auto py-10">
       <div>
         <h1 className="font-mono text-2xl font-bold text-primary">App Integration Guide</h1>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -367,6 +383,7 @@ report_daily_stats({
           </ul>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }

@@ -40,7 +40,6 @@ function DashboardRouter() {
         <Route path="/grants" component={Grants} />
         <Route path="/admin" component={Admin} />
         <Route path="/settings" component={Settings} />
-        <Route path="/integrations" component={IntegrationGuide} />
         <Route component={NotFound} />
       </Switch>
     </DashboardLayout>
@@ -103,6 +102,7 @@ function App() {
         <Switch>
           <Route path="/" component={Landing} />
           <Route path="/apply" component={GrantApply} />
+          <Route path="/integrations" component={IntegrationGuide} />
           <Route path="/login" component={() => <AuthenticatedApp />} />
           <Route path="/login-denied" component={LoginDenied} />
           <Route path="/submit-milestone/:milestoneId/:leadId?" component={MilestoneSubmit} />
@@ -137,9 +137,6 @@ function App() {
             <AuthenticatedApp />
           </Route>
           <Route path="/settings">
-            <AuthenticatedApp />
-          </Route>
-          <Route path="/integrations">
             <AuthenticatedApp />
           </Route>
           <Route component={NotFound} />

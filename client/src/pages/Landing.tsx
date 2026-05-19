@@ -1,4 +1,4 @@
-import { Rocket, Lock, FileText } from "lucide-react";
+import { Rocket, Lock, FileText, Plug } from "lucide-react";
 
 export default function Landing() {
   return (
@@ -21,6 +21,14 @@ export default function Landing() {
             <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">Research Operations</span>
           </div>
           <div className="flex items-center gap-4">
+            <a
+              href="/integrations"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+              data-testid="link-integrations"
+            >
+              <Plug className="h-4 w-4" />
+              Integrate
+            </a>
             <a
               href="/apply"
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
