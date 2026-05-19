@@ -22,6 +22,7 @@ import GrantApply from "@/pages/GrantApply";
 import VizGithub from "@/pages/VizGithub";
 import VizResearch from "@/pages/VizResearch";
 import VizComms from "@/pages/VizComms";
+import IntegrationGuide from "@/pages/IntegrationGuide";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { RefreshCw } from "lucide-react";
 
@@ -39,6 +40,7 @@ function DashboardRouter() {
         <Route path="/grants" component={Grants} />
         <Route path="/admin" component={Admin} />
         <Route path="/settings" component={Settings} />
+        <Route path="/integrations" component={IntegrationGuide} />
         <Route component={NotFound} />
       </Switch>
     </DashboardLayout>
@@ -135,6 +137,9 @@ function App() {
             <AuthenticatedApp />
           </Route>
           <Route path="/settings">
+            <AuthenticatedApp />
+          </Route>
+          <Route path="/integrations">
             <AuthenticatedApp />
           </Route>
           <Route component={NotFound} />

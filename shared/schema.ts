@@ -52,6 +52,8 @@ export const integrationSettings = pgTable("integration_settings", {
   lastGithubSyncAt: timestamp("last_github_sync_at"),
   weeklyAnalyticsEmails: text("weekly_analytics_emails").default("emily@cimc.ai,erik@cimc.ai,joel@cimc.ai").notNull(),
   enableMonthlyReminder: boolean("enable_monthly_reminder").default(false).notNull(),
+  enableAdminSubmissionEmails: boolean("enable_admin_submission_emails").default(false).notNull(),
+  enableWeeklyAnalyticsEmail: boolean("enable_weekly_analytics_email").default(true).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -433,3 +435,31 @@ export const insertGrantCommentSchema = createInsertSchema(grantComments).omit({
 
 export type InsertGrantComment = z.infer<typeof insertGrantCommentSchema>;
 export type GrantComment = typeof grantComments.$inferSelect;
+
+// External apps — registered CIMC apps that push usage data
+export const externalApps = pgTable("external_apps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  apiKey: text("api_key").notNull().unique(),
+  description: text("description"),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertExternalAppSchema = createInsertSchema(externalApps).omit({ id: true, createdAt: true });
+export type InsertExternalApp = z.infer<typeof insertExternalAppSchema>;
+export type ExternalApp = typeof externalApps.$inferSelect;
+
+// External app stats — daily/weekly usage data pushed by CIMC apps
+export const externalAppStats = pgTable("external_app_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appName: text("app_name").notNull(),
+  periodType: text("period_type").notNull(), // "daily" | "weekly"
+  periodDate: text("period_date").notNull(), // ISO date string "2026-05-19"
+  stats: jsonb("stats").notNull().default({}),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+});
+
+export const insertExternalAppStatsSchema = createInsertSchema(externalAppStats).omit({ id: true, receivedAt: true });
+export type InsertExternalAppStats = z.infer<typeof insertExternalAppStatsSchema>;
+export type ExternalAppStats = typeof externalAppStats.$inferSelect;

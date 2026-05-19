@@ -33,6 +33,8 @@ export interface IntegrationSettings {
   weeklyAnalyticsEmails: string;
   lastGithubSyncAt: string | null;
   enableMonthlyReminder: boolean;
+  enableAdminSubmissionEmails: boolean;
+  enableWeeklyAnalyticsEmail: boolean;
   updatedAt: string;
 }
 

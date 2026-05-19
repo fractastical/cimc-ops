@@ -2276,24 +2276,26 @@ export async function registerRoutes(
       }
       const submission = await storage.createMilestoneSubmission(parsed.data);
       
-      // Send notification to admins
-      const adminEmails = await storage.getActiveAdminEmails();
-      if (adminEmails.length > 0) {
-        const milestone = await storage.getMilestone(parsed.data.milestoneId);
-        const project = milestone ? await storage.getResearchProject(milestone.projectId) : null;
-        const projectName = project?.name || "Unknown Project";
-        const milestoneMonth = milestone?.month || "Unknown";
-        
-        await emailService.sendMilestoneSubmissionNotification(
-          adminEmails,
-          projectName,
-          parsed.data.teamLeadName,
-          milestoneMonth,
-          parsed.data.progressSummary,
-          parsed.data.completionPercentage ?? undefined,
-          parsed.data.challenges ?? undefined,
-          parsed.data.nextSteps ?? undefined
-        );
+      // Send notification to admins (only if enabled)
+      const submissionSettings = await storage.getIntegrationSettings();
+      if (submissionSettings?.enableAdminSubmissionEmails) {
+        const adminEmails = await storage.getActiveAdminEmails();
+        if (adminEmails.length > 0) {
+          const milestone = await storage.getMilestone(parsed.data.milestoneId);
+          const project = milestone ? await storage.getResearchProject(milestone.projectId) : null;
+          const projectName = project?.name || "Unknown Project";
+          const milestoneMonth = milestone?.month || "Unknown";
+          await emailService.sendMilestoneSubmissionNotification(
+            adminEmails,
+            projectName,
+            parsed.data.teamLeadName,
+            milestoneMonth,
+            parsed.data.progressSummary,
+            parsed.data.completionPercentage ?? undefined,
+            parsed.data.challenges ?? undefined,
+            parsed.data.nextSteps ?? undefined
+          );
+        }
       }
       
       res.json(submission);
@@ -2467,6 +2469,9 @@ export async function registerRoutes(
 
   // ============ Object Storage Routes ============
   registerObjectStorageRoutes(app);
+
+  // ============ External App Integration Routes ============
+  registerExternalAppRoutes(app);
 
   // ============ Microgrant Applications (Public) ============
   // Public endpoint - no auth required for submitting applications
@@ -2910,4 +2915,89 @@ async function processSlackCommand(command: string): Promise<string> {
     default:
       return `Command '${cmd}' received. Processing...`;
   }
+}
+
+// ============ External App Integration ============
+
+function generateApiKey(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let key = "cimc_";
+  for (let i = 0; i < 32; i++) key += chars[Math.floor(Math.random() * chars.length)];
+  return key;
+}
+
+export function registerExternalAppRoutes(app: Express) {
+  // Public: receive usage stats from a registered CIMC app
+  app.post("/api/external/usage", async (req, res) => {
+    try {
+      const { api_key, period_type, period_date, stats } = req.body;
+      if (!api_key || !period_type || !period_date || !stats) {
+        return res.status(400).json({ error: "Missing required fields: api_key, period_type, period_date, stats" });
+      }
+      if (!["daily", "weekly"].includes(period_type)) {
+        return res.status(400).json({ error: "period_type must be 'daily' or 'weekly'" });
+      }
+      const app_record = await storage.getExternalAppByKey(api_key);
+      if (!app_record || !app_record.active) {
+        return res.status(401).json({ error: "Invalid or inactive API key" });
+      }
+      const record = await storage.createExternalAppStats({
+        appName: app_record.name,
+        periodType: period_type,
+        periodDate: period_date,
+        stats,
+      });
+      return res.json({ ok: true, id: record.id, app: app_record.name });
+    } catch (error) {
+      console.error("Error ingesting external usage stats:", error);
+      return res.status(500).json({ error: "Failed to record stats" });
+    }
+  });
+
+  // Admin: list registered external apps
+  app.get("/api/external/apps", async (req, res) => {
+    try {
+      const apps = await storage.getExternalApps();
+      res.json(apps);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch apps" });
+    }
+  });
+
+  // Admin: register a new external app (generates API key)
+  app.post("/api/external/apps", async (req, res) => {
+    try {
+      const { name, description } = req.body;
+      if (!name) return res.status(400).json({ error: "name is required" });
+      const apiKey = generateApiKey();
+      const created = await storage.createExternalApp({ name, description: description || null, apiKey, active: true });
+      res.json(created);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to register app" });
+    }
+  });
+
+  // Admin: delete an external app
+  app.delete("/api/external/apps/:id", async (req, res) => {
+    try {
+      await storage.deleteExternalApp(req.params.id);
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete app" });
+    }
+  });
+
+  // Admin: view received stats
+  app.get("/api/external/stats", async (req, res) => {
+    try {
+      const { app: appName, limit } = req.query;
+      const stats = await storage.getExternalAppStats(
+        appName as string | undefined,
+        limit ? parseInt(limit as string) : 100
+      );
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
 }

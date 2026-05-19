@@ -398,11 +398,15 @@ export class SchedulerService {
 
       const emailData: WeeklyAnalyticsData = { ...(summary as WeeklyAnalyticsData), neurocompute };
       const analyticsSettings = await storage.getIntegrationSettings();
-      const analyticsRecipients = analyticsSettings?.weeklyAnalyticsEmails
-        ? analyticsSettings.weeklyAnalyticsEmails.split(",").map(e => e.trim()).filter(Boolean)
-        : [];
-      await emailService.sendWeeklyAnalyticsEmail(emailData, analyticsRecipients);
-      console.log(`Weekly analytics email sent to ${analyticsRecipients.length} recipients`);
+      if (analyticsSettings?.enableWeeklyAnalyticsEmail !== false) {
+        const analyticsRecipients = analyticsSettings?.weeklyAnalyticsEmails
+          ? analyticsSettings.weeklyAnalyticsEmails.split(",").map(e => e.trim()).filter(Boolean)
+          : [];
+        await emailService.sendWeeklyAnalyticsEmail(emailData, analyticsRecipients);
+        console.log(`Weekly analytics email sent to ${analyticsRecipients.length} recipients`);
+      } else {
+        console.log("Weekly analytics email disabled — skipping");
+      }
     } catch (emailError) {
       console.error("Failed to send weekly analytics email:", emailError);
     }

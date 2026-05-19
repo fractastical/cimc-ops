@@ -15,7 +15,8 @@ import {
   LogOut,
   Banknote,
   FileText,
-  Lightbulb
+  Lightbulb,
+  Plug
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -78,6 +79,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { icon: Bot, label: "Slackbot", path: "/slackbot" },
     { icon: Settings, label: "Admin", path: "/admin" },
     { icon: SlidersHorizontal, label: "Settings", path: "/settings" },
+    { icon: Plug, label: "Integrations", path: "/integrations" },
   ];
 
   return (

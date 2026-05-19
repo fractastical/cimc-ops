@@ -41,6 +41,8 @@ export default function Settings() {
     weeklySummaryTime: "09:00",
     monthlyReminderTime: "09:00",
     enableMonthlyReminder: false,
+    enableAdminSubmissionEmails: false,
+    enableWeeklyAnalyticsEmail: true,
     weeklyAnalyticsEmails: "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai",
   });
 
@@ -67,6 +69,8 @@ export default function Settings() {
         weeklySummaryTime: settings.weeklySummaryTime,
         monthlyReminderTime: settings.monthlyReminderTime || "09:00",
         enableMonthlyReminder: settings.enableMonthlyReminder ?? false,
+        enableAdminSubmissionEmails: settings.enableAdminSubmissionEmails ?? false,
+        enableWeeklyAnalyticsEmail: settings.enableWeeklyAnalyticsEmail ?? true,
         weeklyAnalyticsEmails: settings.weeklyAnalyticsEmails || "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai",
       });
       if (settings.milestoneQuestions && Array.isArray(settings.milestoneQuestions)) {
@@ -515,18 +519,33 @@ export default function Settings() {
                 </div>
               )}
               {formData.enableWeeklySummary && (
-                <div className="pt-2 pl-4 border-l-2 border-primary/30 space-y-2">
-                  <Label className="font-mono text-xs text-muted-foreground">Analytics Email Recipients</Label>
-                  <Input
-                    data-testid="input-analytics-emails"
-                    placeholder="emily@cimc.ai,erik@cimc.ai"
-                    value={formData.weeklyAnalyticsEmails}
-                    onChange={(e) => setFormData({ ...formData, weeklyAnalyticsEmails: e.target.value })}
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Comma-separated list of email addresses that receive the weekly analytics report.
-                  </p>
+                <div className="pt-2 pl-4 border-l-2 border-primary/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="font-mono text-xs">Weekly Analytics Email</Label>
+                      <p className="text-xs text-muted-foreground">Send a weekly analytics report email to recipients below.</p>
+                    </div>
+                    <Switch
+                      data-testid="switch-weekly-analytics-email"
+                      checked={formData.enableWeeklyAnalyticsEmail}
+                      onCheckedChange={(checked) => setFormData({ ...formData, enableWeeklyAnalyticsEmail: checked })}
+                    />
+                  </div>
+                  {formData.enableWeeklyAnalyticsEmail && (
+                    <div className="space-y-2">
+                      <Label className="font-mono text-xs text-muted-foreground">Analytics Email Recipients</Label>
+                      <Input
+                        data-testid="input-analytics-emails"
+                        placeholder="emily@cimc.ai,erik@cimc.ai"
+                        value={formData.weeklyAnalyticsEmails}
+                        onChange={(e) => setFormData({ ...formData, weeklyAnalyticsEmails: e.target.value })}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Comma-separated list of email addresses that receive the weekly analytics report.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -619,6 +638,25 @@ export default function Settings() {
                     </Button>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Admin Submission Notification Emails */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="font-mono text-sm">Milestone Submission Notifications</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Email admins whenever a team lead submits a milestone update.
+                  </p>
+                </div>
+                <Switch
+                  data-testid="switch-admin-submission-emails"
+                  checked={formData.enableAdminSubmissionEmails}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, enableAdminSubmissionEmails: checked })
+                  }
+                />
               </div>
             </div>
           </CardContent>

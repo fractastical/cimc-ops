@@ -37,6 +37,10 @@ import {
   type InsertMicrograntApplication,
   type GrantComment,
   type InsertGrantComment,
+  type ExternalApp,
+  type InsertExternalApp,
+  type ExternalAppStats,
+  type InsertExternalAppStats,
   localUsers,
   integrationSettings,
   repositories,
@@ -57,6 +61,8 @@ import {
   micrograntApplications,
   grantComments,
   gdriveImportedFiles,
+  externalApps,
+  externalAppStats,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -210,6 +216,16 @@ export interface IStorage {
   // Grant Comments
   getGrantComments(applicationId: string): Promise<GrantComment[]>;
   createGrantComment(comment: InsertGrantComment): Promise<GrantComment>;
+
+  // External Apps
+  getExternalApps(): Promise<ExternalApp[]>;
+  getExternalAppByKey(apiKey: string): Promise<ExternalApp | undefined>;
+  createExternalApp(app: InsertExternalApp): Promise<ExternalApp>;
+  deleteExternalApp(id: string): Promise<void>;
+
+  // External App Stats
+  createExternalAppStats(stats: InsertExternalAppStats): Promise<ExternalAppStats>;
+  getExternalAppStats(appName?: string, limit?: number): Promise<ExternalAppStats[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1085,6 +1101,39 @@ export class DatabaseStorage implements IStorage {
   async createGrantComment(comment: InsertGrantComment): Promise<GrantComment> {
     const [created] = await db.insert(grantComments).values(comment).returning();
     return created;
+  }
+
+  // External Apps
+  async getExternalApps(): Promise<ExternalApp[]> {
+    return db.select().from(externalApps).orderBy(desc(externalApps.createdAt));
+  }
+
+  async getExternalAppByKey(apiKey: string): Promise<ExternalApp | undefined> {
+    const [app] = await db.select().from(externalApps).where(eq(externalApps.apiKey, apiKey));
+    return app || undefined;
+  }
+
+  async createExternalApp(app: InsertExternalApp): Promise<ExternalApp> {
+    const [created] = await db.insert(externalApps).values(app).returning();
+    return created;
+  }
+
+  async deleteExternalApp(id: string): Promise<void> {
+    await db.delete(externalApps).where(eq(externalApps.id, id));
+  }
+
+  // External App Stats
+  async createExternalAppStats(stats: InsertExternalAppStats): Promise<ExternalAppStats> {
+    const [created] = await db.insert(externalAppStats).values(stats).returning();
+    return created;
+  }
+
+  async getExternalAppStats(appName?: string, limit = 100): Promise<ExternalAppStats[]> {
+    const query = db.select().from(externalAppStats);
+    if (appName) {
+      return query.where(eq(externalAppStats.appName, appName)).orderBy(desc(externalAppStats.receivedAt)).limit(limit);
+    }
+    return query.orderBy(desc(externalAppStats.receivedAt)).limit(limit);
   }
 }
 
