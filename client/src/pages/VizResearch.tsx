@@ -13,6 +13,7 @@ interface Tag {
   forks?: number;
   activityCount?: number;
   repoUrl?: string;
+  activityLevel?: number;
 }
 
 interface VizData {
@@ -41,6 +42,7 @@ interface PlacedTag {
   forks?: number;
   activityCount?: number;
   repoUrl?: string;
+  activityLevel?: number;
 }
 
 interface ColorTheme {
@@ -494,7 +496,7 @@ export default function VizResearch() {
             angle: sectorAngle, orbitR,
             meanDate: tag.meanDate, minDate: tag.minDate, maxDate: tag.maxDate, description: tag.description,
             stars: tag.stars, forks: tag.forks, activityCount: tag.activityCount,
-            repoUrl: tag.repoUrl,
+            repoUrl: tag.repoUrl, activityLevel: tag.activityLevel,
           });
           globalIdx++;
         }
@@ -688,6 +690,48 @@ export default function VizResearch() {
           ctx.beginPath();
           ctx.arc(px, py, haloRadius, 0, Math.PI * 2);
           ctx.fill();
+        }
+
+        // Animated activity halo for externally-integrated apps
+        const lvl = tag.activityLevel || 0;
+        if (lvl > 0) {
+          const t = tRef.current;
+          const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
+          const ringRadius = tag.radius + 5 + lvl * 3 + pulse * 2.5;
+          const spinSpeed = lvl === 3 ? 1.4 : lvl === 2 ? 0.8 : 0.4;
+          const rotation = t * spinSpeed;
+          const arcLen = lvl === 3 ? Math.PI * 1.6 : lvl === 2 ? Math.PI * 1.2 : Math.PI * 0.8;
+          const gap = Math.PI * 2 - arcLen;
+          const alpha = 0.45 + pulse * 0.35;
+          const haloColor = lvl === 3 ? "#00ffcc" : lvl === 2 ? "#7fffb2" : "#4de8a4";
+
+          // Outer glow fill (soft radial)
+          const glowR = ringRadius + 4 + lvl * 2;
+          const glowGrad = ctx.createRadialGradient(px, py, ringRadius - 2, px, py, glowR);
+          glowGrad.addColorStop(0, hexToRgba(haloColor, alpha * 0.5));
+          glowGrad.addColorStop(1, hexToRgba(haloColor, 0));
+          ctx.fillStyle = glowGrad;
+          ctx.beginPath();
+          ctx.arc(px, py, glowR, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Rotating arc stroke
+          ctx.save();
+          ctx.strokeStyle = hexToRgba(haloColor, alpha);
+          ctx.lineWidth = 1.2 + lvl * 0.4;
+          ctx.shadowColor = haloColor;
+          ctx.shadowBlur = 6 + lvl * 3;
+          ctx.beginPath();
+          ctx.arc(px, py, ringRadius, rotation, rotation + arcLen);
+          ctx.stroke();
+          // Counter-rotating small arc
+          ctx.strokeStyle = hexToRgba(haloColor, alpha * 0.5);
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.arc(px, py, ringRadius - 3, -rotation * 0.7, -rotation * 0.7 + gap * 0.4);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.restore();
         }
 
         const color = theme.categoriesDim[tag.category] || "rgba(255,255,255,0.3)";

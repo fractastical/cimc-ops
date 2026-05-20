@@ -442,6 +442,7 @@ export const externalApps = pgTable("external_apps", {
   name: text("name").notNull(),
   apiKey: text("api_key").notNull().unique(),
   description: text("description"),
+  githubUrl: text("github_url"),
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

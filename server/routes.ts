@@ -2739,7 +2739,34 @@ export async function registerRoutes(
           forks: repo.forks || 0,
           activityCount,
           repoUrl: repo.fullName,
+          activityLevel: 0,
         };
+      }
+
+      // Enrich repo nodes with activity level from registered external apps
+      try {
+        const extApps = await storage.getExternalApps();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        for (const extApp of extApps) {
+          if (!extApp.active || !extApp.githubUrl) continue;
+          // githubUrl may be "owner/repo" or full URL — normalise to "owner/repo"
+          const normalised = extApp.githubUrl
+            .replace(/^https?:\/\/github\.com\//, "")
+            .replace(/\/$/, "");
+          const repoName = normalised.split("/").pop() || "";
+          if (!repoName) continue;
+          // Match to freq entry by repo name key
+          const freqEntry = freq[repoName];
+          if (!freqEntry || freqEntry.category !== "repo") continue;
+          // Count recent stats submissions as proxy for activity level
+          const recentStats = await storage.getExternalAppStats(extApp.name, 50);
+          const recentCount = recentStats.filter(s => new Date(s.receivedAt) >= sevenDaysAgo).length;
+          const level = recentCount >= 7 ? 3 : recentCount >= 3 ? 2 : recentCount >= 1 ? 1 : 0;
+          if (level > 0) freqEntry.activityLevel = Math.max(freqEntry.activityLevel || 0, level);
+        }
+      } catch (e) {
+        // non-fatal — skip enrichment
       }
 
       const stopWords = new Set([
@@ -2967,10 +2994,10 @@ export function registerExternalAppRoutes(app: Express) {
   // Admin: register a new external app (generates API key)
   app.post("/api/external/apps", async (req, res) => {
     try {
-      const { name, description } = req.body;
+      const { name, description, githubUrl } = req.body;
       if (!name) return res.status(400).json({ error: "name is required" });
       const apiKey = generateApiKey();
-      const created = await storage.createExternalApp({ name, description: description || null, apiKey, active: true });
+      const created = await storage.createExternalApp({ name, description: description || null, githubUrl: githubUrl || null, apiKey, active: true });
       res.json(created);
     } catch (error) {
       res.status(500).json({ error: "Failed to register app" });

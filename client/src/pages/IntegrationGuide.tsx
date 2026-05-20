@@ -24,7 +24,7 @@ async function fetchApps(): Promise<ExternalApp[]> {
   return res.json();
 }
 
-async function registerApp(payload: { name: string; description: string }): Promise<ExternalApp> {
+async function registerApp(payload: { name: string; description: string; githubUrl: string }): Promise<ExternalApp> {
   const res = await fetch("/api/external/apps", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -65,6 +65,7 @@ export default function IntegrationGuide() {
   const qc = useQueryClient();
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newGithub, setNewGithub] = useState("");
 
   const { data: apps = [], isLoading } = useQuery({ queryKey: ["external-apps"], queryFn: fetchApps });
 
@@ -74,6 +75,7 @@ export default function IntegrationGuide() {
       qc.invalidateQueries({ queryKey: ["external-apps"] });
       setNewName("");
       setNewDesc("");
+      setNewGithub("");
       toast.success("App registered — copy its API key now, it won't be shown again");
     },
     onError: () => toast.error("Failed to register app"),
@@ -286,9 +288,20 @@ report_daily_stats({
                   data-testid="input-new-app-desc"
                 />
               </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="font-mono text-xs">GitHub repo (optional — enables galaxy halo)</Label>
+                <Input
+                  placeholder="owner/repo  or  https://github.com/owner/repo"
+                  value={newGithub}
+                  onChange={(e) => setNewGithub(e.target.value)}
+                  className="font-mono text-sm"
+                  data-testid="input-new-app-github"
+                />
+                <p className="text-xs text-muted-foreground">When provided, the matching repo node in the galaxy visualization will show an animated activity halo scaled by how frequently your app reports stats.</p>
+              </div>
             </div>
             <Button
-              onClick={() => registerMutation.mutate({ name: newName.trim(), description: newDesc.trim() })}
+              onClick={() => registerMutation.mutate({ name: newName.trim(), description: newDesc.trim(), githubUrl: newGithub.trim() })}
               disabled={!newName.trim() || registerMutation.isPending}
               size="sm"
               data-testid="button-register-app"
