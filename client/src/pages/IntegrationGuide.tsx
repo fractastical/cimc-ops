@@ -192,6 +192,29 @@ report_daily_stats({
         </p>
       </div>
 
+      {/* Machine-readable spec links */}
+      <div className="flex flex-wrap gap-3 text-xs">
+        <a
+          href="/api/integrations/spec"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/15 transition-colors font-mono"
+        >
+          <Copy className="h-3 w-3" />
+          /api/integrations/spec
+        </a>
+        <a
+          href="/api/integrations/openapi.json"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/15 transition-colors font-mono"
+        >
+          <Copy className="h-3 w-3" />
+          /api/integrations/openapi.json
+        </a>
+        <span className="flex items-center text-muted-foreground">— machine-readable specs for AI tools &amp; code generation</span>
+      </div>
+
       {/* How it works */}
       <Card className="glass-panel border-primary/20">
         <CardHeader>

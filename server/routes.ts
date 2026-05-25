@@ -2954,6 +2954,96 @@ function generateApiKey(): string {
 }
 
 export function registerExternalAppRoutes(app: Express) {
+  // Public: machine-readable integration spec (JSON)
+  app.get("/api/integrations/spec", (req, res) => {
+    res.json({
+      name: "CIMC Mission Control — App Integration API",
+      version: "1.0",
+      baseUrl: "https://cimcops.org",
+      description: "Any CIMC app can push daily and weekly usage stats to Mission Control for unified analytics and galaxy visualization.",
+      guideUrl: "https://cimcops.org/integrations",
+      endpoints: [
+        {
+          method: "POST",
+          path: "/api/external/usage",
+          summary: "Push usage stats for a reporting period",
+          auth: "API key in request body (api_key field). Request a key at https://cimcops.org/integrations.",
+          contentType: "application/json",
+          body: {
+            api_key: { type: "string", required: true, description: "Your app API key from the integrations guide" },
+            period_type: { type: "string", required: true, enum: ["daily", "weekly"], description: "Reporting period granularity" },
+            period_date: { type: "string", required: true, format: "YYYY-MM-DD", description: "ISO date the report covers, e.g. 2026-05-20" },
+            stats: { type: "object", required: true, description: "Freeform key/value usage metrics — any fields meaningful to your app" },
+          },
+          response: { ok: true, id: "<uuid>", app: "<app-name>" },
+          example: {
+            api_key: "cimc_YOUR_KEY_HERE",
+            period_type: "daily",
+            period_date: "2026-05-20",
+            stats: { active_users: 142, sessions: 318, compute_minutes: 4820 },
+          },
+        },
+      ],
+      galaxyHalo: {
+        description: "Repos linked via a GitHub URL on app registration show an animated halo in the CIMC research galaxy visualization. Halo intensity scales with reporting frequency (level 1: 1-2/week, level 2: 3-6/week, level 3: 7+/week).",
+        register: "https://cimcops.org/integrations",
+      },
+    });
+  });
+
+  // Public: OpenAPI 3.0 spec
+  app.get(["/integrations/openapi.json", "/api/integrations/openapi.json"], (req, res) => {
+    res.json({
+      openapi: "3.0.3",
+      info: {
+        title: "CIMC Mission Control Integration API",
+        version: "1.0.0",
+        description: "Push daily/weekly usage stats from any CIMC app to Mission Control. Get an API key at https://cimcops.org/integrations.",
+        contact: { url: "https://cimcops.org/integrations" },
+      },
+      servers: [{ url: "https://cimcops.org", description: "Production" }],
+      paths: {
+        "/api/external/usage": {
+          post: {
+            summary: "Submit usage stats",
+            description: "Push daily or weekly usage metrics. Stats are stored and included in the weekly analytics email. If the app was registered with a GitHub repo URL, the matching node in the research galaxy visualization will show an animated halo.",
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["api_key", "period_type", "period_date", "stats"],
+                    properties: {
+                      api_key: { type: "string", description: "API key issued on registration" },
+                      period_type: { type: "string", enum: ["daily", "weekly"] },
+                      period_date: { type: "string", format: "date", example: "2026-05-20" },
+                      stats: { type: "object", additionalProperties: true, description: "Any key/value usage metrics" },
+                    },
+                  },
+                  example: {
+                    api_key: "cimc_YOUR_KEY_HERE",
+                    period_type: "daily",
+                    period_date: "2026-05-20",
+                    stats: { active_users: 142, sessions: 318 },
+                  },
+                },
+              },
+            },
+            responses: {
+              "200": {
+                description: "Stats recorded",
+                content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, id: { type: "string" }, app: { type: "string" } } } } },
+              },
+              "400": { description: "Missing or invalid fields" },
+              "401": { description: "Invalid or inactive API key" },
+            },
+          },
+        },
+      },
+    });
+  });
+
   // Public: receive usage stats from a registered CIMC app
   app.post("/api/external/usage", async (req, res) => {
     try {
