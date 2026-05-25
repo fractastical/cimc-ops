@@ -222,12 +222,26 @@ report_daily_stats({
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <ol className="list-decimal list-inside space-y-2">
-            <li>Register your app below to get an API key.</li>
             <li>
-              From your app, call <code className="font-mono text-primary text-xs bg-primary/10 px-1 py-0.5 rounded">POST /api/external/usage</code> with your API key, the period type (<code className="font-mono text-xs">daily</code> or <code className="font-mono text-xs">weekly</code>), the date, and a JSON object of whatever stats you want to track.
+              <strong>Self-register</strong> — from your app, call <code className="font-mono text-primary text-xs bg-primary/10 px-1 py-0.5 rounded">POST /api/integrations/register</code> with the shared <code className="font-mono text-xs">registration_secret</code> to get an API key back automatically. Or register manually in the panel below.
             </li>
-            <li>Stats are stored and will appear in the weekly analytics email sent to the team.</li>
+            <li>
+              <strong>Push stats</strong> — call <code className="font-mono text-primary text-xs bg-primary/10 px-1 py-0.5 rounded">POST /api/external/usage</code> with your API key, the period type (<code className="font-mono text-xs">daily</code> or <code className="font-mono text-xs">weekly</code>), the date, and a JSON object of whatever stats you want to track.
+            </li>
+            <li>Stats are stored and appear in the weekly analytics email. If you linked a GitHub repo, the matching node in the research galaxy shows an animated halo.</li>
           </ol>
+          <div className="mt-3 rounded-md bg-black/30 border border-primary/15 p-3 space-y-2">
+            <p className="font-mono text-xs text-primary font-semibold">Self-registration example</p>
+            <pre className="font-mono text-xs text-muted-foreground whitespace-pre-wrap">{`POST /api/integrations/register
+{
+  "name": "neurocompute.me",
+  "github_url": "cimcai/NeuroCompute",
+  "registration_secret": "YOUR_SHARED_SECRET"
+}
+
+→ { "ok": true, "api_key": "cimc_...", "already_registered": false }`}</pre>
+            <p className="text-xs text-muted-foreground">The endpoint is idempotent — calling it again returns the same key.</p>
+          </div>
           <p className="text-xs pt-1">
             The <code className="font-mono text-xs">stats</code> field is flexible — send any key/value pairs meaningful to your app. There is no fixed schema.
           </p>

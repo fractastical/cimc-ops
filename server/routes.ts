@@ -2965,6 +2965,26 @@ export function registerExternalAppRoutes(app: Express) {
       endpoints: [
         {
           method: "POST",
+          path: "/api/integrations/register",
+          summary: "Self-register an app and receive an API key",
+          auth: "Shared registration_secret in request body. Contact the CIMC admin for the secret.",
+          contentType: "application/json",
+          body: {
+            name: { type: "string", required: true, description: "Unique app identifier, e.g. neurocompute.me" },
+            registration_secret: { type: "string", required: true, description: "Shared CIMC registration secret" },
+            description: { type: "string", required: false },
+            github_url: { type: "string", required: false, description: "owner/repo or full GitHub URL — enables galaxy halo" },
+          },
+          response: { ok: true, app: "<name>", api_key: "cimc_...", already_registered: false },
+          note: "Idempotent — calling again with the same name returns the existing key.",
+          example: {
+            name: "neurocompute.me",
+            github_url: "cimcai/NeuroCompute",
+            registration_secret: "YOUR_SHARED_SECRET",
+          },
+        },
+        {
+          method: "POST",
           path: "/api/external/usage",
           summary: "Push usage stats for a reporting period",
           auth: "API key in request body (api_key field). Request a key at https://cimcops.org/integrations.",
@@ -3042,6 +3062,39 @@ export function registerExternalAppRoutes(app: Express) {
         },
       },
     });
+  });
+
+  // Public: self-registration — any CIMC app can register itself using the shared registration secret
+  app.post("/api/integrations/register", async (req, res) => {
+    try {
+      const regSecret = process.env.CIMC_REGISTRATION_SECRET;
+      if (!regSecret) {
+        return res.status(503).json({ error: "Self-registration is not configured on this server. Contact the admin." });
+      }
+      const { name, description, github_url, registration_secret } = req.body;
+      if (!registration_secret || registration_secret !== regSecret) {
+        return res.status(401).json({ error: "Invalid registration_secret" });
+      }
+      if (!name) return res.status(400).json({ error: "name is required" });
+      // Return existing key if already registered (idempotent)
+      const existing = await storage.getExternalApps();
+      const match = existing.find(a => a.name === name);
+      if (match) {
+        return res.json({ ok: true, app: match.name, api_key: match.apiKey, already_registered: true });
+      }
+      const apiKey = generateApiKey();
+      const created = await storage.createExternalApp({
+        name,
+        description: description || null,
+        githubUrl: github_url || null,
+        apiKey,
+        active: true,
+      });
+      return res.json({ ok: true, app: created.name, api_key: created.apiKey, already_registered: false });
+    } catch (error) {
+      console.error("Self-registration error:", error);
+      return res.status(500).json({ error: "Registration failed" });
+    }
   });
 
   // Public: receive usage stats from a registered CIMC app
