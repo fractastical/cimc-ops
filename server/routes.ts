@@ -2631,6 +2631,8 @@ export async function registerRoutes(
         forks?: number;
         activityCount?: number;
         repoUrl?: string;
+        homepage?: string;
+        activityLevel?: number;
       }
       const freq: Record<string, TagEntry> = {};
 
@@ -2739,6 +2741,7 @@ export async function registerRoutes(
           forks: repo.forks || 0,
           activityCount,
           repoUrl: repo.fullName,
+          homepage: repo.homepage || undefined,
           activityLevel: 0,
         };
       }
@@ -2832,6 +2835,9 @@ export async function registerRoutes(
           if (entry.stars !== undefined) tag.stars = entry.stars;
           if (entry.forks !== undefined) tag.forks = entry.forks;
           if (entry.activityCount !== undefined) tag.activityCount = entry.activityCount;
+          if (entry.repoUrl !== undefined) tag.repoUrl = entry.repoUrl;
+          if (entry.activityLevel !== undefined) tag.activityLevel = entry.activityLevel;
+          if (entry.homepage !== undefined) tag.homepage = entry.homepage;
           return tag;
         })
         .sort((a, b) => b.count - a.count)

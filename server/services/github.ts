@@ -18,6 +18,7 @@ interface GitHubRepo {
   language: string | null;
   stargazers_count: number;
   forks_count: number;
+  homepage: string | null;
   archived: boolean;
   private: boolean;
   owner: {
@@ -128,6 +129,7 @@ export class GitHubService {
         language: repoData.language || "Unknown",
         stars: repoData.stargazers_count,
         forks: repoData.forks_count,
+        homepage: repoData.homepage && repoData.homepage.trim().length > 0 ? repoData.homepage.trim() : null,
         isActive: true,
       };
 
@@ -313,6 +315,7 @@ export class GitHubService {
       language: repoData.language || "Unknown",
       stars: repoData.stargazers_count,
       forks: repoData.forks_count,
+      homepage: repoData.homepage && repoData.homepage.trim().length > 0 ? repoData.homepage.trim() : null,
       isActive: true,
     };
 

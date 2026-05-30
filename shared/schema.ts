@@ -75,6 +75,7 @@ export const repositories = pgTable("repositories", {
   language: text("language"),
   stars: integer("stars").default(0).notNull(),
   forks: integer("forks").default(0).notNull(),
+  homepage: text("homepage"), // website linked to the repo, from GitHub
   isActive: boolean("is_active").default(true).notNull(),
   webhookId: text("webhook_id"), // GitHub webhook ID for cleanup
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -13,6 +13,7 @@ interface Tag {
   forks?: number;
   activityCount?: number;
   repoUrl?: string;
+  homepage?: string;
   activityLevel?: number;
 }
 
@@ -42,6 +43,7 @@ interface PlacedTag {
   forks?: number;
   activityCount?: number;
   repoUrl?: string;
+  homepage?: string;
   activityLevel?: number;
 }
 
@@ -412,9 +414,25 @@ export default function VizResearch() {
   const lastMouseMoveRef = useRef<number>(Date.now());
   const autoCycleIdxRef = useRef<number>(0);
   const lastCycleRef = useRef<number>(Date.now());
+  const previewRef = useRef<{ url: string; x: number; y: number } | null>(null);
+  const [preview, setPreview] = useState<{ url: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     fetch("/api/viz/research").then(r => r.json()).then(setData).catch(console.error);
+  }, []);
+
+  // Sync the canvas-driven website preview into React state at ~10fps
+  useEffect(() => {
+    const id = setInterval(() => {
+      const p = previewRef.current;
+      setPreview(prev => {
+        if (!p && !prev) return prev;
+        if (!p) return null;
+        if (prev && prev.url === p.url && Math.abs(prev.x - p.x) < 2 && Math.abs(prev.y - p.y) < 2) return prev;
+        return { ...p };
+      });
+    }, 120);
+    return () => clearInterval(id);
   }, []);
 
   const updateUrl = useCallback((tIdx: number, zoom: number) => {
@@ -499,7 +517,7 @@ export default function VizResearch() {
             angle: sectorAngle, orbitR,
             meanDate: tag.meanDate, minDate: tag.minDate, maxDate: tag.maxDate, description: tag.description,
             stars: tag.stars, forks: tag.forks, activityCount: tag.activityCount,
-            repoUrl: tag.repoUrl, activityLevel: tag.activityLevel,
+            repoUrl: tag.repoUrl, homepage: tag.homepage, activityLevel: tag.activityLevel,
           });
           globalIdx++;
         }
@@ -655,6 +673,7 @@ export default function VizResearch() {
 
       let hovered: PlacedTag | null = null;
       let hoveredDist = Infinity;
+      let realHover = false;
       const positions: { tag: PlacedTag; px: number; py: number }[] = [];
 
       for (const tag of tags) {
@@ -751,6 +770,7 @@ export default function VizResearch() {
           if (dist < hitR && dist < hoveredDist) {
             hovered = tag;
             hoveredDist = dist;
+            realHover = true;
           }
         }
       }
@@ -771,6 +791,17 @@ export default function VizResearch() {
       // Update cursor: pointer for clickable repo nodes, default otherwise
       if (!dragRef.current.dragging) {
         canvas.style.cursor = (hovered?.category === "repo" && hovered?.repoUrl) ? "pointer" : "default";
+      }
+
+      // Website preview bridge: expose hovered repo's homepage + screen position.
+      // Only on genuine pointer hover, not the idle auto-cycle screensaver.
+      if (realHover && hovered && hovered.category === "repo" && hovered.homepage) {
+        const hpp = positions.find(p => p.tag === hovered)!;
+        const screenX = (hpp.px - cx) * zoom + cx + panRef.current.x;
+        const screenY = (hpp.py - cy) * zoom + cy + panRef.current.y;
+        previewRef.current = { url: hovered.homepage, x: screenX, y: screenY };
+      } else {
+        previewRef.current = null;
       }
 
       if (hovered) {
@@ -1014,6 +1045,46 @@ export default function VizResearch() {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", cursor: dragRef.current?.dragging ? "grabbing" : "crosshair" }} data-testid="viz-research-container">
       <canvas ref={canvasRef} style={{ display: "block" }} data-testid="viz-research-canvas" onClick={isEmbed ? undefined : handleCanvasClick} />
+      {preview && (() => {
+        const PW = 280, PH = 175;
+        const margin = 16;
+        let left = preview.x + 24;
+        let top = preview.y - PH / 2;
+        if (typeof window !== "undefined") {
+          if (left + PW + margin > window.innerWidth) left = preview.x - PW - 24;
+          if (left < margin) left = margin;
+          top = Math.max(margin, Math.min(top, window.innerHeight - PH - margin));
+        }
+        const fullUrl = /^https?:\/\//i.test(preview.url) ? preview.url : `https://${preview.url}`;
+        let host = fullUrl;
+        try { host = new URL(fullUrl).host; } catch {}
+        const shot = `https://api.microlink.io/?url=${encodeURIComponent(fullUrl)}&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1280&viewport.height=800`;
+        return (
+          <div
+            data-testid="website-preview"
+            style={{
+              position: "absolute", left, top, width: PW, pointerEvents: "none",
+              background: "rgba(0,0,0,0.92)", border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 6, overflow: "hidden", boxShadow: "0 8px 28px rgba(0,0,0,0.6)",
+              fontFamily: "'JetBrains Mono', monospace", zIndex: 50,
+            }}
+          >
+            <div style={{ width: PW, height: PH, background: "#0a0a0a", position: "relative" }}>
+              <img
+                src={shot}
+                alt={host}
+                width={PW}
+                height={PH}
+                style={{ width: PW, height: PH, objectFit: "cover", display: "block" }}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
+              />
+            </div>
+            <div style={{ padding: "6px 10px", fontSize: 10, color: "rgba(255,255,255,0.75)", borderTop: "1px solid rgba(255,255,255,0.1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              ↗ {host}
+            </div>
+          </div>
+        );
+      })()}
       {!isEmbed && (
         <div style={{ position: "absolute", bottom: 16, right: 16, color: "rgba(255,255,255,0.1)", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 3 }}>
           CIMC RESEARCH
