@@ -76,6 +76,8 @@ export const repositories = pgTable("repositories", {
   stars: integer("stars").default(0).notNull(),
   forks: integer("forks").default(0).notNull(),
   homepage: text("homepage"), // website linked to the repo, from GitHub
+  previewImage: text("preview_image"), // object-storage path of captured website screenshot
+  previewCapturedAt: timestamp("preview_captured_at"), // when the screenshot was last captured
   isActive: boolean("is_active").default(true).notNull(),
   webhookId: text("webhook_id"), // GitHub webhook ID for cleanup
   createdAt: timestamp("created_at").defaultNow().notNull(),

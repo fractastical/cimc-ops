@@ -21,6 +21,7 @@ import { openAlexService } from "./services/openalex";
 import { notionService } from "./services/notion";
 import { gdriveService } from "./services/gdrive";
 import { parseTranscript, type ParsedUpdate } from "./services/transcript-parser";
+import { capturePreviews } from "./services/preview";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 
 async function autoSyncOnStartup() {
@@ -58,6 +59,14 @@ async function autoSyncOnStartup() {
         console.log(`Auto-synced papers: ${papersResult.synced} new, ${papersResult.updated} updated`);
       } catch (error) {
         console.error("Failed to auto-sync papers:", error);
+      }
+
+      // Capture website screenshots for repos with a homepage (once / when stale)
+      try {
+        const previewResult = await capturePreviews();
+        console.log(`Auto-captured previews: ${previewResult.captured} new, ${previewResult.skipped} cached, ${previewResult.failed} failed`);
+      } catch (error) {
+        console.error("Failed to auto-capture previews:", error);
       }
     } else {
       console.log("No GitHub organizations configured for auto-sync");
@@ -620,6 +629,18 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error backfilling GitHub activity:", error);
       res.status(500).json({ error: "Failed to backfill activity" });
+    }
+  });
+
+  // Capture website screenshots for repos with a homepage. ?force=1 re-captures all.
+  app.post("/api/github/capture-previews", isAuthenticated, async (req, res) => {
+    try {
+      const force = req.query.force === "1" || req.query.force === "true";
+      const result = await capturePreviews({ force });
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Error capturing website previews:", error);
+      res.status(500).json({ error: "Failed to capture previews" });
     }
   });
 
@@ -2632,6 +2653,7 @@ export async function registerRoutes(
         activityCount?: number;
         repoUrl?: string;
         homepage?: string;
+        previewImage?: string;
         activityLevel?: number;
       }
       const freq: Record<string, TagEntry> = {};
@@ -2742,6 +2764,7 @@ export async function registerRoutes(
           activityCount,
           repoUrl: repo.fullName,
           homepage: repo.homepage || undefined,
+          previewImage: repo.previewImage || undefined,
           activityLevel: 0,
         };
       }
@@ -2838,6 +2861,7 @@ export async function registerRoutes(
           if (entry.repoUrl !== undefined) tag.repoUrl = entry.repoUrl;
           if (entry.activityLevel !== undefined) tag.activityLevel = entry.activityLevel;
           if (entry.homepage !== undefined) tag.homepage = entry.homepage;
+          if (entry.previewImage !== undefined) tag.previewImage = entry.previewImage;
           return tag;
         })
         .sort((a, b) => b.count - a.count)

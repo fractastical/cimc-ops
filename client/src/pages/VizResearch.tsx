@@ -14,6 +14,7 @@ interface Tag {
   activityCount?: number;
   repoUrl?: string;
   homepage?: string;
+  previewImage?: string;
   activityLevel?: number;
 }
 
@@ -44,6 +45,7 @@ interface PlacedTag {
   activityCount?: number;
   repoUrl?: string;
   homepage?: string;
+  previewImage?: string;
   activityLevel?: number;
 }
 
@@ -414,8 +416,8 @@ export default function VizResearch() {
   const lastMouseMoveRef = useRef<number>(Date.now());
   const autoCycleIdxRef = useRef<number>(0);
   const lastCycleRef = useRef<number>(Date.now());
-  const previewRef = useRef<{ url: string; x: number; y: number } | null>(null);
-  const [preview, setPreview] = useState<{ url: string; x: number; y: number } | null>(null);
+  const previewRef = useRef<{ url: string; img?: string; x: number; y: number } | null>(null);
+  const [preview, setPreview] = useState<{ url: string; img?: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     fetch("/api/viz/research").then(r => r.json()).then(setData).catch(console.error);
@@ -428,7 +430,7 @@ export default function VizResearch() {
       setPreview(prev => {
         if (!p && !prev) return prev;
         if (!p) return null;
-        if (prev && prev.url === p.url && Math.abs(prev.x - p.x) < 2 && Math.abs(prev.y - p.y) < 2) return prev;
+        if (prev && prev.url === p.url && prev.img === p.img && Math.abs(prev.x - p.x) < 2 && Math.abs(prev.y - p.y) < 2) return prev;
         return { ...p };
       });
     }, 120);
@@ -517,7 +519,7 @@ export default function VizResearch() {
             angle: sectorAngle, orbitR,
             meanDate: tag.meanDate, minDate: tag.minDate, maxDate: tag.maxDate, description: tag.description,
             stars: tag.stars, forks: tag.forks, activityCount: tag.activityCount,
-            repoUrl: tag.repoUrl, homepage: tag.homepage, activityLevel: tag.activityLevel,
+            repoUrl: tag.repoUrl, homepage: tag.homepage, previewImage: tag.previewImage, activityLevel: tag.activityLevel,
           });
           globalIdx++;
         }
@@ -799,7 +801,7 @@ export default function VizResearch() {
         const hpp = positions.find(p => p.tag === hovered)!;
         const screenX = (hpp.px - cx) * zoom + cx + panRef.current.x;
         const screenY = (hpp.py - cy) * zoom + cy + panRef.current.y;
-        previewRef.current = { url: hovered.homepage, x: screenX, y: screenY };
+        previewRef.current = { url: hovered.homepage, img: hovered.previewImage, x: screenX, y: screenY };
       } else {
         previewRef.current = null;
       }
@@ -1058,7 +1060,10 @@ export default function VizResearch() {
         const fullUrl = /^https?:\/\//i.test(preview.url) ? preview.url : `https://${preview.url}`;
         let host = fullUrl;
         try { host = new URL(fullUrl).host; } catch {}
-        const shot = `https://api.microlink.io/?url=${encodeURIComponent(fullUrl)}&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1280&viewport.height=800`;
+        // Prefer our own stored screenshot; fall back to a live microlink capture.
+        const shot = preview.img
+          ? preview.img
+          : `https://api.microlink.io/?url=${encodeURIComponent(fullUrl)}&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1280&viewport.height=800`;
         return (
           <div
             data-testid="website-preview"
