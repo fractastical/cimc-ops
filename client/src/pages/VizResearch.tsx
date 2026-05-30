@@ -409,6 +409,9 @@ export default function VizResearch() {
   const zoomTargetRef = useRef(initialZoom);
   const panRef = useRef({ x: 0, y: 0 });
   const dragRef = useRef<{ dragging: boolean; lastX: number; lastY: number }>({ dragging: false, lastX: 0, lastY: 0 });
+  const lastMouseMoveRef = useRef<number>(Date.now());
+  const autoCycleIdxRef = useRef<number>(0);
+  const lastCycleRef = useRef<number>(Date.now());
 
   useEffect(() => {
     fetch("/api/viz/research").then(r => r.json()).then(setData).catch(console.error);
@@ -512,6 +515,7 @@ export default function VizResearch() {
 
     const onMove = (e: MouseEvent) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
+      lastMouseMoveRef.current = Date.now();
       if (dragRef.current.dragging) {
         const dx = e.clientX - dragRef.current.lastX;
         const dy = e.clientY - dragRef.current.lastY;
@@ -749,6 +753,19 @@ export default function VizResearch() {
             hoveredDist = dist;
           }
         }
+      }
+
+      // Auto-cycle screensaver: when mouse idle >4s, walk through nodes every 2.5s
+      const IDLE_MS = 4000;
+      const CYCLE_MS = 2500;
+      const now = Date.now();
+      const idle = now - lastMouseMoveRef.current > IDLE_MS;
+      if (idle && tags.length > 0 && !hovered) {
+        if (now - lastCycleRef.current > CYCLE_MS) {
+          autoCycleIdxRef.current = (autoCycleIdxRef.current + 1) % tags.length;
+          lastCycleRef.current = now;
+        }
+        hovered = tags[autoCycleIdxRef.current % tags.length];
       }
 
       // Update cursor: pointer for clickable repo nodes, default otherwise
