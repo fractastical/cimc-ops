@@ -268,7 +268,7 @@ function getStageProgress(stage: PaperStage | undefined): { completed: number; t
 function PapersPipelineSection() {
   const queryClient = useQueryClient();
   const [expandedPaper, setExpandedPaper] = useState<string | null>(null);
-  const [sortByHIndex, setSortByHIndex] = useState(false);
+  const [sortMode, setSortMode] = useState<"completion" | "hindex" | "stage">("completion");
   const [collaboratorModalPaper, setCollaboratorModalPaper] = useState<PaperWithCollaborators | null>(null);
   
   const { data: papers = [], isLoading, error } = useQuery({
@@ -295,9 +295,15 @@ function PapersPipelineSection() {
     return progress.percent;
   };
 
+  const stageRank: Record<string, number> = { after: 3, mid: 2, before: 1 };
   const sortedPapers = [...papers].sort((a, b) => {
-    if (sortByHIndex) {
+    if (sortMode === "hindex") {
       return (b.maxHIndex || 0) - (a.maxHIndex || 0);
+    }
+    if (sortMode === "stage") {
+      const diff = (stageRank[b.currentStage] || 0) - (stageRank[a.currentStage] || 0);
+      if (diff !== 0) return diff;
+      return getPaperCompletion(b) - getPaperCompletion(a);
     }
     return getPaperCompletion(b) - getPaperCompletion(a);
   });
@@ -366,9 +372,19 @@ function PapersPipelineSection() {
         </CardTitle>
         <div className="flex gap-2">
           <Button
-            variant={sortByHIndex ? "default" : "outline"}
+            variant={sortMode === "stage" ? "default" : "outline"}
             size="sm"
-            onClick={() => setSortByHIndex(!sortByHIndex)}
+            onClick={() => setSortMode(sortMode === "stage" ? "completion" : "stage")}
+            data-testid="button-sort-stage"
+            title="Sort by stage (published first)"
+          >
+            <ArrowUpDown className="h-4 w-4 mr-1" />
+            Stage
+          </Button>
+          <Button
+            variant={sortMode === "hindex" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSortMode(sortMode === "hindex" ? "completion" : "hindex")}
             data-testid="button-sort-hindex"
             title="Sort by highest h-index"
           >
@@ -469,17 +485,25 @@ function PapersPipelineSection() {
                           </div>
                         )}
                         
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full rounded-full transition-all bg-primary/80"
-                              style={{ width: `${progress.percent}%` }}
-                            />
+                        {currentStage === "after" ? (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+                              Published
+                            </Badge>
                           </div>
-                          <span className="text-xs text-muted-foreground font-mono w-16 text-right">
-                            {progress.percent}% ({progress.completed}/{progress.total})
-                          </span>
-                        </div>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 h-1.5 bg-muted/30 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full rounded-full transition-all bg-primary/80"
+                                style={{ width: `${progress.percent}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-muted-foreground font-mono w-16 text-right">
+                              {progress.percent}% ({progress.completed}/{progress.total})
+                            </span>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="ml-3">
