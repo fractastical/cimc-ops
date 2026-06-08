@@ -99,6 +99,9 @@ export interface IStorage {
   getActivityByRepository(repositoryId: string, days?: number): Promise<ActivityLog[]>;
   getActivityByRepositorySince(repositoryId: string, since: Date): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+  findPushActivityByDate(repositoryId: string, date: string): Promise<ActivityLog | undefined>;
+  updateActivityLog(id: string, updates: Partial<InsertActivityLog>): Promise<void>;
+  activityExistsByKey(repositoryId: string, eventType: string, url: string | null | undefined, activityDate: Date): Promise<boolean>;
   getActivityStats(repositoryId: string, days?: number): Promise<{ date: string; count: number }[]>;
   getMonthlyActivityStats(): Promise<{ month: string; commits: number; researchUpdates: number }[]>;
 
@@ -405,6 +408,45 @@ export class DatabaseStorage implements IStorage {
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
     const [created] = await db.insert(activityLog).values(log).returning();
     return created;
+  }
+
+  async findPushActivityByDate(repositoryId: string, date: string): Promise<ActivityLog | undefined> {
+    const rows = await db
+      .select()
+      .from(activityLog)
+      .where(
+        and(
+          eq(activityLog.repositoryId, repositoryId),
+          eq(activityLog.eventType, "push"),
+          sql`${activityLog.metadata}->>'date' = ${date}`,
+        ),
+      )
+      .limit(1);
+    return rows[0];
+  }
+
+  async updateActivityLog(id: string, updates: Partial<InsertActivityLog>): Promise<void> {
+    await db.update(activityLog).set(updates).where(eq(activityLog.id, id));
+  }
+
+  async activityExistsByKey(
+    repositoryId: string,
+    eventType: string,
+    url: string | null | undefined,
+    activityDate: Date,
+  ): Promise<boolean> {
+    const conds = [
+      eq(activityLog.repositoryId, repositoryId),
+      eq(activityLog.eventType, eventType),
+      eq(activityLog.activityDate, activityDate),
+    ];
+    if (url) conds.push(eq(activityLog.url, url));
+    const rows = await db
+      .select({ id: activityLog.id })
+      .from(activityLog)
+      .where(and(...conds))
+      .limit(1);
+    return rows.length > 0;
   }
 
   async getActivityStats(repositoryId: string, days: number = 60): Promise<{ date: string; count: number }[]> {

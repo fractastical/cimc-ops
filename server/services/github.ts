@@ -28,6 +28,7 @@ interface GitHubRepo {
 
 export class GitHubService {
   private token: string | null = null;
+  private orgSyncInProgress: Promise<{ added: number; updated: number }> | null = null;
 
   async initialize() {
     const settings = await storage.getIntegrationSettings();
@@ -114,6 +115,20 @@ export class GitHubService {
   }
 
   async syncOrganization(org: string): Promise<{ added: number; updated: number }> {
+    // Single-flight: if a sync is already running, await it instead of starting
+    // a concurrent one (concurrent syncs could re-insert the same events).
+    if (this.orgSyncInProgress) {
+      return this.orgSyncInProgress;
+    }
+    this.orgSyncInProgress = this.syncOrganizationInternal(org);
+    try {
+      return await this.orgSyncInProgress;
+    } finally {
+      this.orgSyncInProgress = null;
+    }
+  }
+
+  private async syncOrganizationInternal(org: string): Promise<{ added: number; updated: number }> {
     const repos = await this.fetchOrganizationRepos(org);
     let added = 0;
     let updated = 0;
@@ -232,8 +247,14 @@ export class GitHubService {
             activityDate: new Date(date), // Use the actual commit date
           };
           
-          await storage.createActivityLog(activityLog as InsertActivityLog);
-          eventsAdded++;
+          // Upsert the daily commit row so re-syncs refresh counts instead of duplicating
+          const existingDay = await storage.findPushActivityByDate(repoId, date);
+          if (existingDay) {
+            await storage.updateActivityLog(existingDay.id, activityLog as InsertActivityLog);
+          } else {
+            await storage.createActivityLog(activityLog as InsertActivityLog);
+            eventsAdded++;
+          }
         }
       }
 
@@ -267,8 +288,11 @@ export class GitHubService {
               activityDate: eventDate,
             };
             
-            await storage.createActivityLog(activityLog);
-            eventsAdded++;
+            const prExists = await storage.activityExistsByKey(repoId, activityLog.eventType, activityLog.url, eventDate);
+            if (!prExists) {
+              await storage.createActivityLog(activityLog);
+              eventsAdded++;
+            }
           } else if (event.type === "IssuesEvent") {
             const issue = event.payload.issue;
             const eventDate = event.created_at ? new Date(event.created_at) : new Date();
@@ -283,8 +307,11 @@ export class GitHubService {
               activityDate: eventDate,
             };
             
-            await storage.createActivityLog(activityLog);
-            eventsAdded++;
+            const issueExists = await storage.activityExistsByKey(repoId, activityLog.eventType, activityLog.url, eventDate);
+            if (!issueExists) {
+              await storage.createActivityLog(activityLog);
+              eventsAdded++;
+            }
           }
         }
       }
