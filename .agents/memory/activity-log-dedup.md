@@ -34,3 +34,14 @@ is timezone-sensitive and semantically separate from live-sync dedup. Not unifie
 
 **Caveat for users:** the PR count is PR *event* rows (opened/closed/merged are
 separate rows sharing a URL), not distinct PRs.
+
+## Shared DB across dev + prod (critical gotcha)
+The deployed production app and the dev workspace point at the SAME database
+(`DATABASE_URL`). Production runs the sync scheduler every ~6h (dev disables the
+scheduler). A dedup fix applied only in dev does NOT stop inflation — the deployed
+old code keeps re-inserting duplicates into the shared DB every 6h until the fix is
+actually PUBLISHED. After deploying a sync/dedup change: re-run the cleanup once to
+clear duplicates the old prod code accumulated, then verify counts stay flat.
+**Symptom:** counts re-inflate hours/days after a dev cleanup even though dev re-sync
+is verified stable. Look at `created_at` clustering at 6h intervals (e.g. 01:20,
+07:20, 13:20, 19:20) = production scheduler, not dev.
