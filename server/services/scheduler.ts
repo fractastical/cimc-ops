@@ -24,6 +24,21 @@ function isBot(author: string): boolean {
   return BOT_PATTERNS.some(pattern => pattern.test(author));
 }
 
+// Count distinct pull requests, not PR lifecycle events. A single PR emits a
+// separate activity row for each action (opened/assigned/closed/merged); counting
+// rows over-reports PRs. Dedupe by (repo, PR number), falling back to url/id.
+function distinctPrCount(prEvents: any[]): number {
+  const keys = new Set<string>();
+  for (const p of prEvents) {
+    const num = p?.metadata?.number;
+    const key = num != null
+      ? `${p.repositoryId ?? ""}#${num}`
+      : (p?.url || p?.id || JSON.stringify(p));
+    keys.add(key);
+  }
+  return keys.size;
+}
+
 export type SummaryType = "repo" | "research" | "both";
 export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly";
 
@@ -250,7 +265,7 @@ export class SchedulerService {
         return {
           repo: repo.name,
           commits: commitActivities.length,
-          prs: repoPrs.length,
+          prs: distinctPrCount(repoPrs),
           prAuthors,
           longestMessage: longestMessage || null,
         };
@@ -259,8 +274,8 @@ export class SchedulerService {
 
     const summary = {
       totalCommits: commits.length,
-      totalPRs: humanPrs.length,
-      botPRs: botPrs.length,
+      totalPRs: distinctPrCount(humanPrs),
+      botPRs: distinctPrCount(botPrs),
       activeRepos: repoActivity.filter(r => r.commits > 0 || r.prs > 0).length,
       topContributor,
       repoActivity: repoActivity.filter(r => r.commits > 0 || r.prs > 0).slice(0, 5),
@@ -310,7 +325,7 @@ export class SchedulerService {
         return {
           repo: repo.name,
           commits: periodStats.filter(s => s.eventType === "push").length,
-          prs: repoPrs.length,
+          prs: distinctPrCount(repoPrs),
           prAuthors,
         };
       })
@@ -353,7 +368,7 @@ export class SchedulerService {
       periodLabel,
       // Repo stats
       totalCommits: commits.length,
-      totalPRs: humanPrs.length,
+      totalPRs: distinctPrCount(humanPrs),
       activeRepos: activeRepos.length,
       repoActivity: activeRepos.sort((a, b) => b.commits - a.commits).slice(0, 8),
       // Research stats
@@ -486,7 +501,7 @@ export class SchedulerService {
         return {
           repo: repo.name,
           commits: stats.filter(s => s.eventType === "push").length,
-          prs: repoPrs.length,
+          prs: distinctPrCount(repoPrs),
           prAuthors,
         };
       })
@@ -496,7 +511,7 @@ export class SchedulerService {
       timeframe,
       periodLabel,
       totalCommits: commits.length,
-      totalPRs: humanPrs.length,
+      totalPRs: distinctPrCount(humanPrs),
       totalIssues: issues.length,
       activeRepos: repoActivity.filter(r => r.commits > 0 || r.prs > 0).length,
       contributors,

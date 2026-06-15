@@ -45,3 +45,12 @@ clear duplicates the old prod code accumulated, then verify counts stay flat.
 **Symptom:** counts re-inflate hours/days after a dev cleanup even though dev re-sync
 is verified stable. Look at `created_at` clustering at 6h intervals (e.g. 01:20,
 07:20, 13:20, 19:20) = production scheduler, not dev.
+
+## PR counts = distinct PRs, not lifecycle events
+A single PR writes one activity_log row PER action (opened/assigned/closed/merged),
+so counting PR rows over-reports (coast: 93 PR rows = 50 distinct PRs). Any "number
+of PRs" metric must dedupe by `(repositoryId, metadata.number)` — see
+`distinctPrCount` in scheduler.ts. This is SEPARATE from re-sync row duplication:
+even with zero duplicate rows, row-counting still inflates because lifecycle actions
+are legitimately distinct rows. Slack + email summaries share one `summary` object,
+so fixing the count there fixes both.
