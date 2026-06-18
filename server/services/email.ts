@@ -355,6 +355,7 @@ export interface WeeklyAnalyticsData {
   papersByStage: { before: number; mid: number; after: number };
   contributors: string[];
   neurocompute?: NeurocomputeAnalytics;
+  appUsage?: Array<{ app: string; periodLabel: string; metrics: Array<{ label: string; value: string }> }>;
 }
 
 export async function sendWeeklyAnalyticsEmail(
@@ -379,6 +380,24 @@ export async function sendWeeklyAnalyticsEmail(
       </td>
     </tr>`;
   }).join('');
+
+  const appUsageSection = (data.appUsage && data.appUsage.length > 0) ? `
+    <div style="margin-bottom:28px;">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#0d9488;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #0d9488;">
+        App Usage
+      </div>
+      ${data.appUsage.map(app => `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:8px;">${escHtml(app.app)} <span style="font-size:11px;font-weight:400;color:#94a3b8;">${escHtml(app.periodLabel)}</span></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            ${app.metrics.map(m => `
+              <div style="flex:1;min-width:88px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:10px 12px;text-align:center;">
+                <div style="font-size:18px;font-weight:800;color:#0f172a;">${escHtml(m.value)}</div>
+                <div style="font-size:10px;color:#0f766e;font-weight:600;margin-top:2px;text-transform:uppercase;letter-spacing:0.03em;">${escHtml(m.label)}</div>
+              </div>`).join("")}
+          </div>
+        </div>`).join("")}
+    </div>` : "";
 
   const projectRows = data.projectUpdates.slice(0, 8).map(p => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;">
@@ -505,6 +524,8 @@ export async function sendWeeklyAnalyticsEmail(
         </div>
       </div>
     </div>` : ""}
+
+    ${appUsageSection}
 
     ${data.contributors.length > 0 ? `
     <div style="margin-bottom:28px;">

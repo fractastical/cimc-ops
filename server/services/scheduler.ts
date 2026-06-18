@@ -39,6 +39,17 @@ function distinctPrCount(prEvents: any[]): number {
   return keys.size;
 }
 
+function prettifyStatKey(k: string): string {
+  return k
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/\bAi\b/g, "AI");
+}
+
+function formatStatValue(v: number): string {
+  return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(1);
+}
+
 export type SummaryType = "repo" | "research" | "both";
 export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly";
 
@@ -411,7 +422,39 @@ export class SchedulerService {
         console.warn("Could not fetch Neurocompute analytics:", ncError);
       }
 
-      const emailData: WeeklyAnalyticsData = { ...(summary as WeeklyAnalyticsData), neurocompute };
+      // App Usage — stats pushed by registered external apps (excludes Neurocompute,
+      // which already has its own dedicated section above).
+      let appUsage: WeeklyAnalyticsData["appUsage"];
+      try {
+        const apps = await storage.getExternalApps();
+        const statRows = await storage.getExternalAppStats(undefined, 300);
+        const recentCutoff = subDays(new Date(), 9).getTime();
+        const usage: NonNullable<WeeklyAnalyticsData["appUsage"]> = [];
+        for (const app of apps) {
+          if (!app.active || /neurocompute/i.test(app.name)) continue;
+          const rows = statRows.filter(r => r.appName === app.name);
+          if (rows.length === 0) continue;
+          // statRows are ordered most-recent-first; prefer the latest weekly row
+          // within the recency window, else fall back to the latest daily row.
+          const inWindow = rows.filter(r => new Date(r.receivedAt).getTime() >= recentCutoff);
+          if (inWindow.length === 0) continue;
+          const chosen = inWindow.find(r => r.periodType === "weekly") ?? inWindow[0];
+          const stats = (chosen.stats || {}) as Record<string, unknown>;
+          const metrics = Object.entries(stats)
+            .filter(([k, v]) => k !== "period_label" && typeof v === "number" && !Number.isNaN(v))
+            .sort((a, b) => (b[1] as number) - (a[1] as number))
+            .slice(0, 8)
+            .map(([k, v]) => ({ label: prettifyStatKey(k), value: formatStatValue(v as number) }));
+          if (metrics.length === 0) continue;
+          const label = (stats.period_label as string) || `${chosen.periodType} · ${chosen.periodDate}`;
+          usage.push({ app: app.name, periodLabel: label, metrics });
+        }
+        if (usage.length > 0) appUsage = usage;
+      } catch (appErr) {
+        console.warn("Could not build app usage section:", appErr);
+      }
+
+      const emailData: WeeklyAnalyticsData = { ...(summary as WeeklyAnalyticsData), neurocompute, appUsage };
       const analyticsSettings = await storage.getIntegrationSettings();
       if (analyticsSettings?.enableWeeklyAnalyticsEmail !== false) {
         const analyticsRecipients = analyticsSettings?.weeklyAnalyticsEmails
