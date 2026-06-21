@@ -1,5 +1,5 @@
 import { storage } from "../storage";
-import { splitGranteeNames } from "../utils";
+import { splitGranteeNames, isBot } from "../utils";
 import crypto from "crypto";
 
 interface SlackMessagePayload {
@@ -610,21 +610,34 @@ export class SlackService {
       return activityDate >= startDate;
     });
     
-    // Group activity by repo
-    const repoActivityMap = new Map<string, { commits: number; repoName: string }>();
+    // Group activity by repo (period-based counts, like commits). Match the
+    // scheduler's policy: dedupe issues/PRs by number (lifecycle events emit one
+    // row per action), count comments raw, and exclude bot authors from
+    // issue/PR/comment engagement.
+    const repoAgg = new Map<string, { commits: number; prNums: Set<string>; issueNums: Set<string>; comments: number; stars: number; repoName: string }>();
     for (const activity of repoActivity) {
+      const repo = repos.find((r: any) => r.id === activity.repositoryId);
+      if (!repo) continue;
+      const agg = repoAgg.get(repo.id) || { commits: 0, prNums: new Set<string>(), issueNums: new Set<string>(), comments: 0, stars: repo.stars ?? 0, repoName: repo.name };
+      const num = (activity as any)?.metadata?.number;
+      const key = num != null ? `${activity.repositoryId ?? ""}#${num}` : (activity.url || activity.id || JSON.stringify(activity));
       if (activity.eventType === "push") {
-        const repo = repos.find((r: any) => r.id === activity.repositoryId);
-        if (repo) {
-          const existing = repoActivityMap.get(repo.id) || { commits: 0, repoName: repo.name };
-          existing.commits++;
-          repoActivityMap.set(repo.id, existing);
-        }
+        agg.commits++;
+      } else if ((activity.eventType === "pull_request" || activity.eventType === "pull_request_merged") && !isBot(activity.author)) {
+        agg.prNums.add(key);
+      } else if (activity.eventType === "issues" && !isBot(activity.author)) {
+        agg.issueNums.add(key);
+      } else if (activity.eventType === "issue_comment" && !isBot(activity.author)) {
+        agg.comments++;
+      } else {
+        continue;
       }
+      repoAgg.set(repo.id, agg);
     }
-    const activeRepos = Array.from(repoActivityMap.entries())
-      .map(([id, data]) => ({ id, ...data }))
-      .sort((a, b) => b.commits - a.commits);
+    // Rank stars → issues → comments → commits (commits/PRs shown as info).
+    const activeRepos = Array.from(repoAgg.entries())
+      .map(([id, data]) => ({ id, repoName: data.repoName, stars: data.stars, commits: data.commits, prs: data.prNums.size, issues: data.issueNums.size, comments: data.comments }))
+      .sort((a, b) => (b.stars - a.stars) || (b.issues - a.issues) || (b.comments - a.comments) || (b.commits - a.commits));
     
     // Group updates by project
     const projectUpdateMap = new Map<string, any[]>();
@@ -644,6 +657,8 @@ export class SlackService {
     
     // Total commits
     const totalCommits = activeRepos.reduce((sum, r) => sum + r.commits, 0);
+    const totalIssues = activeRepos.reduce((sum, r) => sum + r.issues, 0);
+    const totalComments = activeRepos.reduce((sum, r) => sum + r.comments, 0);
 
     const blocks: any[] = [
       {
@@ -664,6 +679,13 @@ export class SlackService {
         fields: [
           { type: "mrkdwn", text: `*📦 Active Repos:*\n${activeRepos.length}` },
           { type: "mrkdwn", text: `*🚀 Commits:*\n${totalCommits}` },
+          { type: "mrkdwn", text: `*🐛 Issues:*\n${totalIssues}` },
+          { type: "mrkdwn", text: `*💬 Comments:*\n${totalComments}` }
+        ]
+      },
+      {
+        type: "section",
+        fields: [
           { type: "mrkdwn", text: `*🧬 Hypotheses:*\n${hypotheses.length}` },
           { type: "mrkdwn", text: `*🔗 Linked:*\n${linkedHypotheses.size}` }
         ]
@@ -678,9 +700,14 @@ export class SlackService {
         text: { type: "mrkdwn", text: "*📦 Repository Activity:*" }
       });
       
-      const repoLines = activeRepos.slice(0, 8).map(r => 
-        `• *${r.repoName}* — ${r.commits} commit${r.commits !== 1 ? "s" : ""}`
-      ).join("\n");
+      const repoLines = activeRepos.slice(0, 8).map(r => {
+        const starBadge = r.stars > 0 ? ` ⭐ ${r.stars}` : "";
+        const parts = [`${r.commits} commit${r.commits !== 1 ? "s" : ""}`];
+        if (r.prs > 0) parts.push(`${r.prs} PR${r.prs !== 1 ? "s" : ""}`);
+        if (r.issues > 0) parts.push(`${r.issues} issue${r.issues !== 1 ? "s" : ""}`);
+        if (r.comments > 0) parts.push(`${r.comments} comment${r.comments !== 1 ? "s" : ""}`);
+        return `• *${r.repoName}*${starBadge} — ${parts.join(", ")}`;
+      }).join("\n");
       
       blocks.push({
         type: "section",
@@ -887,22 +914,41 @@ export class SlackService {
     return await this.sendMessage(text);
   }
 
+  // Repos are ranked stars → issues → comments → commits, so always lead each
+  // line with the star count, then show the period activity counts beside it.
+  private repoStatLine(
+    r: { repo: string; stars?: number; commits: number; prs?: number; issues?: number; comments?: number; prAuthors?: string[] },
+    indent = "  ",
+  ): string {
+    const starBadge = r.stars && r.stars > 0 ? ` :star: ${r.stars}` : "";
+    let line = `${indent}• *${r.repo}*${starBadge}: ${r.commits} commit${r.commits !== 1 ? "s" : ""}`;
+    if (r.prs && r.prs > 0) {
+      line += `, ${r.prs} PR${r.prs !== 1 ? "s" : ""}`;
+      if (r.prAuthors && r.prAuthors.length > 0) {
+        line += ` (by ${r.prAuthors.join(", ")})`;
+      }
+    }
+    if (r.issues && r.issues > 0) {
+      line += `, ${r.issues} issue${r.issues !== 1 ? "s" : ""}`;
+    }
+    if (r.comments && r.comments > 0) {
+      line += `, ${r.comments} comment${r.comments !== 1 ? "s" : ""}`;
+    }
+    return line;
+  }
+
   async sendDailySummary(summary: {
     totalCommits: number;
     totalPRs: number;
     botPRs?: number;
+    totalIssues?: number;
+    totalComments?: number;
     activeRepos: number;
     topContributor: string;
-    repoActivity: Array<{ repo: string; commits: number; prs?: number; prAuthors?: string[]; longestMessage?: string | null }>;
+    repoActivity: Array<{ repo: string; stars?: number; commits: number; prs?: number; issues?: number; comments?: number; prAuthors?: string[]; longestMessage?: string | null }>;
   }) {
     const repoLines = summary.repoActivity.map(r => {
-      let line = `  • *${r.repo}*: ${r.commits} commits`;
-      if (r.prs && r.prs > 0) {
-        line += `, ${r.prs} PRs`;
-        if (r.prAuthors && r.prAuthors.length > 0) {
-          line += ` (by ${r.prAuthors.join(", ")})`;
-        }
-      }
+      let line = this.repoStatLine(r);
       if (r.longestMessage) {
         const msg = r.longestMessage.length > 150 
           ? r.longestMessage.substring(0, 147) + "..." 
@@ -916,6 +962,8 @@ export class SlackService {
                `• Total Commits: ${summary.totalCommits}\n` +
                `• Pull Requests: ${summary.totalPRs}` +
                (summary.botPRs && summary.botPRs > 0 ? ` (+ ${summary.botPRs} from bots)` : "") + `\n` +
+               (summary.totalIssues && summary.totalIssues > 0 ? `• Issues: ${summary.totalIssues}\n` : "") +
+               (summary.totalComments && summary.totalComments > 0 ? `• Issue Comments: ${summary.totalComments}\n` : "") +
                `• Active Repositories: ${summary.activeRepos}\n` +
                `• Top Contributor: ${summary.topContributor}\n\n` +
                `*Repository Activity:*\n` +
@@ -928,22 +976,14 @@ export class SlackService {
     totalCommits: number;
     totalPRs: number;
     totalIssues: number;
+    totalComments?: number;
     activeRepos: number;
     contributors: string[];
-    repoActivity: Array<{ repo: string; commits: number; prs: number; prAuthors?: string[] }>;
+    repoActivity: Array<{ repo: string; stars?: number; commits: number; prs: number; issues?: number; comments?: number; prAuthors?: string[] }>;
     weekStart: string;
     weekEnd: string;
   }) {
-    const repoLines = summary.repoActivity.map(r => {
-      let line = `  • *${r.repo}*: ${r.commits} commits`;
-      if (r.prs > 0) {
-        line += `, ${r.prs} PRs`;
-        if (r.prAuthors && r.prAuthors.length > 0) {
-          line += ` (by ${r.prAuthors.join(", ")})`;
-        }
-      }
-      return line;
-    }).join("\n");
+    const repoLines = summary.repoActivity.map(r => this.repoStatLine(r)).join("\n");
 
     const text = `:calendar: *Weekly GitHub Activity Summary*\n` +
                  `_${summary.weekStart} - ${summary.weekEnd}_\n\n` +
@@ -951,6 +991,7 @@ export class SlackService {
                  `• Total Commits: ${summary.totalCommits}\n` +
                  `• Pull Requests: ${summary.totalPRs}\n` +
                  `• Issues: ${summary.totalIssues}\n` +
+                 (summary.totalComments && summary.totalComments > 0 ? `• Issue Comments: ${summary.totalComments}\n` : "") +
                  `• Active Repositories: ${summary.activeRepos}\n` +
                  `• Contributors: ${summary.contributors.length}\n\n` +
                  `*Top Contributors:*\n` +
@@ -965,8 +1006,10 @@ export class SlackService {
     periodLabel: string;
     totalCommits: number;
     totalPRs: number;
+    totalIssues?: number;
+    totalComments?: number;
     activeRepos: number;
-    repoActivity: Array<{ repo: string; commits: number; prs: number; prAuthors?: string[] }>;
+    repoActivity: Array<{ repo: string; stars?: number; commits: number; prs: number; issues?: number; comments?: number; prAuthors?: string[] }>;
     totalResearchUpdates: number;
     projectsWithUpdates: number;
     projectUpdates: Array<{ name: string; updateCount: number }>;
@@ -983,18 +1026,17 @@ export class SlackService {
     if (summary.totalPRs > 0) {
       text += `• ${summary.totalPRs} pull requests\n`;
     }
+    if (summary.totalIssues && summary.totalIssues > 0) {
+      text += `• ${summary.totalIssues} issue${summary.totalIssues !== 1 ? "s" : ""}\n`;
+    }
+    if (summary.totalComments && summary.totalComments > 0) {
+      text += `• ${summary.totalComments} issue comment${summary.totalComments !== 1 ? "s" : ""}\n`;
+    }
     
     if (summary.repoActivity.length > 0) {
       text += `\n*Active Repositories:*\n`;
       for (const repo of summary.repoActivity.slice(0, 6)) {
-        text += `  • *${repo.repo}*: ${repo.commits} commit${repo.commits !== 1 ? "s" : ""}`;
-        if (repo.prs > 0) {
-          text += `, ${repo.prs} PR${repo.prs !== 1 ? "s" : ""}`;
-          if (repo.prAuthors && repo.prAuthors.length > 0) {
-            text += ` (by ${repo.prAuthors.join(", ")})`;
-          }
-        }
-        text += `\n`;
+        text += `${this.repoStatLine(repo)}\n`;
       }
       if (summary.repoActivity.length > 6) {
         text += `  _...and ${summary.repoActivity.length - 6} more_\n`;
@@ -1041,9 +1083,10 @@ export class SlackService {
     totalCommits: number;
     totalPRs: number;
     totalIssues: number;
+    totalComments?: number;
     activeRepos: number;
     contributors: string[];
-    repoActivity: Array<{ repo: string; commits: number; prs: number; prAuthors?: string[] }>;
+    repoActivity: Array<{ repo: string; stars?: number; commits: number; prs: number; issues?: number; comments?: number; prAuthors?: string[] }>;
   }) {
     const timeframeEmoji = {
       daily: ":sunrise:",
@@ -1053,16 +1096,7 @@ export class SlackService {
     }[summary.timeframe] || ":bar_chart:";
 
     const repoLines = summary.repoActivity.length > 0
-      ? summary.repoActivity.map(r => {
-          let line = `  • *${r.repo}*: ${r.commits} commits`;
-          if (r.prs > 0) {
-            line += `, ${r.prs} PRs`;
-            if (r.prAuthors && r.prAuthors.length > 0) {
-              line += ` (by ${r.prAuthors.join(", ")})`;
-            }
-          }
-          return line;
-        }).join("\n")
+      ? summary.repoActivity.map(r => this.repoStatLine(r)).join("\n")
       : "  No activity";
 
     const text = `${timeframeEmoji} *${summary.timeframe.charAt(0).toUpperCase() + summary.timeframe.slice(1)} Repository Summary*\n` +
@@ -1071,6 +1105,7 @@ export class SlackService {
                  `• Total Commits: ${summary.totalCommits}\n` +
                  `• Pull Requests: ${summary.totalPRs}\n` +
                  `• Issues: ${summary.totalIssues}\n` +
+                 (summary.totalComments && summary.totalComments > 0 ? `• Issue Comments: ${summary.totalComments}\n` : "") +
                  `• Active Repositories: ${summary.activeRepos}\n` +
                  `• Contributors: ${summary.contributors.length}\n\n` +
                  `*Top Contributors:*\n` +

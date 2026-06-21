@@ -346,8 +346,10 @@ export interface WeeklyAnalyticsData {
   periodLabel: string;
   totalCommits: number;
   totalPRs: number;
+  totalIssues?: number;
+  totalComments?: number;
   activeRepos: number;
-  repoActivity: Array<{ repo: string; commits: number; prs: number; prAuthors?: string[] }>;
+  repoActivity: Array<{ repo: string; stars?: number; commits: number; prs: number; issues?: number; comments?: number; prAuthors?: string[] }>;
   totalResearchUpdates: number;
   projectsWithUpdates: number;
   projectUpdates: Array<{ name: string; updateCount: number }>;
@@ -368,9 +370,15 @@ export async function sendWeeklyAnalyticsEmail(
   const repoRows = data.repoActivity.slice(0, 10).map((r, i) => {
     const bar = Math.round((r.commits / Math.max(data.totalCommits, 1)) * 100);
     const barColor = i === 0 ? "#10b981" : i < 3 ? "#3b82f6" : "#94a3b8";
+    const starCell = r.stars && r.stars > 0
+      ? `<span style="color:#f59e0b;">★</span> ${r.stars}`
+      : `<span style="color:#cbd5e1;">—</span>`;
     return `
     <tr style="border-bottom:1px solid #f1f5f9;">
       <td style="padding:10px 12px;font-size:13px;font-weight:600;color:#0f172a;font-family:monospace;">${escHtml(r.repo)}</td>
+      <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:right;">${starCell}</td>
+      <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:right;">${r.issues ?? 0}</td>
+      <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:right;">${r.comments ?? 0}</td>
       <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:right;">${r.commits}</td>
       <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:right;">${r.prs}</td>
       <td style="padding:10px 12px;min-width:80px;">
@@ -424,6 +432,14 @@ export async function sendWeeklyAnalyticsEmail(
         <div style="font-size:28px;font-weight:800;color:#2563eb;">${data.totalPRs}</div>
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#1d4ed8;margin-top:2px;">Pull Requests</div>
       </div>
+      <div style="flex:1;min-width:120px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#dc2626;">${data.totalIssues ?? 0}</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#b91c1c;margin-top:2px;">Issues</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#0d9488;">${data.totalComments ?? 0}</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#0f766e;margin-top:2px;">Comments</div>
+      </div>
       <div style="flex:1;min-width:120px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:16px;text-align:center;">
         <div style="font-size:28px;font-weight:800;color:#7c3aed;">${data.activeRepos}</div>
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6d28d9;margin-top:2px;">Active Repos</div>
@@ -444,6 +460,9 @@ export async function sendWeeklyAnalyticsEmail(
         <thead>
           <tr style="background:#f8fafc;">
             <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;text-align:left;">Repository</th>
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;text-align:right;">Stars</th>
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;text-align:right;">Issues</th>
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;text-align:right;">Comments</th>
             <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;text-align:right;">Pushes</th>
             <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;text-align:right;">PRs</th>
             <th style="padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;">Activity</th>

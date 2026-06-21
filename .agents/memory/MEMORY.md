@@ -1,2 +1,3 @@
 - [activity_log dedup invariant](activity-log-dedup.md) — GitHub sync re-fetches recent events; inserts MUST upsert push by (repo,metadata.date) and skip PR/issue by (repo,event_type,url,activity_date) or counts balloon.
 - [Weekly analytics email — App Usage](weekly-analytics-email.md) — registered apps push freeform stats to external_app_stats; render generically in email, exclude Neurocompute (has own live section).
+- [Repo activity counting & ranking](repo-activity-ranking.md) — every Slack/email surface (incl. /research summary) must dedupe PRs/issues by repo#number, raw comments/commits, exclude bots via shared utils.isBot, sort stars→issues→comments→commits.

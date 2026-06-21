@@ -312,6 +312,27 @@ export class GitHubService {
               await storage.createActivityLog(activityLog);
               eventsAdded++;
             }
+          } else if (event.type === "IssueCommentEvent") {
+            const issue = event.payload.issue;
+            const comment = event.payload.comment;
+            const eventDate = event.created_at ? new Date(event.created_at) : new Date();
+
+            const activityLog: InsertActivityLog = {
+              repositoryId: repoId,
+              eventType: "issue_comment",
+              author: event.actor?.login || "Unknown",
+              message: `commented on issue #${issue?.number}: ${issue?.title || "Issue"}`,
+              // Comment html_url is unique per comment — ideal dedup key.
+              url: comment?.html_url || issue?.html_url,
+              metadata: { action: event.payload.action, number: issue?.number },
+              activityDate: eventDate,
+            };
+
+            const commentExists = await storage.activityExistsByKey(repoId, activityLog.eventType, activityLog.url, eventDate);
+            if (!commentExists) {
+              await storage.createActivityLog(activityLog);
+              eventsAdded++;
+            }
           }
         }
       }
@@ -404,6 +425,21 @@ export class GitHubService {
           url: issue.html_url,
           metadata: { number: issue.number, action: payload.action },
           activityDate: issue.updated_at ? new Date(issue.updated_at) : new Date(),
+        };
+        break;
+
+      case "issue_comment":
+        const commentIssue = payload.issue;
+        const comment = payload.comment;
+
+        activityLog = {
+          repositoryId: repo.id,
+          eventType: "issue_comment",
+          author: comment?.user?.login || payload.sender?.login || "Unknown",
+          message: `Commented on issue #${commentIssue?.number}: ${commentIssue?.title || "Issue"}`,
+          url: comment?.html_url || commentIssue?.html_url,
+          metadata: { number: commentIssue?.number, action: payload.action },
+          activityDate: comment?.created_at ? new Date(comment.created_at) : new Date(),
         };
         break;
 

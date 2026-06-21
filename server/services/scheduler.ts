@@ -4,25 +4,10 @@ import { githubService } from "./github";
 import { emailService, WeeklyAnalyticsData } from "./email";
 import { gdriveService } from "./gdrive";
 import { parseTranscript } from "./transcript-parser";
-import { splitGranteeNames } from "../utils";
+import { splitGranteeNames, isBot } from "../utils";
 import { subDays, subMonths, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay, getDate, lastDayOfMonth, setDay, isBefore, addDays } from "date-fns";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-
-const BOT_PATTERNS = [
-  /\[bot\]$/i,
-  /^dependabot$/i,
-  /^renovate$/i,
-  /^github-actions$/i,
-  /^replit/i,
-  /^snyk-bot$/i,
-  /^greenkeeper$/i,
-  /^codecov$/i,
-];
-
-function isBot(author: string): boolean {
-  return BOT_PATTERNS.some(pattern => pattern.test(author));
-}
 
 // Count distinct pull requests, not PR lifecycle events. A single PR emits a
 // separate activity row for each action (opened/assigned/closed/merged); counting
@@ -37,6 +22,18 @@ function distinctPrCount(prEvents: any[]): number {
     keys.add(key);
   }
   return keys.size;
+}
+
+// Issues, like PRs, emit a row per lifecycle action (opened/closed/reopened).
+// Count distinct issues touched, not raw rows, to avoid over-reporting.
+function distinctIssueCount(issueEvents: any[]): number {
+  return distinctPrCount(issueEvents);
+}
+
+// Repo leaderboard sort: stars first, then issue activity, then comments, then
+// commits as a final tiebreaker. Commits/PRs are shown as info, not primary rank.
+function rankRepos<T extends { stars: number; issues: number; comments: number; commits: number }>(a: T, b: T): number {
+  return (b.stars - a.stars) || (b.issues - a.issues) || (b.comments - a.comments) || (b.commits - a.commits);
 }
 
 function prettifyStatKey(k: string): string {
@@ -238,6 +235,8 @@ export class SchedulerService {
     const botPrs = activities.filter(a => 
       (a.eventType === "pull_request" || a.eventType === "pull_request_merged") && isBot(a.author)
     );
+    const issues = activities.filter(a => a.eventType === "issues" && !isBot(a.author));
+    const comments = activities.filter(a => a.eventType === "issue_comment" && !isBot(a.author));
     
     // Skip posting if zero activity
     if (activities.length === 0) {
@@ -261,6 +260,8 @@ export class SchedulerService {
         const repoPrs = stats.filter(s => 
           (s.eventType === "pull_request" || s.eventType === "pull_request_merged") && !isBot(s.author)
         );
+        const repoIssues = stats.filter(s => s.eventType === "issues" && !isBot(s.author));
+        const repoComments = stats.filter(s => s.eventType === "issue_comment" && !isBot(s.author));
         
         // Find the longest commit message from this repo
         let longestMessage = "";
@@ -275,21 +276,29 @@ export class SchedulerService {
         
         return {
           repo: repo.name,
+          stars: repo.stars ?? 0,
           commits: commitActivities.length,
           prs: distinctPrCount(repoPrs),
+          issues: distinctIssueCount(repoIssues),
+          comments: repoComments.length,
           prAuthors,
           longestMessage: longestMessage || null,
         };
       })
     );
 
+    const hasActivity = (r: { commits: number; prs: number; issues: number; comments: number }) =>
+      r.commits > 0 || r.prs > 0 || r.issues > 0 || r.comments > 0;
+
     const summary = {
       totalCommits: commits.length,
       totalPRs: distinctPrCount(humanPrs),
       botPRs: distinctPrCount(botPrs),
-      activeRepos: repoActivity.filter(r => r.commits > 0 || r.prs > 0).length,
+      totalIssues: distinctIssueCount(issues),
+      totalComments: comments.length,
+      activeRepos: repoActivity.filter(hasActivity).length,
       topContributor,
-      repoActivity: repoActivity.filter(r => r.commits > 0 || r.prs > 0).slice(0, 5),
+      repoActivity: repoActivity.filter(hasActivity).sort(rankRepos).slice(0, 5),
     };
 
     await slackService.sendDailySummary(summary);
@@ -319,6 +328,8 @@ export class SchedulerService {
     const humanPrs = activities.filter(a => 
       (a.eventType === "pull_request" || a.eventType === "pull_request_merged") && !isBot(a.author)
     );
+    const issues = activities.filter(a => a.eventType === "issues" && !isBot(a.author));
+    const comments = activities.filter(a => a.eventType === "issue_comment" && !isBot(a.author));
 
     // Get repo activity for the specific period
     const repos = await storage.getActiveRepositories();
@@ -332,16 +343,21 @@ export class SchedulerService {
         const repoPrs = periodStats.filter(s => 
           (s.eventType === "pull_request" || s.eventType === "pull_request_merged") && !isBot(s.author)
         );
+        const repoIssues = periodStats.filter(s => s.eventType === "issues" && !isBot(s.author));
+        const repoComments = periodStats.filter(s => s.eventType === "issue_comment" && !isBot(s.author));
         const prAuthors = Array.from(new Set(repoPrs.map(p => p.author)));
         return {
           repo: repo.name,
+          stars: repo.stars ?? 0,
           commits: periodStats.filter(s => s.eventType === "push").length,
           prs: distinctPrCount(repoPrs),
+          issues: distinctIssueCount(repoIssues),
+          comments: repoComments.length,
           prAuthors,
         };
       })
     );
-    const activeRepos = allRepoStats.filter(r => r.commits > 0 || r.prs > 0);
+    const activeRepos = allRepoStats.filter(r => r.commits > 0 || r.prs > 0 || r.issues > 0 || r.comments > 0);
 
     // Gather research activity - filter to exact period range
     const timeline = await storage.getResearchTimeline();
@@ -380,8 +396,10 @@ export class SchedulerService {
       // Repo stats
       totalCommits: commits.length,
       totalPRs: distinctPrCount(humanPrs),
+      totalIssues: distinctIssueCount(issues),
+      totalComments: comments.length,
       activeRepos: activeRepos.length,
-      repoActivity: activeRepos.sort((a, b) => b.commits - a.commits).slice(0, 8),
+      repoActivity: activeRepos.sort(rankRepos).slice(0, 8),
       // Research stats
       totalResearchUpdates,
       projectsWithUpdates: projectUpdates.length,
@@ -523,6 +541,7 @@ export class SchedulerService {
       (a.eventType === "pull_request" || a.eventType === "pull_request_merged") && !isBot(a.author)
     );
     const issues = activities.filter(a => a.eventType === "issues" && !isBot(a.author));
+    const comments = activities.filter(a => a.eventType === "issue_comment" && !isBot(a.author));
     
     const authorCounts = new Map<string, number>();
     activities.filter(a => !isBot(a.author)).forEach(a => {
@@ -540,25 +559,34 @@ export class SchedulerService {
         const repoPrs = stats.filter(s => 
           (s.eventType === "pull_request" || s.eventType === "pull_request_merged") && !isBot(s.author)
         );
+        const repoIssues = stats.filter(s => s.eventType === "issues" && !isBot(s.author));
+        const repoComments = stats.filter(s => s.eventType === "issue_comment" && !isBot(s.author));
         const prAuthors = Array.from(new Set(repoPrs.map(p => p.author)));
         return {
           repo: repo.name,
+          stars: repo.stars ?? 0,
           commits: stats.filter(s => s.eventType === "push").length,
           prs: distinctPrCount(repoPrs),
+          issues: distinctIssueCount(repoIssues),
+          comments: repoComments.length,
           prAuthors,
         };
       })
     );
+
+    const hasActivity = (r: { commits: number; prs: number; issues: number; comments: number }) =>
+      r.commits > 0 || r.prs > 0 || r.issues > 0 || r.comments > 0;
 
     const summary = {
       timeframe,
       periodLabel,
       totalCommits: commits.length,
       totalPRs: distinctPrCount(humanPrs),
-      totalIssues: issues.length,
-      activeRepos: repoActivity.filter(r => r.commits > 0 || r.prs > 0).length,
+      totalIssues: distinctIssueCount(issues),
+      totalComments: comments.length,
+      activeRepos: repoActivity.filter(hasActivity).length,
       contributors,
-      repoActivity: repoActivity.filter(r => r.commits > 0 || r.prs > 0),
+      repoActivity: repoActivity.filter(hasActivity).sort(rankRepos),
     };
 
     await slackService.sendRepoSummary(summary);
