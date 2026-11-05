@@ -855,3 +855,63 @@ export async function getNotionPage(pageId: string): Promise<NotionPageContent> 
   if (!res.ok) throw new Error("Failed to fetch page");
   return res.json();
 }
+
+export type ThingStatus = "open" | "doing" | "done" | "dropped";
+
+export interface Thing {
+  id: string;
+  title: string;
+  notes: string | null;
+  status: ThingStatus;
+  url: string | null;
+  area: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+async function readError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json();
+    if (typeof body?.error === "string") return body.error;
+  } catch {
+    // The response was not JSON.
+  }
+  return fallback;
+}
+
+export async function getThings(): Promise<Thing[]> {
+  const res = await fetch("/api/things");
+  if (!res.ok) throw new Error(await readError(res, "Failed to load things"));
+  return res.json();
+}
+
+export async function createThing(thing: {
+  title: string;
+  notes?: string | null;
+  status?: ThingStatus;
+  url?: string | null;
+  area?: string | null;
+}): Promise<Thing> {
+  const res = await fetch("/api/things", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(thing),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Failed to add thing"));
+  return res.json();
+}
+
+export async function updateThing(id: string, updates: Partial<Thing>): Promise<Thing> {
+  const res = await fetch(`/api/things/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Failed to update thing"));
+  return res.json();
+}
+
+export async function deleteThing(id: string): Promise<void> {
+  const res = await fetch(`/api/things/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await readError(res, "Failed to delete thing"));
+}

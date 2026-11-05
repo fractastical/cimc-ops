@@ -7,6 +7,7 @@ import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
+import Things from "@/pages/Things";
 import Settings from "@/pages/Settings";
 import Research from "@/pages/Research";
 import Milestones from "@/pages/Milestones";
@@ -30,6 +31,7 @@ function DashboardRouter() {
   return (
     <DashboardLayout>
       <Switch>
+        <Route path="/things" component={Things} />
         <Route path="/dashboard" component={Home} />
         <Route path="/repos" component={Home} />
         <Route path="/slackbot" component={Home} />
@@ -71,7 +73,7 @@ function AuthenticatedApp() {
 
   useEffect(() => {
     if (authState === "authenticated" && (location === "/login" || location === "/")) {
-      setLocation("/dashboard");
+      setLocation("/things");
     }
   }, [authState, location, setLocation]);
 
@@ -86,7 +88,7 @@ function AuthenticatedApp() {
   if (authState === "unauthenticated") {
     return <Login onLogin={() => {
       setAuthState("authenticated");
-      setLocation("/dashboard");
+      setLocation("/things");
     }} />;
   }
 
@@ -109,6 +111,9 @@ function App() {
           <Route path="/viz/github" component={VizGithub} />
           <Route path="/viz/research" component={VizResearch} />
           <Route path="/viz/comms" component={VizComms} />
+          <Route path="/things">
+            <AuthenticatedApp />
+          </Route>
           <Route path="/dashboard">
             <AuthenticatedApp />
           </Route>

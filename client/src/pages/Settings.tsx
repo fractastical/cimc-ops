@@ -43,7 +43,7 @@ export default function Settings() {
     enableMonthlyReminder: false,
     enableAdminSubmissionEmails: false,
     enableWeeklyAnalyticsEmail: true,
-    weeklyAnalyticsEmails: "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai",
+    weeklyAnalyticsEmails: "",
   });
 
   const [milestoneQuestions, setMilestoneQuestions] = useState<{ label: string; required: boolean }[]>([
@@ -71,7 +71,7 @@ export default function Settings() {
         enableMonthlyReminder: settings.enableMonthlyReminder ?? false,
         enableAdminSubmissionEmails: settings.enableAdminSubmissionEmails ?? false,
         enableWeeklyAnalyticsEmail: settings.enableWeeklyAnalyticsEmail ?? true,
-        weeklyAnalyticsEmails: settings.weeklyAnalyticsEmails || "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai",
+        weeklyAnalyticsEmails: settings.weeklyAnalyticsEmails || "",
       });
       if (settings.milestoneQuestions && Array.isArray(settings.milestoneQuestions)) {
         setMilestoneQuestions(settings.milestoneQuestions);
@@ -536,7 +536,7 @@ export default function Settings() {
                       <Label className="font-mono text-xs text-muted-foreground">Analytics Email Recipients</Label>
                       <Input
                         data-testid="input-analytics-emails"
-                        placeholder="emily@cimc.ai,erik@cimc.ai"
+                        placeholder="you@example.com"
                         value={formData.weeklyAnalyticsEmails}
                         onChange={(e) => setFormData({ ...formData, weeklyAnalyticsEmails: e.target.value })}
                         className="font-mono text-sm"

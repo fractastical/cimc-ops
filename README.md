@@ -1,3 +1,28 @@
+# Things
+
+Personal tracker forked from [cimcai/research-data-viz](https://github.com/cimcai/research-data-viz)
+(the app that used to live at `cimc-ops` / cimcops.org).
+
+Sign in with `SITE_PASSWORD`, then use **Things** to keep a board of what you
+are doing, what is open, what is done, and what you dropped. Each thing has a
+title, optional notes, an area, and a link. The rest of the upstream console
+(repos, research projects, papers, milestones, Slack) is still here.
+
+This fork does not email CIMC staff or sync `cimcai/hypotheses` and
+`cimcai/paper-pipeline` on its own. Set recipients in Settings, and set
+`HYPOTHESES_REPO` or `PAPERS_REPO` to `owner/repo` if you want those syncs.
+Google sign-in, if you wire it up, follows `ALLOWED_EMAILS` or
+`ALLOWED_EMAIL_DOMAIN`. With neither set, any Google account can sign in.
+
+```bash
+npm install
+# DATABASE_URL, SESSION_SECRET, SITE_PASSWORD — see .env.example
+npm run db:push
+npm run dev
+```
+
+## Upstream
+
 # Research Operations Mission Control
 
 A real-time monitoring and automation platform for research teams. It brings

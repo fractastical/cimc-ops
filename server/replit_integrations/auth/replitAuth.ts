@@ -59,9 +59,10 @@ export async function setupAuth(app: Express) {
     if ((req.session as any)?.authenticated) {
       res.json({ 
         authenticated: true,
-        email: "admin@cimc.ai",
-        firstName: "Admin",
-        lastName: "User"
+        email: process.env.OWNER_EMAIL || null,
+        firstName: "You",
+        lastName: null,
+        isAdmin: true
       });
     } else {
       res.status(401).json({ message: "Unauthorized" });

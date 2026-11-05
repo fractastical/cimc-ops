@@ -10,6 +10,8 @@ import {
   insertTeamLeadSchema,
   insertAdminEmailSchema,
   insertMicrograntApplicationSchema,
+  type InsertThing,
+  type ThingStatus,
 } from "@shared/schema";
 import { splitGranteeNames } from "./utils";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -45,20 +47,27 @@ async function autoSyncOnStartup() {
         }
       }
       
-      // Also sync hypotheses from default repo
-      try {
-        const result = await githubService.syncHypotheses("cimcai", "hypotheses", "");
-        console.log(`Auto-synced hypotheses: ${result.synced} synced, ${result.updated} updated`);
-      } catch (error) {
-        console.error("Failed to auto-sync hypotheses:", error);
+      // Hypotheses and papers sync only when this fork is pointed at a repo.
+      // Upstream hardcoded cimcai/hypotheses and cimcai/paper-pipeline.
+      const hypothesesRepo = process.env.HYPOTHESES_REPO;
+      if (hypothesesRepo?.includes("/")) {
+        const [owner, repo] = hypothesesRepo.split("/");
+        try {
+          const result = await githubService.syncHypotheses(owner, repo, "");
+          console.log(`Auto-synced hypotheses from ${hypothesesRepo}: ${result.synced} synced, ${result.updated} updated`);
+        } catch (error) {
+          console.error("Failed to auto-sync hypotheses:", error);
+        }
       }
-
-      // Also sync papers from paper-pipeline repo
-      try {
-        const papersResult = await githubService.syncPapers();
-        console.log(`Auto-synced papers: ${papersResult.synced} new, ${papersResult.updated} updated`);
-      } catch (error) {
-        console.error("Failed to auto-sync papers:", error);
+      const papersRepo = process.env.PAPERS_REPO;
+      if (papersRepo?.includes("/")) {
+        const [owner, repo] = papersRepo.split("/");
+        try {
+          const papersResult = await githubService.syncPapers(owner, repo);
+          console.log(`Auto-synced papers from ${papersRepo}: ${papersResult.synced} new, ${papersResult.updated} updated`);
+        } catch (error) {
+          console.error("Failed to auto-sync papers:", error);
+        }
       }
 
       // Capture website screenshots for repos with a homepage (once / when stale)
@@ -74,6 +83,18 @@ async function autoSyncOnStartup() {
   } catch (error) {
     console.error("Auto-sync failed:", error);
   }
+}
+
+const THING_STATUSES = ["open", "doing", "done", "dropped"] as const;
+
+function isThingStatus(value: unknown): value is ThingStatus {
+  return typeof value === "string" && (THING_STATUSES as readonly string[]).includes(value);
+}
+
+function emptyToNull(val: unknown): string | null {
+  if (typeof val !== "string") return null;
+  const trimmed = val.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function parseJsonArray(val: string | null | undefined): string[] {
@@ -612,7 +633,7 @@ export async function registerRoutes(
     try {
       await schedulerService.sendWeeklySummary();
       const settings = await storage.getIntegrationSettings();
-      const recipients = settings?.weeklyAnalyticsEmails || "emily@cimc.ai,erik@cimc.ai,joel@cimc.ai";
+      const recipients = settings?.weeklyAnalyticsEmails || "(none configured)";
       res.json({ success: true, message: `Weekly analytics email sent to: ${recipients}` });
     } catch (error) {
       console.error("Error sending weekly analytics email:", error);
@@ -774,6 +795,74 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error handling Slack interactive:", error);
       res.status(500).json({ error: "Failed to handle interaction" });
+    }
+  });
+
+  // ============ Things ============
+  app.get("/api/things", async (_req, res) => {
+    try {
+      res.json(await storage.getThings());
+    } catch (error) {
+      console.error("Error fetching things:", error);
+      res.status(500).json({ error: "Failed to fetch things" });
+    }
+  });
+
+  app.post("/api/things", async (req, res) => {
+    try {
+      const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
+      if (!title) return res.status(400).json({ error: "Title is required" });
+      const status = req.body?.status ?? "open";
+      if (!isThingStatus(status)) {
+        return res.status(400).json({ error: "Unknown status" });
+      }
+      const created = await storage.createThing({
+        title,
+        notes: emptyToNull(req.body?.notes),
+        status,
+        url: emptyToNull(req.body?.url),
+        area: emptyToNull(req.body?.area),
+      });
+      res.json(created);
+    } catch (error) {
+      console.error("Error creating thing:", error);
+      res.status(500).json({ error: "Failed to create thing" });
+    }
+  });
+
+  app.patch("/api/things/:id", async (req, res) => {
+    try {
+      const updates: Partial<InsertThing> = {};
+      if (req.body?.title !== undefined) {
+        const title = String(req.body.title).trim();
+        if (!title) return res.status(400).json({ error: "Title is required" });
+        updates.title = title;
+      }
+      if (req.body?.status !== undefined) {
+        if (!isThingStatus(req.body.status)) {
+          return res.status(400).json({ error: "Unknown status" });
+        }
+        updates.status = req.body.status;
+      }
+      if (req.body?.notes !== undefined) updates.notes = emptyToNull(req.body.notes);
+      if (req.body?.url !== undefined) updates.url = emptyToNull(req.body.url);
+      if (req.body?.area !== undefined) updates.area = emptyToNull(req.body.area);
+      const updated = await storage.updateThing(req.params.id, updates);
+      if (!updated) return res.status(404).json({ error: "Thing not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating thing:", error);
+      res.status(500).json({ error: "Failed to update thing" });
+    }
+  });
+
+  app.delete("/api/things/:id", async (req, res) => {
+    try {
+      await storage.deleteThing(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting thing:", error);
+      res.status(500).json({ error: "Failed to delete thing" });
     }
   });
 
@@ -1167,11 +1256,18 @@ export async function registerRoutes(
       let filename = "";
       let sha = "";
 
-      // Push to GitHub if requested
+      // Push to GitHub if requested. This fork does not write to cimcai by default.
       if (pushToGitHub) {
+        const hypothesesRepo = process.env.HYPOTHESES_REPO || "";
+        const [owner, repo] = hypothesesRepo.split("/");
+        if (!owner || !repo) {
+          return res.status(400).json({
+            error: "Set HYPOTHESES_REPO=owner/repo before pushing a hypothesis",
+          });
+        }
         const pushResult = await githubService.pushHypothesis(
-          "cimcai",
-          "hypotheses", 
+          owner,
+          repo,
           title,
           content
         );
@@ -1185,7 +1281,7 @@ export async function registerRoutes(
         filename = pushResult.filename;
         
         // Sync to get the SHA
-        await githubService.syncHypotheses("cimcai", "hypotheses", "");
+        await githubService.syncHypotheses(owner, repo, "");
         
         // Get the newly created hypothesis
         const hypothesis = await storage.getHypothesisByFilename(filename);
@@ -1243,7 +1339,14 @@ export async function registerRoutes(
 
   app.post("/api/papers/sync", async (req, res) => {
     try {
-      const result = await githubService.syncPapers("cimcai", "paper-pipeline");
+      const papersRepo = process.env.PAPERS_REPO || "";
+      const [owner, repo] = papersRepo.split("/");
+      if (!owner || !repo) {
+        return res.status(400).json({
+          error: "Set PAPERS_REPO=owner/repo before syncing papers",
+        });
+      }
+      const result = await githubService.syncPapers(owner, repo);
       res.json(result);
     } catch (error) {
       console.error("Error syncing papers:", error);

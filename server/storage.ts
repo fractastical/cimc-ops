@@ -41,6 +41,8 @@ import {
   type InsertExternalApp,
   type ExternalAppStats,
   type InsertExternalAppStats,
+  type Thing,
+  type InsertThing,
   localUsers,
   integrationSettings,
   repositories,
@@ -63,6 +65,7 @@ import {
   gdriveImportedFiles,
   externalApps,
   externalAppStats,
+  things,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
@@ -229,6 +232,13 @@ export interface IStorage {
   // External App Stats
   createExternalAppStats(stats: InsertExternalAppStats): Promise<ExternalAppStats>;
   getExternalAppStats(appName?: string, limit?: number): Promise<ExternalAppStats[]>;
+
+  // Things
+  getThings(): Promise<Thing[]>;
+  getThing(id: string): Promise<Thing | undefined>;
+  createThing(thing: InsertThing): Promise<Thing>;
+  updateThing(id: string, updates: Partial<InsertThing>): Promise<Thing | undefined>;
+  deleteThing(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1176,6 +1186,34 @@ export class DatabaseStorage implements IStorage {
       return query.where(eq(externalAppStats.appName, appName)).orderBy(desc(externalAppStats.receivedAt)).limit(limit);
     }
     return query.orderBy(desc(externalAppStats.receivedAt)).limit(limit);
+  }
+
+  // Things
+  async getThings(): Promise<Thing[]> {
+    return db.select().from(things).orderBy(desc(things.updatedAt));
+  }
+
+  async getThing(id: string): Promise<Thing | undefined> {
+    const [thing] = await db.select().from(things).where(eq(things.id, id));
+    return thing || undefined;
+  }
+
+  async createThing(thing: InsertThing): Promise<Thing> {
+    const [created] = await db.insert(things).values(thing).returning();
+    return created;
+  }
+
+  async updateThing(id: string, updates: Partial<InsertThing>): Promise<Thing | undefined> {
+    const [updated] = await db
+      .update(things)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(things.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteThing(id: string): Promise<void> {
+    await db.delete(things).where(eq(things.id, id));
   }
 }
 

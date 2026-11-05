@@ -50,7 +50,7 @@ export const integrationSettings = pgTable("integration_settings", {
   gdriveAutoSync: boolean("gdrive_auto_sync").default(false).notNull(),
   lastGdriveSyncAt: timestamp("last_gdrive_sync_at"),
   lastGithubSyncAt: timestamp("last_github_sync_at"),
-  weeklyAnalyticsEmails: text("weekly_analytics_emails").default("emily@cimc.ai,erik@cimc.ai,joel@cimc.ai").notNull(),
+  weeklyAnalyticsEmails: text("weekly_analytics_emails").default("").notNull(),
   enableMonthlyReminder: boolean("enable_monthly_reminder").default(false).notNull(),
   enableAdminSubmissionEmails: boolean("enable_admin_submission_emails").default(false).notNull(),
   enableWeeklyAnalyticsEmail: boolean("enable_weekly_analytics_email").default(true).notNull(),
@@ -467,3 +467,27 @@ export const externalAppStats = pgTable("external_app_stats", {
 export const insertExternalAppStatsSchema = createInsertSchema(externalAppStats).omit({ id: true, receivedAt: true });
 export type InsertExternalAppStats = z.infer<typeof insertExternalAppStatsSchema>;
 export type ExternalAppStats = typeof externalAppStats.$inferSelect;
+
+// Things — the personal tracker on this fork. One row is one thing being tracked.
+export const thingStatuses = ["open", "doing", "done", "dropped"] as const;
+export type ThingStatus = (typeof thingStatuses)[number];
+
+export const things = pgTable("things", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  notes: text("notes"),
+  status: text("status").default("open").notNull(),
+  url: text("url"),
+  area: text("area"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertThingSchema = createInsertSchema(things).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertThing = z.infer<typeof insertThingSchema>;
+export type Thing = typeof things.$inferSelect;

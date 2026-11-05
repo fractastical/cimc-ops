@@ -364,9 +364,10 @@ export async function sendWeeklyAnalyticsEmail(
   data: WeeklyAnalyticsData,
   recipients?: string[]
 ): Promise<{ success: boolean; error?: string }> {
-  const to = recipients && recipients.length > 0
-    ? recipients
-    : ["emily@cimc.ai", "erik@cimc.ai", "joel@cimc.ai"];
+  const to = recipients?.filter(Boolean) ?? [];
+  if (to.length === 0) {
+    return { success: false, error: "No analytics recipients configured" };
+  }
   const repoRows = data.repoActivity.slice(0, 10).map((r, i) => {
     const bar = Math.round((r.commits / Math.max(data.totalCommits, 1)) * 100);
     const barColor = i === 0 ? "#10b981" : i < 3 ? "#3b82f6" : "#94a3b8";

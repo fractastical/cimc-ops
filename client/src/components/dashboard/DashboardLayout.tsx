@@ -6,6 +6,7 @@ import {
   GitGraph, 
   Bot, 
   FlaskConical, 
+  ListTodo,
   Target,
   Settings, 
   SlidersHorizontal,
@@ -69,6 +70,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   };
 
   const navItems = [
+    { icon: ListTodo, label: "Things", path: "/things" },
     { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
     { icon: FlaskConical, label: "Research", path: "/research" },
     { icon: Lightbulb, label: "Hypotheses", path: "/hypotheses" },
@@ -101,7 +103,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
             <div className="h-6 w-6 bg-primary rounded-sm mr-3 shadow-[0_0_10px_hsl(var(--primary))] animate-pulse" />
             <span className="font-mono font-bold text-lg tracking-widest text-sidebar-foreground">
-                CIMC<span className="text-primary">.AI</span>
+                THINGS
             </span>
         </div>
 

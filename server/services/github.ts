@@ -774,7 +774,7 @@ export class GitHubService {
   }
 
   // Fetch papers from the paper-pipeline repository
-  async fetchPapers(owner: string = "cimcai", repo: string = "paper-pipeline"): Promise<{
+  async fetchPapers(owner: string, repo: string): Promise<{
     papers: Array<{
       paperId: string;
       latexFile?: string;
@@ -833,7 +833,7 @@ export class GitHubService {
   }
 
   // Sync papers to the database with automatic collaborator extraction
-  async syncPapers(owner: string = "cimcai", repo: string = "paper-pipeline"): Promise<{
+  async syncPapers(owner: string, repo: string): Promise<{
     synced: number;
     updated: number;
     errors: string[];

@@ -16,9 +16,9 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <Rocket className="h-5 w-5 text-primary" />
             <span className="font-mono text-lg font-bold">
-              CIMC<span className="text-primary">.AI</span>
+              Things
             </span>
-            <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">Research Operations</span>
+            <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">Personal tracker</span>
           </div>
           <div className="flex items-center gap-4">
             <a

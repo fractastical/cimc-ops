@@ -115,20 +115,26 @@ export class SchedulerService {
       // Sync GitHub repos and activity
       await this.syncGitHub();
       
-      // Sync hypotheses from default repo
-      try {
-        const result = await githubService.syncHypotheses("cimcai", "hypotheses", "");
-        console.log(`Pre-summary hypotheses sync: ${result.synced} synced, ${result.updated} updated`);
-      } catch (error) {
-        console.error("Failed to sync hypotheses before summary:", error);
+      const hypothesesRepo = process.env.HYPOTHESES_REPO;
+      if (hypothesesRepo?.includes("/")) {
+        const [owner, repo] = hypothesesRepo.split("/");
+        try {
+          const result = await githubService.syncHypotheses(owner, repo, "");
+          console.log(`Pre-summary hypotheses sync (${hypothesesRepo}): ${result.synced} synced, ${result.updated} updated`);
+        } catch (error) {
+          console.error("Failed to sync hypotheses before summary:", error);
+        }
       }
-      
-      // Sync papers
-      try {
-        const papersResult = await githubService.syncPapers();
-        console.log(`Pre-summary papers sync: ${papersResult.synced} new, ${papersResult.updated} updated`);
-      } catch (error) {
-        console.error("Failed to sync papers before summary:", error);
+
+      const papersRepo = process.env.PAPERS_REPO;
+      if (papersRepo?.includes("/")) {
+        const [owner, repo] = papersRepo.split("/");
+        try {
+          const papersResult = await githubService.syncPapers(owner, repo);
+          console.log(`Pre-summary papers sync (${papersRepo}): ${papersResult.synced} new, ${papersResult.updated} updated`);
+        } catch (error) {
+          console.error("Failed to sync papers before summary:", error);
+        }
       }
       
       console.log("Fresh data sync completed");

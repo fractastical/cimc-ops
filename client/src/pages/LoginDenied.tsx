@@ -28,8 +28,8 @@ export default function LoginDenied() {
           <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
             <p className="font-medium text-foreground mb-2">Access Requirements:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>You must have a @cimc.ai email address</li>
-              <li>Sign in using your Google account linked to your CIMC email</li>
+              <li>Use the site password on the sign-in page</li>
+              <li>Google sign-in, if enabled, only accepts addresses in ALLOWED_EMAILS or ALLOWED_EMAIL_DOMAIN</li>
             </ul>
           </div>
           

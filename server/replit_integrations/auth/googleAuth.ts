@@ -28,6 +28,18 @@ export function getSession() {
   });
 }
 
+function emailAllowed(email: string | undefined): boolean {
+  if (!email) return false;
+  const allowList = (process.env.ALLOWED_EMAILS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (allowList.length > 0) return allowList.includes(email);
+  const domain = (process.env.ALLOWED_EMAIL_DOMAIN || "").replace(/^@/, "").trim().toLowerCase();
+  if (domain) return email.endsWith(`@${domain}`);
+  return true;
+}
+
 async function upsertUser(profile: Profile) {
   const email = profile.emails?.[0]?.value;
   const firstName = profile.name?.givenName || profile.displayName?.split(" ")[0] || "";
@@ -71,11 +83,9 @@ export async function setupGoogleAuth(app: Express) {
       async (accessToken, refreshToken, profile, done) => {
         try {
           const email = profile.emails?.[0]?.value?.toLowerCase();
-          
-          // Restrict to @cimc.ai emails only
-          if (!email || !email.endsWith("@cimc.ai")) {
-            console.log(`Access denied for non-cimc.ai email: ${email}`);
-            return done(null, false, { message: "Access restricted to @cimc.ai accounts" });
+          if (!emailAllowed(email)) {
+            console.log(`Access denied for ${email || "unknown email"}`);
+            return done(null, false, { message: "This Google account is not on the allow list" });
           }
           
           // Upsert the user
